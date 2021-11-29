@@ -1,95 +1,44 @@
-use std::time::{Duration, Instant};
-
-use actix::prelude::*;
 use actix_session::{CookieSession, Session};
 use actix_web::middleware::Logger;
 use actix_web::{get, post, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder};
-use actix_web_actors::ws;
 use env_logger::Env;
+use chrono::{NaiveDateTime, NaiveTime, Utc, TimeZone};
+use serde::Deserialize;
 
-/// How often heartbeat pings are sent
-const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
-/// How long before lack of client response causes a timeout
-const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
+#[macro_use]
+extern crate diesel;
+extern crate dotenv;
 
-/// do websocket handshake and start `MyWebSocket` actor
-async fn ws_index(r: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
-	println!("{:?}", r);
-	let res = ws::start(MyWebSocket::new(), &r, stream);
-	println!("{:?}", res);
-	res
+use diesel::prelude::*;
+use diesel::pg::PgConnection;
+use dotenv::dotenv;
+use std::env;
+
+mod chat;
+
+mod templates;
+use templates::HelloTemplate;
+
+struct Board {
+	id: u32,
+	name: String,
+	description: String,
 }
 
-/// websocket connection is long running connection, it easier
-/// to handle with an actor
-struct MyWebSocket {
-	/// Client must send ping at least once per 10 seconds (CLIENT_TIMEOUT),
-	/// otherwise we drop connection.
-	hb: Instant,
+struct User {
+	id: u64,
+	username: String,
+	email: String,
+	join_date: NaiveDateTime,
 }
 
-impl Actor for MyWebSocket {
-	type Context = ws::WebsocketContext<Self>;
+pub fn establish_connection() -> PgConnection {
+	dotenv().ok();
 
-	/// Method is called on actor start. We start the heartbeat process here.
-	fn started(&mut self, ctx: &mut Self::Context) {
-		self.hb(ctx);
-	}
-}
-
-/// Handler for `ws::Message`
-impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocket {
-	fn handle(
-		&mut self,
-		msg: Result<ws::Message, ws::ProtocolError>,
-		ctx: &mut Self::Context,
-	) {
-		// process websocket messages
-		println!("WS: {:?}", msg);
-		match msg {
-			Ok(ws::Message::Ping(msg)) => {
-				self.hb = Instant::now();
-				ctx.pong(&msg);
-			}
-			Ok(ws::Message::Pong(_)) => {
-				self.hb = Instant::now();
-			}
-			Ok(ws::Message::Text(text)) => ctx.text(text),
-			Ok(ws::Message::Binary(bin)) => ctx.binary(bin),
-			Ok(ws::Message::Close(reason)) => {
-				ctx.close(reason);
-				ctx.stop();
-			}
-			_ => ctx.stop(),
-		}
-	}
-}
-
-impl MyWebSocket {
-	fn new() -> Self {
-		Self { hb: Instant::now() }
-	}
-
-	/// helper method that sends ping to client every second.
-	///
-	/// also this method checks heartbeats from client
-	fn hb(&self, ctx: &mut <Self as Actor>::Context) {
-		ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
-			// check client heartbeats
-			if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
-				// heartbeat timed out
-				println!("Websocket Client heartbeat failed, disconnecting!");
-
-				// stop actor
-				ctx.stop();
-
-				// don't try to send a ping
-				return;
-			}
-
-			ctx.ping(b"");
-		});
-	}
+	let database_url = env::var("DATABASE_URL")
+		.expect("DATABASE_URL must be set");
+	PgConnection::establish(&database_url)
+		.expect(&format!("Error connecting to {}", database_url))
 }
 
 #[get("/")]
@@ -100,6 +49,16 @@ async fn hello() -> impl Responder {
 #[post("/echo")]
 async fn echo(req_body: String) -> impl Responder {
 	HttpResponse::Ok().body(req_body)
+}
+
+#[derive(Deserialize)]
+struct FormData {
+	username: String,
+}
+
+#[post("/create_user")]
+async fn create_user(form: web::Form<FormData>) -> impl Responder {
+	HttpResponse::Ok().body(format!("username: {}", form.username))
 }
 
 async fn manual_hello() -> impl Responder {
@@ -131,8 +90,9 @@ async fn main() -> std::io::Result<()> {
 				CookieSession::signed(&[0; 32]) // <- create cookie based session middleware
 					.secure(false),
 			)
-			.service(web::resource("/ws/").route(web::get().to(ws_index)))
+			.service(web::resource("/ws/").route(web::get().to(chat::ws_index)))
 			.service(web::resource("/").to(index))
+			.service(web::resource("/t").to(|| async { HelloTemplate { name: "nigger" } }))
 			.service(hello)
 			.service(echo)
 			.route("/hey", web::get().to(manual_hello))

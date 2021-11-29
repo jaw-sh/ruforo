@@ -8,5 +8,15 @@ actix = "0.12"
 actix-session = "0.5.0-beta.4"
 actix-web = "4.0.0-beta.12"
 actix-web-actors = "4.0.0-beta.7"
-env_logger = "0.9.0"
+askama = { git = "https://github.com/djc/askama", default-features = false, features = ["with-actix-web", "mime", "mime_guess"] }
+askama_actix = { git = "https://github.com/djc/askama" }
+bytes = "1"
+chrono = "0.4"
+diesel = { version = "1.4.4", features = ["chrono", "postgres"] }
+dotenv = "0.15"
+env_logger = "0.9"
 lettre = "0.10.0-rc.4"
+serde = "1"
+
+[dev-dependencies]
+actix-test = "0.1.0-beta.7"

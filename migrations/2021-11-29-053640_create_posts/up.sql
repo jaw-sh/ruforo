@@ -1,0 +1,12 @@
+CREATE TABLE posts (
+	id SERIAL PRIMARY KEY,
+	title VARCHAR NOT NULL,
+	body TEXT NOT NULL,
+	post_date TIMESTAMP NOT NULL
+);
+
+CREATE TABLE users (
+	id SERIAL PRIMARY KEY,
+	username VARCHAR NOT NULL,
+	join_date TIMESTAMP NOT NULL
+);
