@@ -1,1 +1,11 @@
-Hello, {{ name }}!
+<!DOCTYPE html>
+<html>
+<body>
+	<h2>Create User</h2>
+	<form action="/create_user" method="post">
+		<label for="username">username:</label><br>
+		<input type="text" id="username" name="username" value="John"><br>
+	</form>
+	<p>If you click the "Submit" button, the form-data will be sent to a page called "/action_page.php".</p>
+</body>
+</html>

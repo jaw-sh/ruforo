@@ -1,8 +1,22 @@
 table! {
 	posts (id) {
-		id -> Integer,
-		title -> Text,
+		id -> Int8,
+		title -> Varchar,
 		body -> Text,
-		published -> Bool,
+		post_date -> Timestamp,
 	}
 }
+
+table! {
+	users (id) {
+		id -> Int8,
+		username -> Varchar,
+		join_date -> Timestamp,
+		email -> Nullable<Varchar>,
+	}
+}
+
+allow_tables_to_appear_in_same_query!(
+	posts,
+	users,
+);
