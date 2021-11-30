@@ -32,7 +32,7 @@ pub struct UgcRevision {
 #[derive(Serialize, Queryable)]
 pub struct User {
     pub user_id: i32,
-    pub created_on: NaiveDateTime,
+    pub created_at: NaiveDateTime,
     pub name: String,
 }
 
@@ -48,6 +48,6 @@ pub struct NewUgcRevision {
     pub ugc_id: i32,
     pub user_id: Option<i32>,
     pub ip_id: Option<i32>,
-    pub created_at: diesel::dsl::now,
+    pub created_at: NaiveDateTime,
     pub content: Option<String>,
 }

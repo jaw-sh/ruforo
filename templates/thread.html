@@ -1,5 +1,9 @@
 {% extends "container/main.html" %}
 
+{% block css %}
+
+{% endblock %}
+
 {% block content %}
 <div>
     {% for post in posts %}
@@ -12,8 +16,8 @@
     {% endfor %}
 </div>
 
-<form>
-    <textarea name="name" rows="8" cols="80"></textarea>
+<form action="/thread/post-reply" method="post">
+    <textarea name="content" rows="8" cols="80"></textarea>
     <button>Sneed</button>
 </form>
 {% endblock %}
