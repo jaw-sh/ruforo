@@ -67,7 +67,7 @@ async fn main() -> std::io::Result<()> {
 		.expect("Failed to create pool.");
 
 	// Start HTTP server
-	HttpServer::new(move || {
+	let server = HttpServer::new(move || {
 		App::new()
 			.app_data(web::Data::new(pool.clone()))
 			.wrap(Logger::default())
@@ -84,6 +84,8 @@ async fn main() -> std::io::Result<()> {
 			.route("/hey", web::get().to(manual_hello))
 	})
 	.bind("127.0.0.1:8080")?
-	.run()
-	.await
+	.run();
+	println!("Server running at http://{}/", config.server_addr);
+
+	server .await
 }
