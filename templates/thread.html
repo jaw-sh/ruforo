@@ -1,6 +1,17 @@
 {% extends "container/main.html" %}
 
 {% block content %}
+<div>
+    {% for post in posts %}
+        {% match post.content %}
+            {% when Some with (content) %}
+            <div>{{ content }}</div>
+            {% when None %}
+            <div><em>No content.</em></div>
+        {% endmatch %}
+    {% endfor %}
+</div>
+
 <form>
     <textarea name="name" rows="8" cols="80"></textarea>
     <button>Sneed</button>

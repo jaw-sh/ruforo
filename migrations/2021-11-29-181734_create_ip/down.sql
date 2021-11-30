@@ -1,2 +1,2 @@
 -- This file should undo anything in `up.sql`
-DROP TABLE tf_ip;
+DROP TABLE ip;

@@ -1,23 +1,25 @@
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
-use crate::schema::posts;
-use crate::schema::users;
+use crate::schema::ugc;
+use crate::schema::ugc_revisions;
 
-#[derive(Queryable)]
+#[derive(Identifiable, Queryable, PartialEq)]
+#[table_name = "ugc"]
 pub struct Ugc {
-    pub ugc_id: i64,
-    pub ugc_revision_id: i64
+    pub id: i32,
+    pub ugc_revision_id: Option<i32>,
 }
 
-#[derive(Queryable)]
+#[derive(Associations, Identifiable, Queryable, PartialEq)]
+#[belongs_to(Ugc, foreign_key = "ugc_id")]
 pub struct UgcRevision {
-    pub ugc_revision_id: i64,
-    pub ugc_id: i64,
-    pub ip_id: i64,
-    pub user_id: i64,
+    pub id: i32,
+    pub ugc_id: i32,
+    pub ip_id: Option<i32>,
+    pub user_id: Option<i32>,
     pub created_at: NaiveDateTime,
-    pub content: String
+    pub content: Option<String>,
 }
 
 // #[derive(Queryable)]
@@ -29,23 +31,23 @@ pub struct UgcRevision {
 
 #[derive(Serialize, Queryable)]
 pub struct User {
-    pub user_id: i64,
+    pub user_id: i32,
     pub created_on: NaiveDateTime,
     pub name: String,
 }
 
 #[derive(Insertable)]
-#[table_name = "tf_ugc"]
-pub struct NewUgc<'a> {
-    pub user_id: i64,
-    pub title: &'a str,
-    pub body: &'a str,
+#[table_name = "ugc"]
+pub struct NewUgc {
+    pub ugc_revision_id: i32,
 }
 
 #[derive(Insertable)]
-#[table_name = "tf_ugc_revisions"]
-pub struct NewUser<'a> {
-    pub username: &'a str,
+#[table_name = "ugc_revisions"]
+pub struct NewUgcRevision {
+    pub ugc_id: i32,
+    pub user_id: Option<i32>,
+    pub ip_id: Option<i32>,
     pub created_at: diesel::dsl::now,
-    pub content: Option<&'a str>,
+    pub content: Option<String>,
 }
