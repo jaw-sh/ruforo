@@ -13,6 +13,7 @@ use std::env;
 mod chat;
 mod templates;
 mod thread;
+mod ugc;
 use templates::HelloTemplate;
 
 pub fn establish_connection() -> PgConnection {
