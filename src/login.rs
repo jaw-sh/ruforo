@@ -62,11 +62,17 @@ pub async fn login_post(
                 if pass_match {
                     match session.insert("logged_in", true) {
                         Ok(_) => {
-                            let uuid = Uuid::new_v4();
                             let ses = ruforo::Session {
                                 expire: chrono::Utc::now().naive_utc(),
                             };
-                            my.cache.sessions.write().unwrap().insert(uuid, ses);
+                            let sessions = &mut *my.cache.sessions.write().unwrap();
+                            loop {
+                                let uuid = Uuid::new_v4();
+                                if sessions.contains_key(&uuid) == false {
+                                    sessions.insert(uuid, ses);
+                                    break;
+                                }
+                            }
                             HttpResponse::Ok().finish()
                         }
                         Err(_) => HttpResponse::InternalServerError().finish(),
