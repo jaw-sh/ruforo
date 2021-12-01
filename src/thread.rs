@@ -1,5 +1,6 @@
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
+use chrono::prelude::Utc;
 use diesel::prelude::*;
 use ruforo::models::{NewUgcRevision, Post, RenderPost, Thread, Ugc, UgcRevision};
 use ruforo::MyAppData;
@@ -24,13 +25,26 @@ pub async fn create_reply(
     form: web::Form<NewPostFormData>,
 ) -> Result<HttpResponse, Error> {
     use crate::ugc::create_ugc;
+    use diesel::insert_into;
+    use ruforo::models::NewPost;
+    use ruforo::schema::posts::dsl::*;
+    use ruforo::schema::threads::dsl::*;
 
     let conn = data
         .pool
         .get()
         .expect("couldn't get db connection from pool");
 
-    create_ugc(
+    let thread_match = threads
+        .find(path.into_inner().0)
+        .get_result::<Thread>(&conn);
+
+    if thread_match.is_err() {
+        return Err(error::ErrorNotFound("Thread not found."));
+    }
+
+    let our_thread: Thread = thread_match.unwrap();
+    let new_ugc_revision: UgcRevision = create_ugc(
         &conn,
         NewUgcRevision {
             ip_id: None,
@@ -40,8 +54,18 @@ pub async fn create_reply(
     )
     .expect("unable to insert new ugc");
 
+    insert_into(posts)
+        .values(NewPost {
+            thread_id: our_thread.id,
+            ugc_id: new_ugc_revision.ugc_id,
+            created_at: Utc::now().naive_utc(),
+            user_id: None,
+        })
+        .get_result::<Post>(&conn)
+        .expect("couldn't insert ugc revision");
+
     Ok(HttpResponse::Found()
-        .append_header(("Location", format!("/threads/{}/", path.into_inner().0)))
+        .append_header(("Location", format!("/threads/{}/", our_thread.id)))
         .finish())
 }
 
