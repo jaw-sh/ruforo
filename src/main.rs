@@ -17,14 +17,13 @@ mod chat;
 mod create_user;
 mod login;
 pub mod templates;
-pub mod ugc;
 mod thread;
-use templates::{IndexTemplate, HelloTemplate};
+pub mod ugc;
+use templates::{HelloTemplate, IndexTemplate};
 
 fn new_db_manager() -> r2d2::ConnectionManager<PgConnection> {
     dotenv().ok();
-    let database_url = env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     r2d2::ConnectionManager::<PgConnection>::new(database_url)
 }
 
@@ -44,7 +43,11 @@ async fn index(session: Session) -> Result<HttpResponse, Error> {
         session.insert("counter", 1)?;
     }
 
-    Ok(IndexTemplate { logged_in: true, username: None, }.to_response())
+    Ok(IndexTemplate {
+        logged_in: true,
+        username: None,
+    }
+    .to_response())
 }
 
 #[actix_web::main]
@@ -57,7 +60,11 @@ async fn main() -> std::io::Result<()> {
         Ok(v) => v,
         Err(e) => {
             let salt = SaltString::generate(&mut OsRng);
-            panic!("Missing SALT ({:?}) here's a freshly generated one: {}", e, salt.as_str());
+            panic!(
+                "Missing SALT ({:?}) here's a freshly generated one: {}",
+                e,
+                salt.as_str()
+            );
         }
     };
     let salt = SaltString::new(&salt).unwrap();

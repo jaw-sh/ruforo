@@ -2,10 +2,10 @@ use actix_web::{post, web, HttpResponse, Responder};
 use argon2::PasswordHasher;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
+use ruforo::models::{NewUser, User};
 use ruforo::DbPool;
-use ruforo::models::{User, NewUser};
-use serde::Deserialize;
 use ruforo::MyAppData;
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct FormData {
@@ -38,19 +38,25 @@ fn insert_new_user(_db: &PgConnection, _username: &str, _password: &str) -> Resu
 }
 
 #[post("/create_user")]
-pub async fn create_user(pool: web::Data<DbPool>, form: web::Form<FormData>, my: web::Data<MyAppData<'static>>) -> impl Responder {
+pub async fn create_user(
+    pool: web::Data<DbPool>,
+    form: web::Form<FormData>,
+    my: web::Data<MyAppData<'static>>,
+) -> impl Responder {
     // don't forget to sanitize kek and add error handling
-    let _user =
-        web::block(move || {
-            let conn = pool.get().expect("couldn't get db connection from pool");
-            let password_hash = my.argon2.hash_password(form.password.as_bytes(), &my.salt).unwrap().to_string();
-            insert_new_user(&conn, &form.username, &password_hash)
-        })
-            .await
-            .map_err(|e| {
-                eprintln!("{}", e);
-                HttpResponse::InternalServerError().finish()
-            });
+    let _user = web::block(move || {
+        let conn = pool.get().expect("couldn't get db connection from pool");
+        let password_hash = my
+            .argon2
+            .hash_password(form.password.as_bytes(), &my.salt)
+            .unwrap()
+            .to_string();
+        insert_new_user(&conn, &form.username, &password_hash)
+    })
+    .await
+    .map_err(|e| {
+        eprintln!("{}", e);
+        HttpResponse::InternalServerError().finish()
+    });
     HttpResponse::Ok().finish()
 }
-

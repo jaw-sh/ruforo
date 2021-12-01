@@ -1,12 +1,12 @@
-use std::time::{Duration, Instant};
-use std::sync::Mutex;
-use std::sync::Arc;
 use bytestring::ByteString;
 use ruforo::DbPool;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use actix::prelude::*;
-use actix_web_actors::ws;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
+use actix_web_actors::ws;
 
 /// How often heartbeat pings are sent
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
@@ -14,13 +14,16 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// do websocket handshake and start `MyWebSocket` actor
-pub async fn ws_index(pool: web::Data<DbPool>, r: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
+pub async fn ws_index(
+    pool: web::Data<DbPool>,
+    r: HttpRequest,
+    stream: web::Payload,
+) -> Result<HttpResponse, Error> {
     println!("{:?}", r);
     let res = ws::start(MyWebSocket::new(), &r, stream);
     println!("{:?}", res);
     res
 }
-
 
 // struct SocketList {
 //  sockets: Vec<MyWebSocket>
@@ -45,11 +48,7 @@ impl Actor for MyWebSocket {
 
 /// Handler for `ws::Message`
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocket {
-    fn handle(
-        &mut self,
-        msg: Result<ws::Message, ws::ProtocolError>,
-        ctx: &mut Self::Context,
-    ) {
+    fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         // process websocket messages
         println!("WS: {:?}", msg);
         match msg {
@@ -60,9 +59,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocket {
             Ok(ws::Message::Pong(_)) => {
                 self.hb = Instant::now();
             }
-            Ok(ws::Message::Text(text)) => {
-                ctx.text(text)
-            },
+            Ok(ws::Message::Text(text)) => ctx.text(text),
             Ok(ws::Message::Binary(bin)) => ctx.binary(bin),
             Ok(ws::Message::Close(reason)) => {
                 ctx.close(reason);
@@ -77,7 +74,7 @@ impl MyWebSocket {
     fn new() -> Self {
         Self {
             hb: Instant::now(),
-            sockets: Arc::new(Mutex::new(Vec::new()))
+            sockets: Arc::new(Mutex::new(Vec::new())),
         }
     }
 

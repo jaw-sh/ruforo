@@ -1,9 +1,9 @@
 use chrono::NaiveDateTime;
 use serde::Serialize;
 
-use crate::schema::users;
 use crate::schema::ugc;
 use crate::schema::ugc_revisions;
+use crate::schema::users;
 
 #[derive(Identifiable, Queryable, PartialEq)]
 #[table_name = "ugc"]
