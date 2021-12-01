@@ -7,9 +7,9 @@ use serde::Deserialize;
 
 #[derive(Template)]
 #[template(path = "thread.html")]
-pub struct ThreadTemplate {
+pub struct ThreadTemplate<'a> {
     pub thread: Thread,
-    pub posts: Vec<RenderPost>,
+    pub posts: Vec<RenderPost<'a>>,
 }
 
 #[derive(Deserialize)]
@@ -77,7 +77,7 @@ pub async fn read_thread(
         .expect("error fetching ugc revisions");
 
     let mut render_posts: Vec<RenderPost> = Vec::new();
-    for post in our_posts {
+    for post in &*our_posts {
         render_posts.push(RenderPost {
             post: post,
             ugc: our_ugc_revision.iter().find(|x| x.ugc_id == post.ugc_id),

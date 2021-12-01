@@ -109,7 +109,7 @@ pub struct NewUser<'a> {
 }
 
 // Renderables
-pub struct RenderPost {
-    pub post: Post,
-    pub ugc: Option<UgcRevision>,
+pub struct RenderPost<'a> {
+    pub post: &'a Post,
+    pub ugc: Option<&'a UgcRevision>,
 }
