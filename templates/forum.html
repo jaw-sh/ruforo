@@ -1,0 +1,21 @@
+{% extends "container/main.html" %}
+
+{% block content %}
+<div>
+    {% for thread in threads %}
+        <div>
+            <a>{{ thread.title }}<a>
+            {% match thread.subtitle %}
+                {% when Some with (subtitle) %}
+                <span>{{ subtitle }}</span>
+                {% when None %}
+            {% endmatch %}
+        </div>
+    {% endfor %}
+</div>
+
+<form action="/thread/post-reply" method="post">
+    <textarea name="content" rows="8" cols="80"></textarea>
+    <button>Sneed</button>
+</form>
+{% endblock %}
