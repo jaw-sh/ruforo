@@ -8,9 +8,11 @@ actix = "0.12"
 actix-session = "0.5.0-beta.4"
 actix-web = "4.0.0-beta.12"
 actix-web-actors = "4.0.0-beta.7"
+argon2 = "0.3"
 askama = { git = "https://github.com/djc/askama", default-features = false, features = ["with-actix-web", "mime", "mime_guess"] }
 askama_actix = { git = "https://github.com/djc/askama" }
 bytes = "1"
+bytestring = "1"
 chrono = { version = "0.4", features = ["serde"] }
 diesel = { version = "1.4", features = ["chrono", "postgres", "r2d2"] }
 dotenv = "0.15"

@@ -22,6 +22,7 @@ pub struct Post {
 pub struct User {
 	pub id: i64,
 	pub username: String,
+	pub password: String,
 	pub join_date: NaiveDateTime,
 	pub email: Option<String>,
 	// pub join_date: diesel::sql_types::Timestamp,
@@ -38,6 +39,8 @@ pub struct NewPost<'a> {
 #[table_name = "users"]
 pub struct NewUser<'a> {
 	pub username: &'a str,
+	pub password: &'a str,
 	pub join_date: diesel::dsl::now,
 	pub email: Option<&'a str>,
 }
+

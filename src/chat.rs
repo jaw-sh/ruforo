@@ -1,4 +1,8 @@
 use std::time::{Duration, Instant};
+use std::sync::Mutex;
+use std::sync::Arc;
+use bytestring::ByteString;
+use ruforo::DbPool;
 
 use actix::prelude::*;
 use actix_web_actors::ws;
@@ -10,19 +14,24 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// do websocket handshake and start `MyWebSocket` actor
-pub async fn ws_index(r: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
+pub async fn ws_index(pool: web::Data<DbPool>, r: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
 	println!("{:?}", r);
 	let res = ws::start(MyWebSocket::new(), &r, stream);
 	println!("{:?}", res);
 	res
 }
 
+
+// struct SocketList {
+// 	sockets: Vec<MyWebSocket>
+// }
 /// websocket connection is long running connection, it easier
 /// to handle with an actor
 struct MyWebSocket {
 	/// Client must send ping at least once per 10 seconds (CLIENT_TIMEOUT),
 	/// otherwise we drop connection.
 	hb: Instant,
+	sockets: Arc<Mutex<Vec<MyWebSocket>>>,
 }
 
 impl Actor for MyWebSocket {
@@ -51,7 +60,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocket {
 			Ok(ws::Message::Pong(_)) => {
 				self.hb = Instant::now();
 			}
-			Ok(ws::Message::Text(text)) => ctx.text(text),
+			Ok(ws::Message::Text(text)) => {
+				ctx.text(text)
+			},
 			Ok(ws::Message::Binary(bin)) => ctx.binary(bin),
 			Ok(ws::Message::Close(reason)) => {
 				ctx.close(reason);
@@ -64,7 +75,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocket {
 
 impl MyWebSocket {
 	fn new() -> Self {
-		Self { hb: Instant::now() }
+		Self {
+			hb: Instant::now(),
+			sockets: Arc::new(Mutex::new(Vec::new()))
+		}
 	}
 
 	/// helper method that sends ping to client every second.
@@ -86,5 +100,11 @@ impl MyWebSocket {
 
 			ctx.ping(b"");
 		});
+	}
+
+	fn broadcast(&self, msg: &ByteString) {
+		// for socket in self.sockets.lock().unwrap().into_iter() {
+		// 	// socket.text(msg);
+		// }
 	}
 }

@@ -2,17 +2,15 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Hello</title>
+    <title>Login</title>
 </head>
 <body>
-    <h2>Create User</h2>
-    <form action="/create_user" method="post">
+    <h2>Login</h2>
+    <form action="/login" method="post">
         <label for="username">username:</label><br>
         <input type="text" id="username" name="username" placeholder="username"><br>
         <label for="password">password:</label><br>
         <input type="password" id="password" name="password" placeholder="password"><br>
-        <label for="email">email:</label><br>
-        <input type="email" id="email" name="email" placeholder="user@email.com"><br>
         <input type="submit">
     </form>
     <p>If you click the "Submit" button, the form-data will be sent to a page called "/action_page.php".</p>
