@@ -11,12 +11,11 @@ use ruforo::MyAppData;
 pub struct FormData {
     username: String,
     password: String,
-    email: String,
 }
 
 type DbError = Box<dyn std::error::Error + Send + Sync>;
 
-fn insert_new_user(_db: &PgConnection, _username: &str, _password: &str, _email: Option<&str>) -> Result<User, DbError> {
+fn insert_new_user(_db: &PgConnection, _username: &str, _password: &str) -> Result<User, DbError> {
     use ruforo::schema::users::dsl::*;
 
     let user = NewUser {
@@ -41,12 +40,11 @@ fn insert_new_user(_db: &PgConnection, _username: &str, _password: &str, _email:
 #[post("/create_user")]
 pub async fn create_user(pool: web::Data<DbPool>, form: web::Form<FormData>, my: web::Data<MyAppData<'static>>) -> impl Responder {
     // don't forget to sanitize kek and add error handling
-    let user =
+    let _user =
         web::block(move || {
             let conn = pool.get().expect("couldn't get db connection from pool");
             let password_hash = my.argon2.hash_password(form.password.as_bytes(), &my.salt).unwrap().to_string();
-            insert_new_user(&conn, &form.username, &password_hash, Some(&form.email))
-            // insert_new_user(&conn, &form.username, &form.password, Some(&form.email))
+            insert_new_user(&conn, &form.username, &password_hash)
         })
             .await
             .map_err(|e| {

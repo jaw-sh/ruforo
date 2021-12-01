@@ -1,10 +1,6 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Login</title>
-</head>
-<body>
+{% extends "container/main.html" %}
+
+{% block content %}
     <h2>Login</h2>
     <form action="/login" method="post">
         <label for="username">username:</label><br>
@@ -13,6 +9,4 @@
         <input type="password" id="password" name="password" placeholder="password"><br>
         <input type="submit">
     </form>
-    <p>If you click the "Submit" button, the form-data will be sent to a page called "/action_page.php".</p>
-</body>
-</html>
+{% endblock %}
