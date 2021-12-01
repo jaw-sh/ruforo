@@ -15,6 +15,7 @@ use std::env;
 mod cache;
 mod chat;
 mod create_user;
+mod forum;
 mod login;
 pub mod templates;
 mod thread;
@@ -101,11 +102,13 @@ async fn main() -> std::io::Result<()> {
             )
             .service(web::resource("/ws/").route(web::get().to(chat::ws_index)))
             .service(web::resource("/").to(index))
+            //            .service(web::resource("/t").to(|| async { HelloTemplate { name: "nigger" } }))
             .service(hello)
-            .service(create_user::create_user_get)
-            .service(create_user::create_user_post)
+            //            .service(create_user::create_user)
             .service(login::login_get)
-            .service(login::login_post)
+            //            .service(login::login_user)
+            .service(forum::create_thread)
+            .service(forum::read_forum)
             .service(thread::create_reply)
             .service(thread::read_thread)
             .route("/hey", web::get().to(manual_hello))

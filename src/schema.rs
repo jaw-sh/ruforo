@@ -8,17 +8,20 @@ table! {
 }
 
 table! {
-    posts (post_id) {
+    posts (id) {
         id -> Int4,
         thread_id -> Int4,
         ugc_id -> Int4,
-        post_id -> Int4,
+        user_id -> Nullable<Int4>,
+        created_at -> Timestamp,
     }
 }
 
 table! {
     threads (id) {
         id -> Int4,
+        user_id -> Nullable<Int4>,
+        created_at -> Timestamp,
         title -> Text,
         subtitle -> Nullable<Text>,
     }
@@ -53,6 +56,8 @@ table! {
 
 joinable!(posts -> threads (thread_id));
 joinable!(posts -> ugc (ugc_id));
+joinable!(posts -> users (user_id));
+joinable!(threads -> users (user_id));
 joinable!(ugc_revisions -> ip (ip_id));
 joinable!(ugc_revisions -> users (user_id));
 

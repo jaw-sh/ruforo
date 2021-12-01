@@ -16,8 +16,8 @@
     {% endfor %}
 </div>
 
-<form action="/thread/post-reply" method="post">
-    <textarea name="content" rows="8" cols="80"></textarea>
-    <button>Sneed</button>
+<form action="/threads/{{ thread.id }}/post-reply" method="post">
+    <div><textarea name="content" rows="8" cols="80"></textarea></div>
+    <div><button>Sneed</button></div>
 </form>
 {% endblock %}
