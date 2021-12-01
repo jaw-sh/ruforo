@@ -17,6 +17,7 @@ mod chat;
 mod create_user;
 mod login;
 pub mod templates;
+pub mod ugc;
 mod thread;
 use templates::{IndexTemplate, HelloTemplate};
 

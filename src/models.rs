@@ -55,6 +55,14 @@ pub struct NewUser<'a> {
 #[derive(Insertable)]
 #[table_name = "ugc_revisions"]
 pub struct NewUgcRevision {
+    pub user_id: Option<i32>,
+    pub ip_id: Option<i32>,
+    pub content: Option<String>,
+}
+
+#[derive(Insertable)]
+#[table_name = "ugc_revisions"]
+pub struct NewUgcRevisionWithContext {
     pub ugc_id: i32,
     pub user_id: Option<i32>,
     pub ip_id: Option<i32>,

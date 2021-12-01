@@ -2,8 +2,8 @@
 extern crate diesel;
 extern crate dotenv;
 
-pub mod schema;
 pub mod models;
+pub mod schema;
 
 use argon2::{password_hash::SaltString, Argon2};
 use diesel::prelude::*;
@@ -24,4 +24,3 @@ impl MyAppData<'_> {
         }
     }
 }
-
