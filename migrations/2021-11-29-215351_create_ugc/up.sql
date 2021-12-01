@@ -1,4 +1,4 @@
--- ************************************** tf_ugc
+-- ************************************** ugc
 
 CREATE TABLE ugc
 (
@@ -6,7 +6,7 @@ CREATE TABLE ugc
     ugc_revision_id int NULL
 );
 
--- ************************************** tf_ugc_revisions
+-- ************************************** ugc_revisions
 
 CREATE TABLE ugc_revisions
 (
@@ -22,4 +22,4 @@ CREATE TABLE ugc_revisions
 
 ALTER TABLE ugc ADD CONSTRAINT fk_ugc_ugc_revision_id FOREIGN KEY ( ugc_revision_id ) REFERENCES ugc_revisions ( id );
 
-CREATE INDEX index_ugc_revision_ugc_history ON ugc_revisions ( created_at, ugc_id );
+CREATE INDEX index_ugc_revision_ugc_history ON ugc_revisions ( ugc_id, created_at );

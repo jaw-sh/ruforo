@@ -8,6 +8,23 @@ table! {
 }
 
 table! {
+    posts (post_id) {
+        id -> Int4,
+        thread_id -> Int4,
+        ugc_id -> Int4,
+        post_id -> Int4,
+    }
+}
+
+table! {
+    threads (id) {
+        id -> Int4,
+        title -> Text,
+        subtitle -> Nullable<Text>,
+    }
+}
+
+table! {
     ugc (id) {
         id -> Int4,
         ugc_revision_id -> Nullable<Int4>,
@@ -34,11 +51,15 @@ table! {
     }
 }
 
+joinable!(posts -> threads (thread_id));
+joinable!(posts -> ugc (ugc_id));
 joinable!(ugc_revisions -> ip (ip_id));
 joinable!(ugc_revisions -> users (user_id));
 
 allow_tables_to_appear_in_same_query!(
     ip,
+    posts,
+    threads,
     ugc,
     ugc_revisions,
     users,

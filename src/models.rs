@@ -1,6 +1,7 @@
 use chrono::NaiveDateTime;
-// use serde::Serialize;
+//use serde::Serialize;
 
+use crate::schema::threads;
 use crate::schema::ugc;
 use crate::schema::ugc_revisions;
 use crate::schema::users;
@@ -23,12 +24,13 @@ pub struct UgcRevision {
     pub content: Option<String>,
 }
 
-// #[derive(Queryable)]
-// struct Board {
-//     id: u32,
-//     name: String,
-//     description: String,
-// }
+#[derive(Associations, Identifiable, Queryable, PartialEq)]
+#[table_name = "threads"]
+pub struct Thread {
+    pub id: i32,
+    pub title: String,
+    pub subtitle: Option<String>,
+}
 
 #[derive(Queryable)]
 pub struct User {
