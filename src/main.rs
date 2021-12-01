@@ -9,6 +9,7 @@ use ruforo::MyAppData;
 
 mod chat;
 mod create_user;
+mod forum;
 mod index;
 mod login;
 mod status;
@@ -60,7 +61,8 @@ async fn main() -> std::io::Result<()> {
             .service(create_user::create_user_get)
             .service(create_user::create_user_post)
             .service(login::login_get)
-            .service(login::login_post)
+            .service(forum::create_thread)
+            .service(forum::read_forum)
             .service(thread::create_reply)
             .service(thread::read_thread)
             .service(status::status_get)
