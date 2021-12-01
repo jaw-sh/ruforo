@@ -16,23 +16,23 @@ pub struct FormData {
 
 type DbError = Box<dyn std::error::Error + Send + Sync>;
 
-fn insert_new_user(_db: &PgConnection, _username: &str, _password: &str) -> Result<User, DbError> {
-    use ruforo::schema::users::dsl::*;
+fn insert_new_user(db: &PgConnection, name_: &str, pass_: &str) -> Result<User, DbError> {
+    use ruforo::schema::users::dsl::{name, users};
 
     let user = NewUser {
         created_at: diesel::dsl::now,
-        name: _username,
-        password: _password,
+        name: name_,
+        password: pass_,
     };
 
     diesel::insert_into(users)
         .values(&user)
-        .execute(_db)
+        .execute(db)
         .expect("Error inserting person");
 
     let user = users
         .filter(name.eq(&user.name))
-        .first::<User>(_db)
+        .first::<User>(db)
         .expect("Error loading person");
 
     Ok(user)

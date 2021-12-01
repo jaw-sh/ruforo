@@ -1,41 +1,21 @@
 extern crate dotenv;
 
-use actix_session::{CookieSession, Session};
+use actix_session::CookieSession;
 use actix_web::middleware::Logger;
-use actix_web::{get, web, App, Error, HttpResponse, HttpServer, Responder};
+use actix_web::{web, App, HttpServer};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
-use askama_actix::TemplateToResponse;
 use dotenv::dotenv;
 use env_logger::Env;
 use ruforo::MyAppData;
 
 mod chat;
 mod create_user;
+mod index;
 mod login;
 mod status;
 pub mod templates;
 mod thread;
 pub mod ugc;
-use templates::IndexTemplate;
-
-#[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello world!")
-}
-
-async fn index(session: Session) -> Result<HttpResponse, Error> {
-    if let Some(count) = session.get::<i32>("counter")? {
-        session.insert("counter", count + 1)?;
-    } else {
-        session.insert("counter", 1)?;
-    }
-
-    Ok(IndexTemplate {
-        logged_in: true,
-        username: None,
-    }
-    .to_response())
-}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -77,8 +57,7 @@ async fn main() -> std::io::Result<()> {
                     .secure(false),
             )
             .service(web::resource("/ws/").route(web::get().to(chat::ws_index)))
-            .service(web::resource("/").to(index))
-            .service(hello)
+            .service(index::index)
             .service(create_user::create_user_get)
             .service(create_user::create_user_post)
             .service(login::login_get)
