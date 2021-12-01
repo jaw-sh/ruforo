@@ -20,10 +20,9 @@ fn insert_new_user(_db: &PgConnection, _username: &str, _password: &str, _email:
     use ruforo::schema::users::dsl::*;
 
     let user = NewUser {
-        username: _username,
+        created_at: diesel::dsl::now,
+        name: _username,
         password: _password,
-        join_date: diesel::dsl::now,
-        email: _email,
     };
 
     diesel::insert_into(users)
@@ -32,7 +31,7 @@ fn insert_new_user(_db: &PgConnection, _username: &str, _password: &str, _email:
         .expect("Error inserting person");
 
     let user = users
-        .filter(username.eq(&user.username))
+        .filter(name.eq(&user.name))
         .first::<User>(_db)
         .expect("Error loading person");
 
@@ -54,6 +53,6 @@ pub async fn create_user(pool: web::Data<DbPool>, form: web::Form<FormData>, my:
                 eprintln!("{}", e);
                 HttpResponse::InternalServerError().finish()
             });
-    HttpResponse::Ok().json(user.unwrap().unwrap())
+    HttpResponse::Ok().finish()
 }
 

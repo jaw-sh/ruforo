@@ -21,7 +21,7 @@ fn login(_db: &PgConnection, _username: &str, _password: &str, my: &web::Data<My
     use ruforo::schema::users::dsl::*;
 
     let password_hash = users
-        .filter(username.eq(_username))
+        .filter(name.eq(_username))
         .select(password)
         .first::<String>(_db)?;
 
