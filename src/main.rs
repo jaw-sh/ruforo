@@ -23,10 +23,6 @@ async fn hello() -> impl Responder {
     HttpResponse::Ok().body("Hello world!")
 }
 
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
-}
-
 async fn index(session: Session) -> Result<HttpResponse, Error> {
     if let Some(count) = session.get::<i32>("counter")? {
         session.insert("counter", count + 1)?;
@@ -90,7 +86,6 @@ async fn main() -> std::io::Result<()> {
             .service(thread::create_reply)
             .service(thread::read_thread)
             .service(status::status_get)
-            .route("/hey", web::get().to(manual_hello))
     })
     .bind("127.0.0.1:8080")?
     .run()
