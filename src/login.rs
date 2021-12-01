@@ -5,7 +5,6 @@ use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use askama_actix::TemplateToResponse;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use ruforo::DbPool;
 use ruforo::MyAppData;
 use serde::Deserialize;
 
@@ -40,13 +39,12 @@ fn login(
 #[post("/login")]
 pub async fn login_post(
     session: Session,
-    pool: web::Data<DbPool>,
     form: web::Form<FormData>,
     my: web::Data<MyAppData<'static>>,
 ) -> impl Responder {
     // don't forget to sanitize kek and add error handling
     let pass_match = web::block(move || {
-        let conn = pool.get().expect("couldn't get db connection from pool");
+        let conn = my.pool.get().expect("couldn't get db connection from pool");
         login(&conn, &form.username, &form.password, &my)
     })
     .await
