@@ -17,22 +17,22 @@ pub struct FormData {
 type DbError = Box<dyn std::error::Error + Send + Sync>;
 
 fn login(
-    _db: &PgConnection,
-    _username: &str,
-    _password: &str,
+    db: &PgConnection,
+    name_: &str,
+    pass_: &str,
     my: &web::Data<MyAppData<'static>>,
 ) -> Result<bool, DbError> {
     use ruforo::schema::users::dsl::*;
 
     let password_hash = users
-        .filter(name.eq(_username))
+        .filter(name.eq(name_))
         .select(password)
-        .first::<String>(_db)?;
+        .first::<String>(db)?;
 
     let parsed_hash = PasswordHash::new(&password_hash).unwrap();
     return Ok(my
         .argon2
-        .verify_password(_password.as_bytes(), &parsed_hash)
+        .verify_password(pass_.as_bytes(), &parsed_hash)
         .is_ok());
 }
 
