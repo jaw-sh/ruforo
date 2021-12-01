@@ -16,6 +16,7 @@ pub struct Ugc {
 
 #[derive(Associations, Identifiable, Queryable, PartialEq)]
 #[belongs_to(Ugc, foreign_key = "ugc_id")]
+#[table_name = "ugc_revisions"]
 pub struct UgcRevision {
     pub id: i32,
     pub ugc_id: i32,
@@ -26,6 +27,9 @@ pub struct UgcRevision {
 }
 
 #[derive(Associations, Identifiable, Queryable, PartialEq)]
+#[belongs_to(Thread, foreign_key = "thread_id")]
+#[belongs_to(Ugc, foreign_key = "ugc_id")]
+#[belongs_to(User, foreign_key = "user_id")]
 #[table_name = "posts"]
 pub struct Post {
     pub id: i32,
@@ -102,4 +106,10 @@ pub struct NewUser<'a> {
     pub created_at: diesel::dsl::now,
     pub name: &'a str,
     pub password: &'a str,
+}
+
+// Renderables
+pub struct RenderPost {
+    pub post: Post,
+    pub ugc: Option<UgcRevision>,
 }

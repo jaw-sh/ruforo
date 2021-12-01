@@ -2,7 +2,7 @@ use actix_web::Error;
 use chrono::prelude::Utc;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use ruforo::models::{NewUgcRevision, NewUgcRevisionWithContext, Ugc, UgcRevision};
+use ruforo::models::{NewUgcRevision, NewUgcRevisionWithContext, Post, Ugc, UgcRevision};
 
 pub fn create_ugc(db: &PgConnection, revision: NewUgcRevision) -> Result<UgcRevision, Error> {
     use diesel::insert_into;

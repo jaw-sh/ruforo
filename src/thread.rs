@@ -1,7 +1,7 @@
-use actix_web::{get, post, web, Error, HttpResponse};
+use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
 use diesel::prelude::*;
-use ruforo::models::{NewUgcRevision, Thread, Ugc, UgcRevision};
+use ruforo::models::{NewUgcRevision, Post, RenderPost, Thread, Ugc, UgcRevision};
 use ruforo::MyAppData;
 use serde::Deserialize;
 
@@ -9,7 +9,7 @@ use serde::Deserialize;
 #[template(path = "thread.html")]
 pub struct ThreadTemplate {
     pub thread: Thread,
-    pub posts: Vec<UgcRevision>,
+    pub posts: Vec<RenderPost>,
 }
 
 #[derive(Deserialize)]
@@ -58,19 +58,36 @@ pub async fn read_thread(
         .get()
         .expect("couldn't get db connection from pool");
 
-    let our_thread: Thread = threads
+    let thread_match = threads
         .find(path.into_inner().0)
-        .get_result::<Thread>(&conn)
-        .expect("error fetching thread");
+        .get_result::<Thread>(&conn);
+
+    if thread_match.is_err() {
+        return Err(error::ErrorNotFound("Thread not found."));
+    }
+
+    let our_thread: Thread = thread_match.unwrap();
+    let our_posts = Post::belonging_to(&our_thread)
+        .load::<Post>(&conn)
+        .expect("error fetching posts");
+
     let our_ugc: Vec<Ugc> = ugc.get_results::<Ugc>(&conn).expect("error fetching ugc");
     let our_ugc_revision: Vec<UgcRevision> = UgcRevision::belonging_to(&our_ugc)
         .load::<UgcRevision>(&conn)
         .expect("error fetching ugc revisions");
 
+    let mut render_posts: Vec<RenderPost> = Vec::new();
+    for post in our_posts {
+        render_posts.push(RenderPost {
+            post: post,
+            ugc: our_ugc_revision.iter().find(|x| x.ugc_id == post.ugc_id),
+        });
+    }
+
     Ok(HttpResponse::Ok().body(
         ThreadTemplate {
             thread: our_thread,
-            posts: our_ugc_revision,
+            posts: render_posts,
         }
         .render()
         .unwrap(),

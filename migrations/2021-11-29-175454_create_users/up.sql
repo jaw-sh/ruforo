@@ -6,5 +6,6 @@ CREATE TABLE users
     created_at TIMESTAMP NOT NULL,
     name       TEXT NOT NULL,
     password   TEXT NOT NULL,
-    CONSTRAINT pk_user_id PRIMARY KEY ( id )
+    CONSTRAINT pk_user_id PRIMARY KEY ( id ),
+    CONSTRAINT ak_user_name UNIQUE ( name )
 );
