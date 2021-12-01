@@ -9,20 +9,28 @@ use argon2::{password_hash::SaltString, Argon2};
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use diesel::r2d2;
-use std::sync::Mutex;
+use std::collections::HashMap;
+use std::sync::RwLock;
+use uuid::Uuid;
 
 pub type DbPool = r2d2::Pool<r2d2::ConnectionManager<PgConnection>>;
 
+pub struct Session {
+    pub expire: NaiveDateTime,
+}
+
 pub struct BigChungus {
-    pub val: Mutex<i32>,
+    pub val: RwLock<i32>,
     pub start_time: NaiveDateTime,
+    pub sessions: RwLock<HashMap<Uuid, Session>>,
 }
 
 impl BigChungus {
     pub fn new() -> Self {
         BigChungus {
-            val: Mutex::new(32),
+            val: RwLock::new(32),
             start_time: chrono::Utc::now().naive_utc(),
+            sessions: RwLock::new(HashMap::new()),
         }
     }
 }

@@ -61,6 +61,7 @@ async fn main() -> std::io::Result<()> {
             .service(create_user::create_user_get)
             .service(create_user::create_user_post)
             .service(login::login_get)
+            .service(login::login_post)
             .service(forum::create_thread)
             .service(forum::read_forum)
             .service(thread::create_reply)

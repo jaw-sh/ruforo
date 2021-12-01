@@ -5,6 +5,13 @@ use ruforo::MyAppData;
 
 #[get("/status")]
 pub async fn status_get(my: web::Data<MyAppData<'static>>) -> impl Responder {
+    for (key, value) in &*my.cache.sessions.read().unwrap() {
+        println!(
+            "{} / {:?}",
+            key,
+            value.expire.format("%Y-%m-%d %H:%M:%S").to_string()
+        );
+    }
     StatusTemplate {
         start_time: &my.cache.start_time.format("%Y-%m-%d %H:%M:%S").to_string(),
         logged_in: true,

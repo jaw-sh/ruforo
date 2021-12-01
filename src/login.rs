@@ -1,5 +1,4 @@
 use crate::templates::LoginTemplate;
-use actix_session::Session;
 use actix_web::{get, post, web, HttpResponse, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use askama_actix::TemplateToResponse;
@@ -7,6 +6,7 @@ use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use ruforo::MyAppData;
 use serde::Deserialize;
+use uuid::Uuid;
 
 #[derive(Deserialize)]
 pub struct FormData {
@@ -38,14 +38,18 @@ fn login(
 
 #[post("/login")]
 pub async fn login_post(
-    session: Session,
+    session: actix_session::Session,
     form: web::Form<FormData>,
     my: web::Data<MyAppData<'static>>,
 ) -> impl Responder {
     // don't forget to sanitize kek and add error handling
+    let my2 = my.clone();
     let pass_match = web::block(move || {
-        let conn = my.pool.get().expect("couldn't get db connection from pool");
-        login(&conn, &form.username, &form.password, &my)
+        let conn = my2
+            .pool
+            .get()
+            .expect("couldn't get db connection from pool");
+        login(&conn, &form.username, &form.password, &my2)
     })
     .await
     .map_err(|e| {
@@ -55,10 +59,16 @@ pub async fn login_post(
     match pass_match {
         Ok(pass_match) => match pass_match {
             Ok(pass_match) => {
-                println!("Pass: {:?}", pass_match);
                 if pass_match {
                     match session.insert("logged_in", true) {
-                        Ok(_) => HttpResponse::Ok().finish(),
+                        Ok(_) => {
+                            let uuid = Uuid::new_v4();
+                            let ses = ruforo::Session {
+                                expire: chrono::Utc::now().naive_utc(),
+                            };
+                            my.cache.sessions.write().unwrap().insert(uuid, ses);
+                            HttpResponse::Ok().finish()
+                        }
                         Err(_) => HttpResponse::InternalServerError().finish(),
                     }
                 } else {
