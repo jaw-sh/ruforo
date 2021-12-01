@@ -5,36 +5,23 @@ use actix_web::middleware::Logger;
 use actix_web::{get, web, App, Error, HttpResponse, HttpServer, Responder};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use askama_actix::TemplateToResponse;
-use diesel::pg::PgConnection;
-use diesel::r2d2;
 use dotenv::dotenv;
 use env_logger::Env;
 use ruforo::MyAppData;
-use std::env;
 
-mod cache;
 mod chat;
 mod create_user;
 mod forum;
 mod login;
+mod status;
 pub mod templates;
 mod thread;
 pub mod ugc;
 use templates::IndexTemplate;
 
-fn new_db_manager() -> r2d2::ConnectionManager<PgConnection> {
-    dotenv().ok();
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    r2d2::ConnectionManager::<PgConnection>::new(database_url)
-}
-
 #[get("/")]
 async fn hello() -> impl Responder {
     HttpResponse::Ok().body("Hello world!")
-}
-
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
 }
 
 async fn index(session: Session) -> Result<HttpResponse, Error> {
@@ -57,7 +44,7 @@ async fn main() -> std::io::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     dotenv().ok();
-    let salt = match env::var("SALT") {
+    let salt = match std::env::var("SALT") {
         Ok(v) => v,
         Err(e) => {
             let salt = SaltString::generate(&mut OsRng);
@@ -80,19 +67,9 @@ async fn main() -> std::io::Result<()> {
     // let parsed_hash = PasswordHash::new(&password_hash).unwrap();
     // assert!(argon2.verify_password(password, &parsed_hash).is_ok());
 
-    // Create connection pool
-    let manager = new_db_manager();
-    let pool = r2d2::Pool::builder()
-        .build(manager)
-        .expect("Failed to create pool.");
-    let pool = web::Data::new(pool);
-
-    cache::test();
-
     // Start HTTP server
     HttpServer::new(move || {
         App::new()
-            .app_data(pool.clone())
             .app_data(my_data.clone())
             .wrap(Logger::default())
             .wrap(Logger::new("%a %{User-Agent}i"))
@@ -111,7 +88,7 @@ async fn main() -> std::io::Result<()> {
             .service(forum::read_forum)
             .service(thread::create_reply)
             .service(thread::read_thread)
-            .route("/hey", web::get().to(manual_hello))
+            .service(status::status_get)
     })
     .bind("127.0.0.1:8080")?
     .run()

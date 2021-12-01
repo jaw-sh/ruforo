@@ -20,3 +20,11 @@ pub struct IndexTemplate<'a> {
     pub logged_in: bool,
     pub username: Option<&'a str>,
 }
+
+#[derive(Template)]
+#[template(path = "status.html")]
+pub struct StatusTemplate<'a> {
+    pub start_time: &'a str,
+    pub logged_in: bool,
+    pub username: Option<&'a str>,
+}

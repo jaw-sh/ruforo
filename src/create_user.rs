@@ -5,7 +5,6 @@ use askama_actix::TemplateToResponse;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use ruforo::models::{NewUser, User};
-use ruforo::DbPool;
 use ruforo::MyAppData;
 use serde::Deserialize;
 
@@ -49,13 +48,12 @@ pub async fn create_user_get() -> impl Responder {
 }
 #[post("/create_user")]
 pub async fn create_user_post(
-    pool: web::Data<DbPool>,
     form: web::Form<FormData>,
     my: web::Data<MyAppData<'static>>,
 ) -> impl Responder {
     // don't forget to sanitize kek and add error handling
     let _user = web::block(move || {
-        let conn = pool.get().expect("couldn't get db connection from pool");
+        let conn = my.pool.get().expect("couldn't get db connection from pool");
         let password_hash = my
             .argon2
             .hash_password(form.password.as_bytes(), &my.salt)
