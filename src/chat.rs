@@ -1,7 +1,7 @@
-use bytestring::ByteString;
-use ruforo::DbPool;
-use std::sync::Arc;
-use std::sync::Mutex;
+// use bytestring::ByteString;
+// use ruforo::DbPool;
+// use std::sync::Arc;
+// use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use actix::prelude::*;
@@ -15,7 +15,7 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// do websocket handshake and start `MyWebSocket` actor
 pub async fn ws_index(
-    pool: web::Data<DbPool>,
+    // pool: web::Data<DbPool>,
     r: HttpRequest,
     stream: web::Payload,
 ) -> Result<HttpResponse, Error> {
@@ -34,7 +34,7 @@ struct MyWebSocket {
     /// Client must send ping at least once per 10 seconds (CLIENT_TIMEOUT),
     /// otherwise we drop connection.
     hb: Instant,
-    sockets: Arc<Mutex<Vec<MyWebSocket>>>,
+    // sockets: Arc<Mutex<Vec<MyWebSocket>>>,
 }
 
 impl Actor for MyWebSocket {
@@ -74,7 +74,7 @@ impl MyWebSocket {
     fn new() -> Self {
         Self {
             hb: Instant::now(),
-            sockets: Arc::new(Mutex::new(Vec::new())),
+            // sockets: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -97,11 +97,5 @@ impl MyWebSocket {
 
             ctx.ping(b"");
         });
-    }
-
-    fn broadcast(&self, msg: &ByteString) {
-        // for socket in self.sockets.lock().unwrap().into_iter() {
-        //  // socket.text(msg);
-        // }
     }
 }

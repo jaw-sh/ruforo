@@ -1,5 +1,5 @@
 use chrono::NaiveDateTime;
-use serde::Serialize;
+// use serde::Serialize;
 
 use crate::schema::ugc;
 use crate::schema::ugc_revisions;

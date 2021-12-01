@@ -1,9 +1,10 @@
 use askama_actix::Template;
 
 #[derive(Template)]
-#[template(path = "hello.html")]
-pub struct HelloTemplate<'a> {
-    pub name: &'a str,
+#[template(path = "create_user.html")]
+pub struct CreateUserTemplate<'a> {
+    pub logged_in: bool,
+    pub username: Option<&'a str>,
 }
 
 #[derive(Template)]

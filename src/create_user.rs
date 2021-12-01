@@ -1,5 +1,7 @@
-use actix_web::{post, web, HttpResponse, Responder};
+use crate::templates::CreateUserTemplate;
+use actix_web::{get, post, web, HttpResponse, Responder};
 use argon2::PasswordHasher;
+use askama_actix::TemplateToResponse;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use ruforo::models::{NewUser, User};
@@ -37,8 +39,16 @@ fn insert_new_user(_db: &PgConnection, _username: &str, _password: &str) -> Resu
     Ok(user)
 }
 
+#[get("/create_user")]
+pub async fn create_user_get() -> impl Responder {
+    CreateUserTemplate {
+        logged_in: true,
+        username: None,
+    }
+    .to_response()
+}
 #[post("/create_user")]
-pub async fn create_user(
+pub async fn create_user_post(
     pool: web::Data<DbPool>,
     form: web::Form<FormData>,
     my: web::Data<MyAppData<'static>>,

@@ -38,7 +38,7 @@ fn login(
 }
 
 #[post("/login")]
-pub async fn login_user(
+pub async fn login_post(
     session: Session,
     pool: web::Data<DbPool>,
     form: web::Form<FormData>,

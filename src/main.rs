@@ -19,7 +19,7 @@ mod login;
 pub mod templates;
 mod thread;
 pub mod ugc;
-use templates::{HelloTemplate, IndexTemplate};
+use templates::IndexTemplate;
 
 fn new_db_manager() -> r2d2::ConnectionManager<PgConnection> {
     dotenv().ok();
@@ -101,11 +101,11 @@ async fn main() -> std::io::Result<()> {
             )
             .service(web::resource("/ws/").route(web::get().to(chat::ws_index)))
             .service(web::resource("/").to(index))
-            .service(web::resource("/t").to(|| async { HelloTemplate { name: "nigger" } }))
             .service(hello)
-            .service(create_user::create_user)
+            .service(create_user::create_user_get)
+            .service(create_user::create_user_post)
             .service(login::login_get)
-            .service(login::login_user)
+            .service(login::login_post)
             .service(thread::create_reply)
             .service(thread::read_thread)
             .route("/hey", web::get().to(manual_hello))
