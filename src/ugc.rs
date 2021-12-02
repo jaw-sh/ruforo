@@ -2,7 +2,7 @@ use actix_web::{error, Error};
 use chrono::prelude::Utc;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use ruforo::models::{NewUgcRevision, NewUgcRevisionWithContext, Ugc, UgcRevision};
+use ruforo::models::{NewUgc, NewUgcRevision, NewUgcRevisionWithContext, Ugc, UgcRevision};
 
 pub fn create_ugc(db: &PgConnection, revision_raw: NewUgcRevision) -> Result<UgcRevision, Error> {
     use diesel::insert_into;
@@ -22,9 +22,14 @@ pub fn create_ugc(db: &PgConnection, revision_raw: NewUgcRevision) -> Result<Ugc
         }
     };
 
+    let timestamp = Utc::now().naive_utc();
+
     // Insert new UGC reference with only default values.
     let new_ugc = insert_into(ugc)
-        .default_values()
+        .values(NewUgc {
+            first_revision_at: timestamp,
+            last_revision_at: timestamp,
+        })
         .get_result::<Ugc>(db)
         .expect("couldn't insert ugc");
 
@@ -34,7 +39,7 @@ pub fn create_ugc(db: &PgConnection, revision_raw: NewUgcRevision) -> Result<Ugc
             ugc_id: new_ugc.id,
             ip_id: revision.ip_id,
             user_id: revision.user_id,
-            created_at: Utc::now().naive_utc(),
+            created_at: timestamp,
             content: revision.content,
         })
         .get_result::<UgcRevision>(db)

@@ -39,6 +39,8 @@ table! {
     ugc (id) {
         id -> Int4,
         ugc_revision_id -> Nullable<Int4>,
+        first_revision_at -> Timestamp,
+        last_revision_at -> Timestamp,
     }
 }
 

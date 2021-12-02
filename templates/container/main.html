@@ -1,24 +1,131 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" class="no-js">
 <head>
     {% block head %}
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>{% block title %}るふろ{% endblock %}</title>
+
+    <script type="module">
+        document.documentElement.classList.remove('no-js');
+        document.documentElement.classList.add('js');
+    </script>
+
+    {% block stylesheets %}
+    {#
+    <link rel="stylesheet" href="/assets/css/styles.css" />
+    <link rel="stylesheet" href="/assets/css/print.css" media="print" />
+    #}
+    {% endblock %}
+
+    {# This will be moved later. #}
     <style>
-        {% block css %}{% endblock %}
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            font: 1rem / 1.4 sans-serif;
+            font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        }
+        header, footer {
+            min-height: 100px;
+        }
+        main {
+            flex: 1;
+        }
+        footer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            margin: 0 auto;
+            width: 80%;
+            padding: 16px;
+        }
+        .footer-inner {
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .subtitle {
+            font-weight: normal;
+        }
+
+        .message {
+            border: 1px solid #666666;
+            display: flex;
+            flex-direction: row;
+            margin: 1rem 0;
+        }
+        .message-cell {
+            padding: 8px;
+        }
+        .message-cell--author {
+            width: 144px;
+        }
+        .message-cell--main {
+            flex: 5;
+        }
+        .message-header {
+            font-size: 0.9rem;
+        }
+        .message-content {
+            margin: 0.5rem 0 0 0;
+        }
     </style>
+
+    {# These are very important for SEO.
+    <meta name="description" content="Page description" />
+    <meta property="og:title" content="Unique page title - My Site" />
+    <meta property="og:description" content="Page description" />
+    <meta property="og:image" content="https://www.mywebsite.com/image.jpg" />
+    <meta property="og:image:alt" content="Image description" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta property="og:url" content="https://www.mywebsite.com/page" />
+    <link rel="canonical" href="https://www.mywebsite.com/page" />
+    #}
+
+    {# More advanced templating options that will come later.
+    <link rel="icon" href="/favicon.ico">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/my.webmanifest" />
+    #}
+    <meta name="theme-color" content="#B7410E" />
     {% endblock %}
 </head>
 <body>
     <header>
-    {% block header %}
-    {% endblock %}
+        <div class="container header-inner">
+        {% block header %}
+            <h1>ruforo</h1>
+        {% endblock %}
+        </div>
     </header>
-    <main>
+    <main class="container">
         {% block content %}
         {% endblock %}
     </main>
-    <footer>
-    {% block footer %}
-    {% endblock %}
+    <footer class="container">
+        <div class="footer-inner">
+        {% block footer %}
+            <small>🐍 Live Free or Die</small>
+        {% endblock %}
+        </div>
     </footer>
+
+    {% block lazyjs %}
+    <!-- <script src="/assets/js/xy-polyfill.js" nomodule></script> -->
+    <!-- <script src="/assets/js/script.js" type="module"></script> -->
+    {% endblock %}
 </body>
 </html>

@@ -1,21 +1,15 @@
 {% extends "container/main.html" %}
 
-{% block css %}
-
-{% endblock %}
-
 {% block content %}
 <div>
+    <h2>{{ thread.title }}{% match thread.subtitle %}{% when Some with (subtitle) %}<span class="subtitle"> - {{ subtitle }}</span>{% when None %}{% endmatch %}</h2>
     {% for post in posts %}
-        {% match post.ugc %}{% when Some with (ugc) %}
-            {% match ugc.content %}{% when Some with (content) %}
-                <div>{{ content }}</div>
-            {% when None %}{% endmatch %}
-        {% when None %}{% endmatch %}
+        {% include "ugc/message.html" %}
     {% endfor %}
 </div>
 
 <form action="/threads/{{ thread.id }}/post-reply" method="post">
+    <h2>Post Reply</h2>
     <div><textarea name="content" rows="8" cols="80"></textarea></div>
     <div><button>Sneed</button></div>
 </form>
