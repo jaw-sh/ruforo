@@ -20,7 +20,7 @@ table! {
 table! {
     sessions (id) {
         id -> Bpchar,
-        data -> Json,
+        user_id -> Int4,
         expires_at -> Timestamp,
     }
 }
@@ -65,6 +65,7 @@ table! {
 joinable!(posts -> threads (thread_id));
 joinable!(posts -> ugc (ugc_id));
 joinable!(posts -> users (user_id));
+joinable!(sessions -> users (user_id));
 joinable!(threads -> users (user_id));
 joinable!(ugc_revisions -> ip (ip_id));
 joinable!(ugc_revisions -> users (user_id));
