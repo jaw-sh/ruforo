@@ -18,6 +18,14 @@ table! {
 }
 
 table! {
+    sessions (id) {
+        id -> Bpchar,
+        data -> Json,
+        expires_at -> Timestamp,
+    }
+}
+
+table! {
     threads (id) {
         id -> Int4,
         user_id -> Nullable<Int4>,
@@ -64,6 +72,7 @@ joinable!(ugc_revisions -> users (user_id));
 allow_tables_to_appear_in_same_query!(
     ip,
     posts,
+    sessions,
     threads,
     ugc,
     ugc_revisions,

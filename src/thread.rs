@@ -30,10 +30,10 @@ pub async fn create_reply(
     use ruforo::schema::posts::dsl::*;
     use ruforo::schema::threads::dsl::*;
 
-    let conn = data
-        .pool
-        .get()
-        .expect("couldn't get db connection from pool");
+    let conn = match data.pool.get() {
+        Ok(conn) => conn,
+        Err(err) => return Err(error::ErrorInternalServerError(err)),
+    };
 
     let our_thread: Thread = match threads
         .find(path.into_inner().0)
@@ -79,33 +79,33 @@ pub async fn read_thread(
     use ruforo::schema::threads::dsl::*;
     use ruforo::schema::ugc::dsl::*;
 
-    let conn = data
-        .pool
-        .get()
-        .expect("couldn't get db connection from pool");
+    let conn = match data.pool.get() {
+        Ok(conn) => conn,
+        Err(err) => return Err(error::ErrorInternalServerError(err)),
+    };
 
-    let thread_match = threads
+    let our_thread: Thread = match threads
         .find(path.into_inner().0)
-        .get_result::<Thread>(&conn);
+        .get_result::<Thread>(&conn)
+    {
+        Ok(our_thread) => our_thread,
+        Err(_) => return Err(error::ErrorNotFound("Thread not found.")),
+    };
 
-    if thread_match.is_err() {
-        return Err(error::ErrorNotFound("Thread not found."));
-    }
-
-    let our_thread: Thread = thread_match.unwrap();
-    let our_posts = Post::belonging_to(&our_thread)
+    // Load posts, their ugc associations, and their living revision.
+    let our_posts: Vec<Post> = Post::belonging_to(&our_thread)
         .load::<Post>(&conn)
         .expect("error fetching posts");
-
     let our_ugc: Vec<Ugc> = ugc.get_results::<Ugc>(&conn).expect("error fetching ugc");
     let our_ugc_revision: Vec<UgcRevision> = UgcRevision::belonging_to(&our_ugc)
         .load::<UgcRevision>(&conn)
         .expect("error fetching ugc revisions");
 
+    // Smash them together to get a renderable struct.
     let mut render_posts: Vec<RenderPost> = Vec::new();
     for post in &*our_posts {
         render_posts.push(RenderPost {
-            post: post,
+            post,
             ugc: our_ugc_revision.iter().find(|x| x.ugc_id == post.ugc_id),
         });
     }

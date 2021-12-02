@@ -1,8 +1,8 @@
-use actix_web::{get, post, web, Error, HttpResponse};
+use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
 use chrono::prelude::Utc;
 use diesel::prelude::*;
-use ruforo::models::{NewPost, NewThread, NewUgcRevision, Post, Thread, UgcRevision};
+use ruforo::models::Thread;
 use ruforo::MyAppData;
 use serde::Deserialize;
 
@@ -26,27 +26,30 @@ pub async fn create_thread(
 ) -> Result<HttpResponse, Error> {
     use crate::ugc::create_ugc;
     use diesel::insert_into;
+    use ruforo::models::{NewPost, NewThread, NewUgcRevision, Post, UgcRevision};
     use ruforo::schema::posts::dsl::*;
     use ruforo::schema::threads::dsl::*;
 
-    let conn = data
-        .pool
-        .get()
-        .expect("couldn't get db connection from pool");
+    let conn = match data.pool.get() {
+        Ok(conn) => conn,
+        Err(err) => return Err(error::ErrorInternalServerError(err)),
+    };
 
     // Step 1. Create the UGC.
-    let ugc: UgcRevision = create_ugc(
+    let revision: UgcRevision = match create_ugc(
         &conn,
         NewUgcRevision {
             ip_id: None,
             user_id: None,
             content: Some((&form.content).to_owned()),
         },
-    )
-    .expect("couldn't create ugc for new thread");
+    ) {
+        Ok(revision) => revision,
+        Err(err) => return Err(err),
+    };
 
     // Step 2. Create a thread.
-    let thread: Thread = insert_into(threads)
+    let thread: Thread = match insert_into(threads)
         .values(NewThread {
             user_id: None,
             created_at: Utc::now().naive_utc(),
@@ -54,13 +57,16 @@ pub async fn create_thread(
             subtitle: form.subtitle.to_owned(),
         })
         .get_result::<Thread>(&conn)
-        .expect("couldn't insert thread");
+    {
+        Ok(thread) => thread,
+        Err(err) => return Err(error::ErrorInternalServerError(err)),
+    };
 
     // Step 3. Create a post with the correct associations.
     insert_into(posts)
         .values(NewPost {
             thread_id: thread.id,
-            ugc_id: ugc.id,
+            ugc_id: revision.id,
             user_id: None,
             created_at: Utc::now().naive_utc(),
         })
@@ -76,10 +82,11 @@ pub async fn create_thread(
 pub async fn read_forum(data: web::Data<MyAppData<'static>>) -> Result<HttpResponse, Error> {
     use ruforo::schema::threads::dsl::*;
 
-    let conn = data
-        .pool
-        .get()
-        .expect("couldn't get db connection from pool");
+    let conn = match data.pool.get() {
+        Ok(conn) => conn,
+        Err(err) => return Err(error::ErrorInternalServerError(err)),
+    };
+
     let our_threads: Vec<Thread> = threads
         .get_results::<Thread>(&conn)
         .expect("error fetching ugc");
