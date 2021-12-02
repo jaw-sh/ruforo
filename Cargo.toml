@@ -17,7 +17,10 @@ chrono = { version = "0.4", features = ["serde"] }
 diesel = { version = "1.4", features = ["chrono", "postgres", "r2d2"] }
 dotenv = "0.15"
 env_logger = "0.9"
+futures = { version = "^0.3" }
+futures-util = { version = "^0.3" }
 lettre = "0.10.0-rc.4"
+sea-orm = { version = "^0", features = [ "sqlx-postgres", "runtime-actix-rustls", "macros" ], default-features = false }
 serde = "1"
 uuid = { version = "0.8", default-features = false, features = ["v4"] }
 

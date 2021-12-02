@@ -12,6 +12,8 @@ use crate::schema::users;
 pub struct Ugc {
     pub id: i32,
     pub ugc_revision_id: Option<i32>,
+    pub first_revision_at: NaiveDateTime,
+    pub last_revision_at: NaiveDateTime,
 }
 
 #[derive(Associations, Identifiable, Queryable, PartialEq)]
@@ -79,7 +81,8 @@ pub struct NewThread {
 #[derive(Insertable)]
 #[table_name = "ugc"]
 pub struct NewUgc {
-    pub ugc_revision_id: i32,
+    pub first_revision_at: NaiveDateTime,
+    pub last_revision_at: NaiveDateTime,
 }
 
 #[derive(Insertable)]
@@ -109,7 +112,7 @@ pub struct NewUser<'a> {
 }
 
 // Renderables
-pub struct RenderPost<'a> {
-    pub post: &'a Post,
-    pub ugc: Option<&'a UgcRevision>,
+pub struct RenderUgc<'a> {
+    pub ugc: &'a Ugc,
+    pub revision: &'a UgcRevision,
 }

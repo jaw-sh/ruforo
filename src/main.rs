@@ -12,6 +12,7 @@ mod create_user;
 mod forum;
 mod index;
 mod login;
+pub mod proof;
 mod status;
 pub mod templates;
 mod thread;

@@ -2,7 +2,7 @@
 
 {% block content %}
 <div>
-    <h2>{{ thread.title }}{% match thread.subtitle %}{% when Some with (subtitle) %}<span style="subtitle"> - {{ subtitle }}</span>{% when None %}{% endmatch %}</h2>
+    <h2>{{ thread.title }}{% match thread.subtitle %}{% when Some with (subtitle) %}<span class="subtitle"> - {{ subtitle }}</span>{% when None %}{% endmatch %}</h2>
     {% for post in posts %}
         {% include "ugc/message.html" %}
     {% endfor %}

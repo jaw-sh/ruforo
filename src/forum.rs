@@ -54,7 +54,11 @@ pub async fn create_thread(
             user_id: None,
             created_at: Utc::now().naive_utc(),
             title: form.title.trim().to_owned(),
-            subtitle: form.subtitle.to_owned().map(|s| s.trim().to_string()).filter(|s| s.len() != 0),
+            subtitle: form
+                .subtitle
+                .to_owned()
+                .map(|s| s.trim().to_string())
+                .filter(|s| s.len() != 0),
         })
         .get_result::<Thread>(&conn)
     {
