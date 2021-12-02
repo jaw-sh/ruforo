@@ -1,0 +1,20 @@
+<div class="message">
+    <div class="message-cell message-cell--author">
+        <div class="username">Guest</div>
+    </div>
+    <div class="message-cell message-cell--main">
+        <div class="message-header">
+            {{ post.post.created_at }}
+        </div>
+        <div class="message-content">
+            {% match post.ugc %}{% when Some with (ugc) %}
+                {% match ugc.content %}{% when Some with (content) %}
+                    <div>{{ content }}</div>
+                {% when None %}{% endmatch %}
+            {% when None %}{% endmatch %}
+        </div>
+        <div class="message-footer">
+            <!-- Stickers Here -->
+        </div>
+    </div>
+</div>

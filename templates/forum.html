@@ -2,6 +2,7 @@
 
 {% block content %}
 <div>
+    <h2>Threads</h2>
     {% for thread in threads %}
         <div>
             <a href="/threads/{{ thread.id }}/">{{ thread.title }}<a>
