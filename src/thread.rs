@@ -35,38 +35,40 @@ pub async fn create_reply(
         .get()
         .expect("couldn't get db connection from pool");
 
-    let thread_match = threads
+    let our_thread: Thread = match threads
         .find(path.into_inner().0)
-        .get_result::<Thread>(&conn);
+        .get_result::<Thread>(&conn)
+    {
+        Ok(our_thread) => our_thread,
+        Err(_) => return Err(error::ErrorNotFound("Thread not found.")),
+    };
 
-    if thread_match.is_err() {
-        return Err(error::ErrorNotFound("Thread not found."));
-    }
-
-    let our_thread: Thread = thread_match.unwrap();
-    let new_ugc_revision: UgcRevision = create_ugc(
+    let ugc_revision: UgcRevision = match create_ugc(
         &conn,
         NewUgcRevision {
             ip_id: None,
             user_id: None,
             content: Some((&form.content).to_owned()),
         },
-    )
-    .expect("unable to insert new ugc");
+    ) {
+        Ok(revision) => revision,
+        Err(err) => return Err(err),
+    };
 
-    insert_into(posts)
+    match insert_into(posts)
         .values(NewPost {
             thread_id: our_thread.id,
-            ugc_id: new_ugc_revision.ugc_id,
+            ugc_id: ugc_revision.ugc_id,
             created_at: Utc::now().naive_utc(),
             user_id: None,
         })
         .get_result::<Post>(&conn)
-        .expect("couldn't insert ugc revision");
-
-    Ok(HttpResponse::Found()
-        .append_header(("Location", format!("/threads/{}/", our_thread.id)))
-        .finish())
+    {
+        Ok(_) => Ok(HttpResponse::Found()
+            .append_header(("Location", format!("/threads/{}/", our_thread.id)))
+            .finish()),
+        Err(err) => return Err(error::ErrorInternalServerError(err)),
+    }
 }
 
 #[get("/threads/{thread_id}/")]
