@@ -5,7 +5,7 @@ use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use env_logger::Env;
-use ruforo::MyAppData;
+use ruforo::MainData;
 
 mod chat;
 mod create_user;
@@ -38,7 +38,7 @@ async fn main() -> std::io::Result<()> {
     };
     let salt = SaltString::new(&salt).unwrap();
     let pool = ruforo::new_db_pool().await.expect("Failed to create pool");
-    let my_data = web::Data::new(MyAppData::new(pool, salt));
+    let my_data = web::Data::new(MainData::new(pool, salt));
 
     // // Argon2 with default params (Argon2id v19)
     // let argon2 = web::Data::new(Argon2::default());

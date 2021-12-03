@@ -3,7 +3,7 @@ use crate::proof::threads::Entity as Thread;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
 use chrono::prelude::Utc;
-use ruforo::MyAppData;
+use ruforo::MainData;
 use sea_orm::QueryFilter;
 use serde::Deserialize;
 
@@ -32,7 +32,7 @@ pub struct NewPostFormData {
 
 #[post("/threads/{thread_id}/post-reply")]
 pub async fn create_reply(
-    data: web::Data<MyAppData<'static>>,
+    data: web::Data<MainData<'static>>,
     path: web::Path<(i32,)>,
     form: web::Form<NewPostFormData>,
 ) -> Result<HttpResponse, Error> {
@@ -77,7 +77,7 @@ pub async fn create_reply(
 #[get("/threads/{thread_id}/")]
 pub async fn read_thread(
     path: web::Path<(i32,)>,
-    data: web::Data<MyAppData<'static>>,
+    data: web::Data<MainData<'static>>,
 ) -> Result<HttpResponse, Error> {
     use super::proof::posts::Entity as Post;
     use sea_orm::{entity::*, query::*};

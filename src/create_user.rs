@@ -4,7 +4,7 @@ use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use argon2::PasswordHasher;
 use askama_actix::TemplateToResponse;
 use chrono::Utc;
-use ruforo::MyAppData;
+use ruforo::MainData;
 use sea_orm::{entity::*, DatabaseConnection, DbErr, InsertResult};
 use serde::Deserialize;
 
@@ -42,7 +42,7 @@ pub async fn create_user_get() -> impl Responder {
 #[post("/create_user")]
 pub async fn create_user_post(
     form: web::Form<FormData>,
-    my: web::Data<MyAppData<'static>>,
+    my: web::Data<MainData<'static>>,
 ) -> Result<HttpResponse, Error> {
     // don't forget to sanitize kek and add error handling
     let password_hash = my

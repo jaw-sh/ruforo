@@ -1,7 +1,7 @@
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
 use chrono::prelude::Utc;
-use ruforo::MyAppData;
+use ruforo::MainData;
 use serde::Deserialize;
 
 #[derive(Template)]
@@ -19,7 +19,7 @@ pub struct NewThreadFormData {
 
 #[post("/forums/post-thread")]
 pub async fn create_thread(
-    data: web::Data<MyAppData<'static>>,
+    data: web::Data<MainData<'static>>,
     form: web::Form<NewThreadFormData>,
 ) -> Result<HttpResponse, Error> {
     use crate::ugc::create_ugc;
@@ -77,7 +77,7 @@ pub async fn create_thread(
 }
 
 #[get("/forums/")]
-pub async fn read_forum(data: web::Data<MyAppData<'static>>) -> Result<HttpResponse, Error> {
+pub async fn read_forum(data: web::Data<MainData<'static>>) -> Result<HttpResponse, Error> {
     let conn = match data.pool.get() {
         Ok(conn) => conn,
         Err(err) => return Err(error::ErrorInternalServerError(err)),

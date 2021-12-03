@@ -5,7 +5,7 @@ use crate::templates::LoginTemplate;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use askama_actix::TemplateToResponse;
-use ruforo::MyAppData;
+use ruforo::MainData;
 use sea_orm::{entity::*, DatabaseConnection, DbErr, QueryFilter};
 use serde::Deserialize;
 use uuid::Uuid;
@@ -20,7 +20,7 @@ async fn login(
     db: &DatabaseConnection,
     name_: &str,
     pass_: &str,
-    my: &web::Data<MyAppData<'static>>,
+    my: &web::Data<MainData<'static>>,
 ) -> Result<bool, DbErr> {
     let password_hash = Users::find()
         .filter(users::Column::Name.eq(name_))
@@ -42,7 +42,7 @@ async fn login(
 pub async fn login_post(
     session: actix_session::Session,
     form: web::Form<FormData>,
-    my: web::Data<MyAppData<'static>>,
+    my: web::Data<MainData<'static>>,
 ) -> Result<HttpResponse, Error> {
     // don't forget to sanitize kek and add error handling
     let pass_match = login(&my.pool, &form.username, &form.password, &my)

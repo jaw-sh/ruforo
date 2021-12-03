@@ -1,10 +1,10 @@
 use crate::templates::StatusTemplate;
 use actix_web::{get, web, Responder};
 use askama_actix::TemplateToResponse;
-use ruforo::MyAppData;
+use ruforo::MainData;
 
 #[get("/status")]
-pub async fn status_get(my: web::Data<MyAppData<'static>>) -> impl Responder {
+pub async fn status_get(my: web::Data<MainData<'static>>) -> impl Responder {
     for (key, value) in &*my.cache.sessions.read().unwrap() {
         println!(
             "{} / {:?}",
