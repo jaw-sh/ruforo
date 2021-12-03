@@ -1,10 +1,10 @@
 use crate::orm::users;
 use crate::templates::CreateUserTemplate;
-use actix_web::{get, post, web, HttpResponse, Responder};
+use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use argon2::PasswordHasher;
 use askama_actix::TemplateToResponse;
 use chrono::Utc;
-use ruforo::MyAppData;
+use ruforo::MainData;
 use sea_orm::{entity::*, DatabaseConnection, DbErr, InsertResult};
 use serde::Deserialize;
 
@@ -25,7 +25,6 @@ async fn insert_new_user(
         password: Set(pass_.to_owned()),
         ..Default::default() // all other attributes are `Unset`
     };
-    // let res: users::ActiveModel = user.insert(conn).await.expect("Error inserting person");
     // let res = user.insert(conn).await.expect("Error inserting person");
     let res = users::Entity::insert(user).exec(db).await?;
     println!("Result: {:?}", res);
@@ -43,18 +42,16 @@ pub async fn create_user_get() -> impl Responder {
 #[post("/create_user")]
 pub async fn create_user_post(
     form: web::Form<FormData>,
-    my: web::Data<MyAppData<'static>>,
-) -> impl Responder {
+    my: web::Data<MainData<'static>>,
+) -> Result<HttpResponse, Error> {
     // don't forget to sanitize kek and add error handling
     let password_hash = my
         .argon2
         .hash_password(form.password.as_bytes(), &my.salt)
         .unwrap()
         .to_string();
-    insert_new_user(&my.pool, &form.username, &password_hash);
-    // .map_err(|e| {
-    //     eprintln!("{}", e);
-    //     HttpResponse::InternalServerError().finish()
-    // });
-    HttpResponse::Ok().finish()
+    insert_new_user(&my.pool, &form.username, &password_hash)
+        .await
+        .map_err(|_| error::ErrorInternalServerError("user not found or bad password"))?;
+    Ok(HttpResponse::Ok().finish())
 }

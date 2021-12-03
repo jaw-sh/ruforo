@@ -28,14 +28,14 @@ impl BigChungus {
     }
 }
 
-pub struct MyAppData<'key> {
+pub struct MainData<'key> {
     pub salt: SaltString,
     pub argon2: Argon2<'key>,
     pub pool: DatabaseConnection,
     pub cache: BigChungus,
 }
 
-impl MyAppData<'_> {
+impl MainData<'_> {
     pub fn new(pool: DatabaseConnection, salt: SaltString) -> Self {
         Self {
             salt,

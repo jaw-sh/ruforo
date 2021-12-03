@@ -1,8 +1,8 @@
 use crate::orm::{posts, threads};
+use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
-use ruforo::MyAppData;
-use sea_orm::{entity::*, Set};
+use sea_orm::entity::*;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -20,7 +20,7 @@ pub struct ForumTemplate {
 
 #[post("/forums/post-thread")]
 pub async fn create_thread(
-    data: web::Data<MyAppData<'static>>,
+    data: web::Data<MainData<'static>>,
     form: web::Form<NewThreadFormData>,
 ) -> Result<HttpResponse, Error> {
     use crate::ugc::{create_ugc, NewUgcPartial};
@@ -75,7 +75,7 @@ pub async fn create_thread(
 }
 
 #[get("/forums/")]
-pub async fn read_forum(data: web::Data<MyAppData<'static>>) -> Result<HttpResponse, Error> {
+pub async fn read_forum(data: web::Data<MainData<'static>>) -> Result<HttpResponse, Error> {
     match threads::Entity::find().all(&data.pool).await {
         Ok(threads) => {
             return Ok(HttpResponse::Ok().body(ForumTemplate { threads }.render().unwrap()))

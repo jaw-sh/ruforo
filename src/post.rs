@@ -3,5 +3,5 @@ use askama_actix::Template;
 use chrono::prelude::Utc;
 use diesel::prelude::*;
 use ruforo::models::{NewUgcRevision, Post, Thread, UgcRevision};
-use ruforo::MyAppData;
+use ruforo::MainData;
 use serde::Deserialize;

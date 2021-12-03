@@ -1,11 +1,10 @@
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
-use crate::MyAppData;
+use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
-use chrono::prelude::Utc;
 use sea_orm::QueryFilter;
-use sea_orm::{entity::*, query::*};
+use sea_orm::entity::*;
 use serde::Deserialize;
 
 pub struct PostForTemplate {
@@ -33,7 +32,7 @@ pub struct NewPostFormData {
 
 #[post("/threads/{thread_id}/post-reply")]
 pub async fn create_reply(
-    data: web::Data<MyAppData<'static>>,
+    data: web::Data<MainData<'static>>,
     path: web::Path<(i32,)>,
     form: web::Form<NewPostFormData>,
 ) -> Result<HttpResponse, Error> {
@@ -75,7 +74,7 @@ pub async fn create_reply(
 #[get("/threads/{thread_id}/")]
 pub async fn read_thread(
     path: web::Path<(i32,)>,
-    data: web::Data<MyAppData<'static>>,
+    data: web::Data<MainData<'static>>,
 ) -> Result<HttpResponse, Error> {
     let our_thread = Thread::find_by_id(path.into_inner().0)
         .one(&data.pool)
