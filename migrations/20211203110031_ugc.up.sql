@@ -3,7 +3,7 @@
 CREATE TABLE ugc
 (
     id                serial PRIMARY KEY,
-    ugc_revision_id   int NULL,
+    ugc_revision_id   int NULL
 );
 
 -- ************************************** ugc_revisions
