@@ -8,7 +8,7 @@ use uuid::Uuid;
 pub async fn new_session(
     db: &DatabaseConnection,
     ses_map: &SessionMap,
-    user_id_: i32,
+    user_id: i32,
 ) -> Result<Uuid, DbErr> {
     let ses = ruforo::Session {
         expire: chrono::Utc::now().naive_utc(),
@@ -23,12 +23,12 @@ pub async fn new_session(
         }
     }
 
-    let user = sessions::ActiveModel {
-        id: Set(uuid.to_string()),
-        user_id: Set(user_id_),
+    let session = sessions::ActiveModel {
+        id: Set(uuid.to_string().to_owned()),
+        user_id: Set(user_id),
         expires_at: Set(Utc::now().naive_utc()),
     };
-    sessions::Entity::insert(user).exec(db).await?;
+    sessions::Entity::insert(session).exec(db).await?;
 
     Ok(uuid)
 }

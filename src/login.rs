@@ -1,14 +1,14 @@
 // use crate::session::new_session;
 use crate::proof::users;
 use crate::proof::users::Entity as Users;
+use crate::session;
 use crate::templates::LoginTemplate;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use askama_actix::TemplateToResponse;
 use ruforo::MainData;
-use sea_orm::{entity::*, DatabaseConnection, DbErr, QueryFilter};
+use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult, QueryFilter};
 use serde::Deserialize;
-use uuid::Uuid;
 
 #[derive(Deserialize)]
 pub struct FormData {
@@ -21,20 +21,39 @@ async fn login(
     name_: &str,
     pass_: &str,
     my: &web::Data<MainData<'static>>,
-) -> Result<bool, DbErr> {
-    let password_hash = Users::find()
-        .filter(users::Column::Name.eq(name_))
+) -> Result<i32, Error> {
+    #[derive(Debug, FromQueryResult)]
+    struct SelectResult {
+        id: i32,
+        password: String,
+    }
+
+    let select = Users::find()
+        .select_only()
+        .column(users::Column::Id)
+        .column(users::Column::Password)
+        .filter(users::Column::Name.eq(name_));
+
+    let user = select
+        .into_model::<SelectResult>()
         .one(db)
-        .await?;
-    match password_hash {
-        Some(password_hash) => {
-            let parsed_hash = PasswordHash::new(&password_hash.password).unwrap();
-            return Ok(my
-                .argon2
+        .await
+        .map_err(|e| {
+            log::error!("Login: {}", e);
+            error::ErrorInternalServerError("DB error")
+        })?;
+
+    match user {
+        Some(user) => {
+            let parsed_hash = PasswordHash::new(&user.password).unwrap();
+            my.argon2
                 .verify_password(pass_.as_bytes(), &parsed_hash)
-                .is_ok());
+                .map_err(|_| error::ErrorInternalServerError("user not found or bad password"))?;
+            Ok(user.id)
         }
-        None => Ok(false),
+        None => Err(error::ErrorInternalServerError(
+            "user not found or bad password",
+        )),
     }
 }
 
@@ -45,32 +64,25 @@ pub async fn login_post(
     my: web::Data<MainData<'static>>,
 ) -> Result<HttpResponse, Error> {
     // don't forget to sanitize kek and add error handling
-    let pass_match = login(&my.pool, &form.username, &form.password, &my)
-        .await
-        .map_err(|_| error::ErrorInternalServerError("user not found or bad password"))?;
+    let user_id = login(&my.pool, &form.username, &form.password, &my).await?;
 
-    if pass_match {
-        match session.insert("logged_in", true) {
-            Ok(_) => {
-                let ses = ruforo::Session {
-                    expire: chrono::Utc::now().naive_utc(),
-                };
-                let sessions = &mut *my.cache.sessions.write().unwrap();
-                loop {
-                    let uuid = Uuid::new_v4();
-                    if sessions.contains_key(&uuid) == false {
-                        sessions.insert(uuid, ses);
-                        break;
-                    }
-                }
-                // new_session(my.pool.clone(), &my.cache.sessions, 0).await; // TODO replace user_id
-                Ok(HttpResponse::Ok().finish())
-            }
-            Err(_) => Err(error::ErrorInternalServerError("DB error")),
-        }
-    } else {
-        Ok(HttpResponse::Unauthorized().finish())
-    }
+    log::error!("test");
+    let uuid = session::new_session(&my.pool, &my.cache.sessions, user_id)
+        .await
+        .map_err(|e| {
+            log::error!("error {:?}", e);
+            error::ErrorInternalServerError("DB error")
+        })?;
+
+    session
+        .insert("logged_in", true)
+        .map_err(|_| error::ErrorInternalServerError("middleware error"))?;
+
+    session
+        .insert("token", uuid)
+        .map_err(|_| error::ErrorInternalServerError("middleware error"))?;
+
+    Ok(HttpResponse::Ok().finish())
 }
 
 #[get("/login")]
