@@ -14,6 +14,7 @@ pub mod frontend;
 mod index;
 mod login;
 pub mod proof;
+pub mod session;
 mod status;
 pub mod templates;
 mod thread;
