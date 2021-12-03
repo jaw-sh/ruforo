@@ -10,6 +10,7 @@ use ruforo::MyAppData;
 mod chat;
 mod create_user;
 mod forum;
+pub mod frontend;
 mod index;
 mod login;
 pub mod proof;
@@ -65,8 +66,10 @@ async fn main() -> std::io::Result<()> {
             .service(login::login_post)
             .service(forum::create_thread)
             .service(forum::read_forum)
+            .service(frontend::css::read_css)
             .service(thread::create_reply)
             .service(thread::read_thread)
+            .service(status::status_get)
             .service(status::status_get)
     })
     .bind("127.0.0.1:8080")?

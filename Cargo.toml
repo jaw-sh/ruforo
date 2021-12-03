@@ -23,6 +23,7 @@ lettre = "0.10.0-rc.4"
 sea-orm = { version = "^0", features = [ "sqlx-postgres", "runtime-actix-rustls", "macros" ], default-features = false }
 serde = "1"
 uuid = { version = "0.8", default-features = false, features = ["v4"] }
+rsass = "^0.22"
 
 [dev-dependencies]
 actix-test = "0.1.0-beta.7"
