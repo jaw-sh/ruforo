@@ -14,7 +14,6 @@ mod index;
 mod login;
 pub mod proof;
 mod status;
-use sea_orm::{entity::*, query::*};
 pub mod templates;
 mod thread;
 pub mod ugc;

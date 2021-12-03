@@ -2,13 +2,11 @@
 use crate::proof::users;
 use crate::proof::users::Entity as Users;
 use crate::templates::LoginTemplate;
-use actix_web::http::StatusCode;
-use actix_web::{get, post, web, Error, HttpResponse, Responder};
+use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use askama_actix::TemplateToResponse;
 use ruforo::MyAppData;
-use sea_orm::QueryFilter;
-use sea_orm::{entity::*, DatabaseConnection, DbErr, InsertResult};
+use sea_orm::{entity::*, DatabaseConnection, DbErr, QueryFilter};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -24,7 +22,6 @@ async fn login(
     pass_: &str,
     my: &web::Data<MyAppData<'static>>,
 ) -> Result<bool, DbErr> {
-    // let password_hash = Users::find_by_id(1).one(db).await?;
     let password_hash = Users::find()
         .filter(users::Column::Name.eq(name_))
         .one(db)
@@ -46,26 +43,12 @@ pub async fn login_post(
     session: actix_session::Session,
     form: web::Form<FormData>,
     my: web::Data<MyAppData<'static>>,
-) -> impl Responder {
+) -> Result<HttpResponse, Error> {
     // don't forget to sanitize kek and add error handling
-    // let pass_match = login(&my.pool, &form.username, &form.password, &my).await;
-    let pass_match = login(&my.pool, &form.username, &form.password, &my).await;
-    // .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let pass_match = login(&my.pool, &form.username, &form.password, &my)
+        .await
+        .map_err(|_| error::ErrorInternalServerError("user not found or bad password"))?;
 
-    let pass_match = match pass_match {
-        Ok(v) => v,
-        Err(_) => {
-            return HttpResponse::InternalServerError().finish();
-        }
-    };
-    // .map_err(|_| HttpResponse::InternalServerError().finish());
-    // HttpResponse::Ok().finish()
-    // Ok(v) => v,
-    // Err(e) => {
-    //     eprintln!("{}", e);
-    //     HttpResponse::InternalServerError().finish();
-    // }
-    // };
     if pass_match {
         match session.insert("logged_in", true) {
             Ok(_) => {
@@ -81,12 +64,12 @@ pub async fn login_post(
                     }
                 }
                 // new_session(my.pool.clone(), &my.cache.sessions, 0).await; // TODO replace user_id
-                HttpResponse::Ok().finish()
+                Ok(HttpResponse::Ok().finish())
             }
-            Err(_) => HttpResponse::InternalServerError().finish(),
+            Err(_) => Err(error::ErrorInternalServerError("DB error")),
         }
     } else {
-        HttpResponse::Unauthorized().finish()
+        Ok(HttpResponse::Unauthorized().finish())
     }
 }
 
