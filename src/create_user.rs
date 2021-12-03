@@ -1,11 +1,11 @@
+use crate::proof::users;
 use crate::templates::CreateUserTemplate;
 use actix_web::{get, post, web, HttpResponse, Responder};
 use argon2::PasswordHasher;
 use askama_actix::TemplateToResponse;
-use diesel::pg::PgConnection;
-use diesel::prelude::*;
-use ruforo::models::{NewUser, User};
+use chrono::Utc;
 use ruforo::MyAppData;
+use sea_orm::{entity::*, DatabaseConnection, DbErr, InsertResult};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -14,28 +14,22 @@ pub struct FormData {
     password: String,
 }
 
-type DbError = Box<dyn std::error::Error + Send + Sync>;
-
-fn insert_new_user(db: &PgConnection, name_: &str, pass_: &str) -> Result<User, DbError> {
-    use ruforo::schema::users::dsl::{name, users};
-
-    let user = NewUser {
-        created_at: diesel::dsl::now,
-        name: name_,
-        password: pass_,
+async fn insert_new_user(
+    db: &DatabaseConnection,
+    name_: &str,
+    pass_: &str,
+) -> Result<InsertResult<users::ActiveModel>, DbErr> {
+    let user = users::ActiveModel {
+        created_at: Set(Utc::now().naive_utc()),
+        name: Set(name_.to_owned()),
+        password: Set(pass_.to_owned()),
+        ..Default::default() // all other attributes are `Unset`
     };
-
-    diesel::insert_into(users)
-        .values(&user)
-        .execute(db)
-        .expect("Error inserting person");
-
-    let user = users
-        .filter(name.eq(&user.name))
-        .first::<User>(db)
-        .expect("Error loading person");
-
-    Ok(user)
+    // let res: users::ActiveModel = user.insert(conn).await.expect("Error inserting person");
+    // let res = user.insert(conn).await.expect("Error inserting person");
+    let res = users::Entity::insert(user).exec(db).await?;
+    println!("Result: {:?}", res);
+    Ok(res)
 }
 
 #[get("/create_user")]
@@ -52,19 +46,15 @@ pub async fn create_user_post(
     my: web::Data<MyAppData<'static>>,
 ) -> impl Responder {
     // don't forget to sanitize kek and add error handling
-    let _user = web::block(move || {
-        let conn = my.pool.get().expect("couldn't get db connection from pool");
-        let password_hash = my
-            .argon2
-            .hash_password(form.password.as_bytes(), &my.salt)
-            .unwrap()
-            .to_string();
-        insert_new_user(&conn, &form.username, &password_hash)
-    })
-    .await
-    .map_err(|e| {
-        eprintln!("{}", e);
-        HttpResponse::InternalServerError().finish()
-    });
+    let password_hash = my
+        .argon2
+        .hash_password(form.password.as_bytes(), &my.salt)
+        .unwrap()
+        .to_string();
+    insert_new_user(&my.pool, &form.username, &password_hash);
+    // .map_err(|e| {
+    //     eprintln!("{}", e);
+    //     HttpResponse::InternalServerError().finish()
+    // });
     HttpResponse::Ok().finish()
 }

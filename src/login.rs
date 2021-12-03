@@ -1,10 +1,13 @@
+// use crate::session::new_session;
+use crate::proof::users;
+use crate::proof::users::Entity as Users;
 use crate::templates::LoginTemplate;
 use actix_web::{get, post, web, HttpResponse, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use askama_actix::TemplateToResponse;
-use diesel::pg::PgConnection;
-use diesel::prelude::*;
 use ruforo::MyAppData;
+use sea_orm::QueryFilter;
+use sea_orm::{entity::*, DatabaseConnection, DbErr, InsertResult};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -14,26 +17,27 @@ pub struct FormData {
     password: String,
 }
 
-type DbError = Box<dyn std::error::Error + Send + Sync>;
-
-fn login(
-    db: &PgConnection,
+async fn login(
+    db: &DatabaseConnection,
     name_: &str,
     pass_: &str,
     my: &web::Data<MyAppData<'static>>,
-) -> Result<bool, DbError> {
-    use ruforo::schema::users::dsl::*;
-
-    let password_hash = users
-        .filter(name.eq(name_))
-        .select(password)
-        .first::<String>(db)?;
-
-    let parsed_hash = PasswordHash::new(&password_hash).unwrap();
-    return Ok(my
-        .argon2
-        .verify_password(pass_.as_bytes(), &parsed_hash)
-        .is_ok());
+) -> Result<bool, DbErr> {
+    // let password_hash = Users::find_by_id(1).one(db).await?;
+    let password_hash = Users::find()
+        .filter(users::Column::Name.eq(name_))
+        .one(db)
+        .await?;
+    match password_hash {
+        Some(password_hash) => {
+            let parsed_hash = PasswordHash::new(&password_hash.password).unwrap();
+            return Ok(my
+                .argon2
+                .verify_password(pass_.as_bytes(), &parsed_hash)
+                .is_ok());
+        }
+        None => Ok(false),
+    }
 }
 
 #[post("/login")]
@@ -43,19 +47,13 @@ pub async fn login_post(
     my: web::Data<MyAppData<'static>>,
 ) -> impl Responder {
     // don't forget to sanitize kek and add error handling
-    let my2 = my.clone();
-    let pass_match = web::block(move || {
-        let conn = my2
-            .pool
-            .get()
-            .expect("couldn't get db connection from pool");
-        login(&conn, &form.username, &form.password, &my2)
-    })
-    .await
-    .map_err(|e| {
-        eprintln!("{}", e);
-        HttpResponse::InternalServerError().finish()
-    });
+    // let pass_match = match login(&conn, &form.username, &form.password, &my2) {
+    //     Ok(v) => v,
+    //     Err(e) => {
+    //         eprintln!("{}", e);
+    //         HttpResponse::InternalServerError().finish();
+    //     }
+    // }
     match pass_match {
         Ok(pass_match) => match pass_match {
             Ok(pass_match) => {
@@ -73,6 +71,7 @@ pub async fn login_post(
                                     break;
                                 }
                             }
+                            // new_session(my.pool.clone(), &my.cache.sessions, 0).await; // TODO replace user_id
                             HttpResponse::Ok().finish()
                         }
                         Err(_) => HttpResponse::InternalServerError().finish(),

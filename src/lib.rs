@@ -1,19 +1,12 @@
-#[macro_use]
-extern crate diesel;
-extern crate dotenv;
-
-pub mod models;
-pub mod schema;
-
 use argon2::{password_hash::SaltString, Argon2};
 use chrono::NaiveDateTime;
-use diesel::prelude::*;
-use diesel::r2d2;
+use sea_orm::{ConnectOptions, Database, DatabaseConnection, DbErr};
 use std::collections::HashMap;
 use std::sync::RwLock;
+use std::time::Duration;
 use uuid::Uuid;
 
-pub type DbPool = r2d2::Pool<r2d2::ConnectionManager<PgConnection>>;
+pub type SessionMap = RwLock<HashMap<Uuid, Session>>;
 
 pub struct Session {
     pub expire: NaiveDateTime,
@@ -22,7 +15,7 @@ pub struct Session {
 pub struct BigChungus {
     pub val: RwLock<i32>,
     pub start_time: NaiveDateTime,
-    pub sessions: RwLock<HashMap<Uuid, Session>>,
+    pub sessions: SessionMap,
 }
 
 impl BigChungus {
@@ -38,16 +31,12 @@ impl BigChungus {
 pub struct MyAppData<'key> {
     pub salt: SaltString,
     pub argon2: Argon2<'key>,
-    pub pool: DbPool,
+    pub pool: DatabaseConnection,
     pub cache: BigChungus,
 }
 
 impl MyAppData<'_> {
-    pub fn new(salt: SaltString) -> Self {
-        let manager = new_db_manager();
-        let pool = r2d2::Pool::builder()
-            .build(manager)
-            .expect("Failed to create pool.");
+    pub fn new(pool: DatabaseConnection, salt: SaltString) -> Self {
         Self {
             salt,
             argon2: Argon2::default(),
@@ -57,8 +46,15 @@ impl MyAppData<'_> {
     }
 }
 
-fn new_db_manager() -> r2d2::ConnectionManager<PgConnection> {
+pub async fn new_db_pool() -> Result<DatabaseConnection, DbErr> {
     dotenv::dotenv().ok();
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    r2d2::ConnectionManager::<PgConnection>::new(database_url)
+    let mut opt = ConnectOptions::new(database_url);
+    opt.max_connections(100)
+        .min_connections(5)
+        .connect_timeout(Duration::from_secs(8))
+        .idle_timeout(Duration::from_secs(8))
+        .sqlx_logging(true);
+
+    Database::connect(opt).await
 }

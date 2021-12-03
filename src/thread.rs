@@ -1,10 +1,17 @@
+use super::proof::threads::Entity as Thread;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
 use chrono::prelude::Utc;
-use diesel::prelude::*;
-use ruforo::models::{NewUgcRevision, Post, Thread, UgcRevision};
 use ruforo::MyAppData;
 use serde::Deserialize;
+
+// pub struct Thread {
+//     pub id: i32,
+//     pub user_id: Option<i32>,
+//     pub created_at: NaiveDateTime,
+//     pub title: String,
+//     pub subtitle: Option<String>,
+// }
 
 pub struct PostForTemplate {
     pub id: i32,
@@ -36,10 +43,6 @@ pub async fn create_reply(
     form: web::Form<NewPostFormData>,
 ) -> Result<HttpResponse, Error> {
     use crate::ugc::create_ugc;
-    use diesel::insert_into;
-    use ruforo::models::NewPost;
-    use ruforo::schema::posts::dsl::*;
-    use ruforo::schema::threads::dsl::*;
 
     let conn = match data.pool.get() {
         Ok(conn) => conn,
@@ -87,23 +90,10 @@ pub async fn read_thread(
     path: web::Path<(i32,)>,
     data: web::Data<MyAppData<'static>>,
 ) -> Result<HttpResponse, Error> {
-    // use ruforo::schema::threads::dsl::*;
-    // use ruforo::schema::ugc::dsl::*;
-    //
-    // let conn = match data.pool.get() {
-    //     Ok(conn) => conn,
-    //     Err(err) => return Err(error::ErrorInternalServerError(err)),
-    // };
-
     use super::proof::posts::Entity as Post;
-    use super::proof::threads::Entity as Thread;
     use sea_orm::{entity::*, query::*};
 
-    dotenv::dotenv().ok();
-    let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
-    let db = sea_orm::Database::connect(db_url.to_owned())
-        .await
-        .expect("manual psql injection failed lol");
+    let db = data.pool;
 
     let our_thread = match Thread::find_by_id(path.into_inner().0).one(&db).await {
         Ok(our_thread) => match our_thread {
