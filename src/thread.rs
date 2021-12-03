@@ -1,8 +1,10 @@
-use super::proof::threads::Entity as Thread;
+use crate::proof::threads;
+use crate::proof::threads::Entity as Thread;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
 use chrono::prelude::Utc;
 use ruforo::MyAppData;
+use sea_orm::QueryFilter;
 use serde::Deserialize;
 
 pub struct PostForTemplate {
@@ -36,21 +38,16 @@ pub async fn create_reply(
 ) -> Result<HttpResponse, Error> {
     use crate::ugc::create_ugc;
 
-    let conn = match data.pool.get() {
-        Ok(conn) => conn,
-        Err(err) => return Err(error::ErrorInternalServerError(err)),
-    };
-
     let our_thread: Thread = match threads
         .find(path.into_inner().0)
-        .get_result::<Thread>(&conn)
+        .get_result::<Thread>(&data.pool)
     {
         Ok(our_thread) => our_thread,
         Err(_) => return Err(error::ErrorNotFound("Thread not found.")),
     };
 
     let ugc_revision: UgcRevision = match create_ugc(
-        &conn,
+        &data.pool,
         NewUgcRevision {
             ip_id: None,
             user_id: None,
@@ -68,7 +65,7 @@ pub async fn create_reply(
             created_at: Utc::now().naive_utc(),
             user_id: None,
         })
-        .get_result::<Post>(&conn)
+        .get_result::<Post>(&data.pool)
     {
         Ok(_) => Ok(HttpResponse::Found()
             .append_header(("Location", format!("/threads/{}/", our_thread.id)))
@@ -85,9 +82,10 @@ pub async fn read_thread(
     use super::proof::posts::Entity as Post;
     use sea_orm::{entity::*, query::*};
 
-    let db = data.pool;
-
-    let our_thread = match Thread::find_by_id(path.into_inner().0).one(&db).await {
+    let our_thread = match Thread::find_by_id(path.into_inner().0)
+        .one(&data.pool)
+        .await
+    {
         Ok(our_thread) => match our_thread {
             Some(our_thread) => our_thread,
             None => return Err(error::ErrorNotFound("Thread not found.")),
@@ -99,7 +97,7 @@ pub async fn read_thread(
     let our_posts: Vec<PostForTemplate> = match Post::find()
         .find_also_linked(super::proof::posts::PostToUgcRevision)
         .filter(super::proof::posts::Column::ThreadId.eq(our_thread.id))
-        .all(&db)
+        .all(&data.pool)
         .await
     {
         Ok(posts) => posts
