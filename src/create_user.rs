@@ -1,4 +1,4 @@
-use crate::proof::users;
+use crate::orm::users;
 use crate::templates::CreateUserTemplate;
 use actix_web::{get, post, web, HttpResponse, Responder};
 use argon2::PasswordHasher;

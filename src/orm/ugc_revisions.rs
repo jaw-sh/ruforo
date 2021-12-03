@@ -11,8 +11,8 @@ pub struct Model {
     pub ip_id: Option<i32>,
     pub user_id: Option<i32>,
     pub created_at: DateTime,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub content: Option<String>,
+    #[sea_orm(column_type = "Text")]
+    pub content: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

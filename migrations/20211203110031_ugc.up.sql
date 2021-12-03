@@ -3,7 +3,7 @@
 CREATE TABLE ugc
 (
     id                serial PRIMARY KEY,
-    ugc_revision_id   int NULL,
+    ugc_revision_id   int NULL
 );
 
 -- ************************************** ugc_revisions
@@ -15,7 +15,7 @@ CREATE TABLE ugc_revisions
     ip_id           int NULL REFERENCES ip,
     user_id         int NULL REFERENCES users,
     created_at      timestamp NOT NULL,
-    content         text NULL
+    content         text NOT NULL
 );
 
 -- **************************************

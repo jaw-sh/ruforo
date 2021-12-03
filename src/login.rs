@@ -1,6 +1,6 @@
 // use crate::session::new_session;
-use crate::proof::users;
-use crate::proof::users::Entity as Users;
+use crate::orm::users;
+use crate::orm::users::Entity as Users;
 use crate::templates::LoginTemplate;
 use actix_web::http::StatusCode;
 use actix_web::{get, post, web, Error, HttpResponse, Responder};

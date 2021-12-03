@@ -1,10 +1,11 @@
-use crate::proof::threads;
-use crate::proof::threads::Entity as Thread;
+use crate::orm::posts::Entity as Post;
+use crate::orm::threads::Entity as Thread;
+use crate::MyAppData;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
 use chrono::prelude::Utc;
-use ruforo::MyAppData;
 use sea_orm::QueryFilter;
+use sea_orm::{entity::*, query::*};
 use serde::Deserialize;
 
 pub struct PostForTemplate {
@@ -21,7 +22,7 @@ pub struct PostForTemplate {
 #[derive(Template)]
 #[template(path = "thread.html")]
 pub struct ThreadTemplate {
-    pub thread: super::proof::threads::Model,
+    pub thread: super::orm::threads::Model,
     pub posts: Vec<PostForTemplate>,
 }
 
@@ -36,42 +37,39 @@ pub async fn create_reply(
     path: web::Path<(i32,)>,
     form: web::Form<NewPostFormData>,
 ) -> Result<HttpResponse, Error> {
-    use crate::ugc::create_ugc;
+    use crate::orm::posts;
+    use crate::ugc::{create_ugc, NewUgcPartial};
 
-    let our_thread: Thread = match threads
-        .find(path.into_inner().0)
-        .get_result::<Thread>(&data.pool)
-    {
-        Ok(our_thread) => our_thread,
-        Err(_) => return Err(error::ErrorNotFound("Thread not found.")),
-    };
+    let our_thread = Thread::find_by_id(path.into_inner().0)
+        .one(&data.pool)
+        .await
+        .map_err(|_| error::ErrorInternalServerError("Could not look up thread."))?
+        .ok_or_else(|| error::ErrorNotFound("Thread not found."))?;
 
-    let ugc_revision: UgcRevision = match create_ugc(
+    let ugc_revision = create_ugc(
         &data.pool,
-        NewUgcRevision {
+        NewUgcPartial {
             ip_id: None,
             user_id: None,
-            content: Some((&form.content).to_owned()),
+            content: form.content.to_owned(),
         },
-    ) {
-        Ok(revision) => revision,
-        Err(err) => return Err(err),
-    };
+    )
+    .await
+    .map_err(|err| error::ErrorInternalServerError(err))?;
 
-    match insert_into(posts)
-        .values(NewPost {
-            thread_id: our_thread.id,
-            ugc_id: ugc_revision.ugc_id,
-            created_at: Utc::now().naive_utc(),
-            user_id: None,
-        })
-        .get_result::<Post>(&data.pool)
-    {
-        Ok(_) => Ok(HttpResponse::Found()
-            .append_header(("Location", format!("/threads/{}/", our_thread.id)))
-            .finish()),
-        Err(err) => return Err(error::ErrorInternalServerError(err)),
+    posts::ActiveModel {
+        thread_id: Set(our_thread.id),
+        ugc_id: ugc_revision.id,
+        created_at: ugc_revision.created_at.to_owned(),
+        ..Default::default()
     }
+    .insert(&data.pool)
+    .await
+    .map_err(|_| error::ErrorInternalServerError("Failed to insert new post."))?;
+
+    Ok(HttpResponse::Found()
+        .append_header(("Location", format!("/threads/{}/", our_thread.id)))
+        .finish())
 }
 
 #[get("/threads/{thread_id}/")]
@@ -79,24 +77,16 @@ pub async fn read_thread(
     path: web::Path<(i32,)>,
     data: web::Data<MyAppData<'static>>,
 ) -> Result<HttpResponse, Error> {
-    use super::proof::posts::Entity as Post;
-    use sea_orm::{entity::*, query::*};
-
-    let our_thread = match Thread::find_by_id(path.into_inner().0)
+    let our_thread = Thread::find_by_id(path.into_inner().0)
         .one(&data.pool)
         .await
-    {
-        Ok(our_thread) => match our_thread {
-            Some(our_thread) => our_thread,
-            None => return Err(error::ErrorNotFound("Thread not found.")),
-        },
-        Err(_) => return Err(error::ErrorInternalServerError("Could not find thread.")),
-    };
+        .map_err(|_| error::ErrorInternalServerError("Could not look up thread."))?
+        .ok_or_else(|| error::ErrorNotFound("Thread not found."))?;
 
     // Load posts, their ugc associations, and their living revision.
     let our_posts: Vec<PostForTemplate> = match Post::find()
-        .find_also_linked(super::proof::posts::PostToUgcRevision)
-        .filter(super::proof::posts::Column::ThreadId.eq(our_thread.id))
+        .find_also_linked(super::orm::posts::PostToUgcRevision)
+        .filter(super::orm::posts::Column::ThreadId.eq(our_thread.id))
         .all(&data.pool)
         .await
     {
@@ -111,7 +101,7 @@ pub async fn read_thread(
                     thread_id: post.0.thread_id,
                     ugc_id: post.0.ugc_id,
                     ip_id: ugc.ip_id,
-                    content: ugc.content.to_owned(),
+                    content: Some(ugc.content.to_owned()),
                 },
                 None => PostForTemplate {
                     id: post.0.id,
@@ -131,20 +121,6 @@ pub async fn read_thread(
             ));
         }
     };
-
-    // let our_ugc: Vec<Ugc> = ugc.get_results::<Ugc>(&conn).expect("error fetching ugc");
-    // let our_ugc_revision: Vec<UgcRevision> = UgcRevision::belonging_to(&our_ugc)
-    //     .load::<UgcRevision>(&conn)
-    //     .expect("error fetching ugc revisions");
-    //
-    // // Smash them together to get a renderable struct.
-    // let mut render_posts: Vec<RenderPost> = Vec::new();
-    // for post in &*our_posts {
-    //     render_posts.push(RenderPost {
-    //         post,
-    //         ugc: our_ugc_revision.iter().find(|x| x.ugc_id == post.ugc_id),
-    //     });
-    // }
 
     Ok(HttpResponse::Ok().body(
         ThreadTemplate {

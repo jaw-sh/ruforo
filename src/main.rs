@@ -13,7 +13,7 @@ mod forum;
 pub mod frontend;
 mod index;
 mod login;
-pub mod proof;
+pub mod orm;
 mod status;
 pub mod templates;
 mod thread;
