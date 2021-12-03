@@ -15,6 +15,7 @@ mod index;
 mod login;
 pub mod proof;
 mod status;
+use sea_orm::{entity::*, query::*};
 pub mod templates;
 mod thread;
 pub mod ugc;
@@ -37,8 +38,8 @@ async fn main() -> std::io::Result<()> {
         }
     };
     let salt = SaltString::new(&salt).unwrap();
-
-    let my_data = web::Data::new(MyAppData::new(salt));
+    let pool = ruforo::new_db_pool().await.expect("Failed to create pool");
+    let my_data = web::Data::new(MyAppData::new(pool, salt));
 
     // // Argon2 with default params (Argon2id v19)
     // let argon2 = web::Data::new(Argon2::default());

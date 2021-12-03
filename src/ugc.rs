@@ -1,13 +1,8 @@
 use actix_web::{error, Error};
 use chrono::prelude::Utc;
-use diesel::pg::PgConnection;
-use diesel::prelude::*;
-use ruforo::models::{NewUgc, NewUgcRevision, NewUgcRevisionWithContext, Ugc, UgcRevision};
 
 pub fn create_ugc(db: &PgConnection, revision_raw: NewUgcRevision) -> Result<UgcRevision, Error> {
     use diesel::insert_into;
-    use ruforo::schema::ugc::dsl::*;
-    use ruforo::schema::ugc_revisions::dsl::*;
 
     // Input validation.
     let revision = match validate_ugc(revision_raw) {

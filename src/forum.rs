@@ -1,8 +1,6 @@
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
 use chrono::prelude::Utc;
-use diesel::prelude::*;
-use ruforo::models::Thread;
 use ruforo::MyAppData;
 use serde::Deserialize;
 
@@ -25,10 +23,6 @@ pub async fn create_thread(
     form: web::Form<NewThreadFormData>,
 ) -> Result<HttpResponse, Error> {
     use crate::ugc::create_ugc;
-    use diesel::insert_into;
-    use ruforo::models::{NewPost, NewThread, NewUgcRevision, Post, UgcRevision};
-    use ruforo::schema::posts::dsl::*;
-    use ruforo::schema::threads::dsl::*;
 
     let conn = match data.pool.get() {
         Ok(conn) => conn,
@@ -84,8 +78,6 @@ pub async fn create_thread(
 
 #[get("/forums/")]
 pub async fn read_forum(data: web::Data<MyAppData<'static>>) -> Result<HttpResponse, Error> {
-    use ruforo::schema::threads::dsl::*;
-
     let conn = match data.pool.get() {
         Ok(conn) => conn,
         Err(err) => return Err(error::ErrorInternalServerError(err)),
