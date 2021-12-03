@@ -12,9 +12,9 @@
 
 <form action="/forums/post-thread" method="post">
     <h2>New Thread</h2>
-    <div><label>Title: <input type="text" name="title" /></div>
-    <div><label>Subtitle: <input type="text" name="subtitle" /></div>
-    <div><textarea name="content" rows="8" cols="80"></textarea></div>
-    <div><button>Sneed</button></div>
+    <input type="text" name="title" placeholder="Title" />
+    <input type="text" name="subtitle" placeholder="Subtitle (optional)" />
+    <textarea name="content" rows="8" cols="80"></textarea>
+    <button>Sneed</button>
 </form>
 {% endblock %}

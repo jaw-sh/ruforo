@@ -21,13 +21,13 @@ pub async fn create_ugc(
     let revision = validate_ugc(revision).map_err(|err| err)?;
 
     // Insert new UGC reference with only default values.
-    let mut new_ugc = dbg!(ugc::ActiveModel {
+    let mut new_ugc = ugc::ActiveModel {
         ugc_revision_id: Set(None),
         ..Default::default()
     }
     .insert(pool)
     .await
-    .map_err(|_| error::ErrorInternalServerError("Failed to insert new UGC."))?);
+    .map_err(|_| error::ErrorInternalServerError("Failed to insert new UGC."))?;
 
     // Use supplied _revision to build a UGC Revision with referebasences we just created.
     let new_revision: ugc_revisions::ActiveModel = ugc_revisions::ActiveModel {

@@ -1,16 +1,9 @@
 use crate::orm::{posts, threads};
+use crate::thread::{validate_thread_form, NewThreadFormData};
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
 use sea_orm::entity::*;
-use serde::Deserialize;
-
-#[derive(Deserialize)]
-pub struct NewThreadFormData {
-    title: String,
-    subtitle: Option<String>,
-    content: String,
-}
 
 #[derive(Template)]
 #[template(path = "forum.html")]
@@ -24,6 +17,9 @@ pub async fn create_thread(
     form: web::Form<NewThreadFormData>,
 ) -> Result<HttpResponse, Error> {
     use crate::ugc::{create_ugc, NewUgcPartial};
+
+    // Run form data through validator.
+    let form = validate_thread_form(form).map_err(|err| err)?;
 
     // TODO: This belongs in a transaction!
     // Step 1. Create the UGC.

@@ -3,10 +3,18 @@ use crate::orm::threads::Entity as Thread;
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
-use sea_orm::QueryFilter;
 use sea_orm::entity::*;
+use sea_orm::QueryFilter;
 use serde::Deserialize;
 
+#[derive(Deserialize)]
+pub struct NewThreadFormData {
+    pub title: String,
+    pub subtitle: Option<String>,
+    pub content: String,
+}
+
+// TODO: Move to post.rs or templates.rs?
 pub struct PostForTemplate {
     pub id: i32,
     pub thread_id: i32,
@@ -129,4 +137,23 @@ pub async fn read_thread(
         .render()
         .unwrap(),
     ))
+}
+
+pub fn validate_thread_form(
+    form: web::Form<NewThreadFormData>,
+) -> Result<NewThreadFormData, Error> {
+    let title = form.title.trim().to_owned();
+    let subtitle = form.subtitle.to_owned().filter(|x| !x.is_empty());
+
+    if title.is_empty() {
+        return Err(error::ErrorUnprocessableEntity(
+            "Threads must have a title.",
+        ));
+    }
+
+    Ok(NewThreadFormData {
+        title,
+        subtitle,
+        content: form.content.to_owned(),
+    })
 }
