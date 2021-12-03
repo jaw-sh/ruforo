@@ -5,14 +5,6 @@ use chrono::prelude::Utc;
 use ruforo::MyAppData;
 use serde::Deserialize;
 
-// pub struct Thread {
-//     pub id: i32,
-//     pub user_id: Option<i32>,
-//     pub created_at: NaiveDateTime,
-//     pub title: String,
-//     pub subtitle: Option<String>,
-// }
-
 pub struct PostForTemplate {
     pub id: i32,
     pub thread_id: i32,
@@ -112,23 +104,27 @@ pub async fn read_thread(
     {
         Ok(posts) => posts
             .into_iter()
-            .map(|post| PostForTemplate {
-                id: post.0.id,
-                created_at: post.0.created_at,
-                updated_at: post
-                    .1
-                    .as_ref()
-                    .map(|x| x.created_at)
-                    .unwrap_or(post.0.created_at),
-                user_id: post.0.user_id,
-                thread_id: post.0.thread_id,
-                ip_id: post.1.as_ref().map(|x| x.ip_id).unwrap_or(None),
-                ugc_id: post.1.as_ref().map(|x| x.ugc_id).unwrap(),
-                content: post
-                    .1
-                    .as_ref()
-                    .map(|x| x.to_owned().content)
-                    .unwrap_or(None),
+            .map(|post| match post.1 {
+                Some(ugc) => PostForTemplate {
+                    id: post.0.id,
+                    created_at: post.0.created_at,
+                    updated_at: ugc.created_at,
+                    user_id: post.0.user_id,
+                    thread_id: post.0.thread_id,
+                    ugc_id: post.0.ugc_id,
+                    ip_id: ugc.ip_id,
+                    content: ugc.content.to_owned(),
+                },
+                None => PostForTemplate {
+                    id: post.0.id,
+                    created_at: post.0.created_at,
+                    updated_at: post.0.created_at,
+                    user_id: post.0.user_id,
+                    thread_id: post.0.thread_id,
+                    ugc_id: post.0.ugc_id,
+                    ip_id: None,
+                    content: None,
+                },
             })
             .collect(),
         Err(_) => {
