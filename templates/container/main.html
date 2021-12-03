@@ -13,73 +13,9 @@
     </script>
 
     {% block stylesheets %}
-    {#
-    <link rel="stylesheet" href="/assets/css/styles.css" />
-    <link rel="stylesheet" href="/assets/css/print.css" media="print" />
-    #}
+    <link rel="stylesheet" type="text/css" href="/style.css" />
+    {# <link rel="stylesheet" type="text/css" href="/assets/css/print.css" media="print" /> #}
     {% endblock %}
-
-    {# This will be moved later. #}
-    <style>
-        html, body {
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            display: flex;
-            flex-direction: column;
-            font: 1rem / 1.4 sans-serif;
-            font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-        }
-        header, footer {
-            min-height: 100px;
-        }
-        main {
-            flex: 1;
-        }
-        footer {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .container {
-            margin: 0 auto;
-            width: 80%;
-            padding: 16px;
-        }
-        .footer-inner {
-            font-size: 0.9rem;
-            text-align: center;
-        }
-
-        .subtitle {
-            font-weight: normal;
-        }
-
-        .message {
-            border: 1px solid #666666;
-            display: flex;
-            flex-direction: row;
-            margin: 1rem 0;
-        }
-        .message-cell {
-            padding: 8px;
-        }
-        .message-cell--author {
-            width: 144px;
-        }
-        .message-cell--main {
-            flex: 5;
-        }
-        .message-header {
-            font-size: 0.9rem;
-        }
-        .message-content {
-            margin: 0.5rem 0 0 0;
-        }
-    </style>
 
     {# These are very important for SEO.
     <meta name="description" content="Page description" />
@@ -117,9 +53,9 @@
     </main>
     <footer class="container">
         <div class="footer-inner">
-        {% block footer %}
-            <small>🐍 Live Free or Die</small>
-        {% endblock %}
+            {% block footer %}
+            🐍 Live Free or Die
+            {% endblock %}
         </div>
     </footer>
 

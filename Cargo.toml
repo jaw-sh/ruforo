@@ -19,6 +19,7 @@ env_logger = "0.9.0"
 futures = "0.3.18"
 futures-util = "0.3.18"
 lettre = "0.10.0-rc.4"
+rsass = "^0.22"
 sea-orm = { version = "0.4.0", features = [ "sqlx-postgres", "runtime-actix-rustls", "macros" ], default-features = false }
 serde = "1.0.130"
 uuid = { version = "0.8.2", default-features = false, features = ["v4"] }

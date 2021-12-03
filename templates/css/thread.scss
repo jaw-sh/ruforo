@@ -1,0 +1,36 @@
+.subtitle {
+    font-weight: normal;
+}
+
+.message {
+    border: 1px solid #666666;
+    display: flex;
+    flex-direction: row;
+    margin: 1rem 0;
+}
+.message-cell {
+    padding: 8px;
+}
+.message-cell--author {
+    width: 144px;
+}
+.message-cell--main {
+    flex: 5;
+}
+.message-header {
+    font-size: 0.8rem;
+}
+.message-content {
+    margin: 0.5rem 0 0 0;
+}
+.message-footer {
+    display: flex;
+    font-size: 0.8rem;
+}
+.message-footer--left,
+.message-footer--right {
+    flex: 1;
+}
+.message-footer--right {
+    text-align: right;
+}
