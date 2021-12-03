@@ -4,7 +4,7 @@
     </div>
     <div class="message-cell message-cell--main">
         <div class="message-header">
-            {{ post.created_at }}
+            <a href="/threads/{{ post.thread_id }}/post-{{ post.id }}">{{ post.created_at }}</a>
         </div>
         <div class="message-content">
             {% match post.content %}{% when Some with (content) %}
@@ -12,7 +12,13 @@
             {% when None %}{% endmatch %}
         </div>
         <div class="message-footer">
-            <!-- Stickers Here -->
+            <div class="message-footer--left">
+                {# Mod Checkbox, Report, Delete, IP, Warn #}
+                <a href="/posts/{{ post.id }}/edit">Edit</a>
+            </div>
+            <div class="message-footer--right">
+                {# Like, Quote, Reply #}
+            </div>
         </div>
     </div>
 </div>
