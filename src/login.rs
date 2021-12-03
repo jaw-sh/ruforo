@@ -2,7 +2,8 @@
 use crate::proof::users;
 use crate::proof::users::Entity as Users;
 use crate::templates::LoginTemplate;
-use actix_web::{get, post, web, HttpResponse, Responder};
+use actix_web::http::StatusCode;
+use actix_web::{get, post, web, Error, HttpResponse, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use askama_actix::TemplateToResponse;
 use ruforo::MyAppData;
@@ -47,42 +48,45 @@ pub async fn login_post(
     my: web::Data<MyAppData<'static>>,
 ) -> impl Responder {
     // don't forget to sanitize kek and add error handling
-    // let pass_match = match login(&conn, &form.username, &form.password, &my2) {
-    //     Ok(v) => v,
-    //     Err(e) => {
-    //         eprintln!("{}", e);
-    //         HttpResponse::InternalServerError().finish();
-    //     }
+    // let pass_match = login(&my.pool, &form.username, &form.password, &my).await;
+    let pass_match = login(&my.pool, &form.username, &form.password, &my).await;
+    // .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let pass_match = match pass_match {
+        Ok(v) => v,
+        Err(_) => {
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    // .map_err(|_| HttpResponse::InternalServerError().finish());
+    // HttpResponse::Ok().finish()
+    // Ok(v) => v,
+    // Err(e) => {
+    //     eprintln!("{}", e);
+    //     HttpResponse::InternalServerError().finish();
     // }
-    match pass_match {
-        Ok(pass_match) => match pass_match {
-            Ok(pass_match) => {
-                if pass_match {
-                    match session.insert("logged_in", true) {
-                        Ok(_) => {
-                            let ses = ruforo::Session {
-                                expire: chrono::Utc::now().naive_utc(),
-                            };
-                            let sessions = &mut *my.cache.sessions.write().unwrap();
-                            loop {
-                                let uuid = Uuid::new_v4();
-                                if sessions.contains_key(&uuid) == false {
-                                    sessions.insert(uuid, ses);
-                                    break;
-                                }
-                            }
-                            // new_session(my.pool.clone(), &my.cache.sessions, 0).await; // TODO replace user_id
-                            HttpResponse::Ok().finish()
-                        }
-                        Err(_) => HttpResponse::InternalServerError().finish(),
+    // };
+    if pass_match {
+        match session.insert("logged_in", true) {
+            Ok(_) => {
+                let ses = ruforo::Session {
+                    expire: chrono::Utc::now().naive_utc(),
+                };
+                let sessions = &mut *my.cache.sessions.write().unwrap();
+                loop {
+                    let uuid = Uuid::new_v4();
+                    if sessions.contains_key(&uuid) == false {
+                        sessions.insert(uuid, ses);
+                        break;
                     }
-                } else {
-                    HttpResponse::Unauthorized().finish()
                 }
+                // new_session(my.pool.clone(), &my.cache.sessions, 0).await; // TODO replace user_id
+                HttpResponse::Ok().finish()
             }
             Err(_) => HttpResponse::InternalServerError().finish(),
-        },
-        Err(e) => e,
+        }
+    } else {
+        HttpResponse::Unauthorized().finish()
     }
 }
 
