@@ -1,2 +1,21 @@
-* using beta of actix-session, actix-web, actix-web-actors in order to get support for actix 0.12
-* using git version of ashkama to get support for beta version of actix-web
+# ruforo
+_Name pending._
+
+PROJECT_NAME is a traditional web forum built in Rust.
+
+## Stack
+ - Rust
+   - Actix-Web
+   - Askama for Templating
+   - SeaQL (sqlx) for ORM
+ - Postgres
+
+## Aspirations
+ - Minimal bloat.
+ - Unit tested.
+ - Event driven WebSocket subscriptions.
+ - Total replacement for XenForo.
+
+## Still trying to figure out
+ - l10n / i18n
+ - JavaScript framework, if any, or JavaScript deployment stack
