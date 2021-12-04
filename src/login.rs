@@ -41,20 +41,16 @@ async fn login(
         .map_err(|e| {
             log::error!("Login: {}", e);
             error::ErrorInternalServerError("DB error")
-        })?;
-
-    match user {
-        Some(user) => {
-            let parsed_hash = PasswordHash::new(&user.password).unwrap();
-            my.argon2
-                .verify_password(pass_.as_bytes(), &parsed_hash)
-                .map_err(|_| error::ErrorInternalServerError("user not found or bad password"))?;
-            Ok(user.id)
-        }
-        None => Err(error::ErrorInternalServerError(
+        })?
+        .ok_or(error::ErrorInternalServerError(
             "user not found or bad password",
-        )),
-    }
+        ))?;
+
+    let parsed_hash = PasswordHash::new(&user.password).unwrap();
+    my.argon2
+        .verify_password(pass_.as_bytes(), &parsed_hash)
+        .map_err(|_| error::ErrorInternalServerError("user not found or bad password"))?;
+    Ok(user.id)
 }
 
 #[post("/login")]

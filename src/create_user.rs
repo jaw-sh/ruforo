@@ -16,13 +16,13 @@ pub struct FormData {
 
 async fn insert_new_user(
     db: &DatabaseConnection,
-    name_: &str,
-    pass_: &str,
+    name: &str,
+    pass: &str,
 ) -> Result<InsertResult<users::ActiveModel>, DbErr> {
     let user = users::ActiveModel {
         created_at: Set(Utc::now().naive_utc()),
-        name: Set(name_.to_owned()),
-        password: Set(pass_.to_owned()),
+        name: Set(name.to_owned()),
+        password: Set(pass.to_owned()),
         ..Default::default() // all other attributes are `Unset`
     };
     // let res = user.insert(conn).await.expect("Error inserting person");
