@@ -12,9 +12,7 @@ CREATE TABLE threads
     last_post_id  int NULL,
     last_post_at  timestamp NULL,
     CONSTRAINT pk_thread_id PRIMARY KEY ( id ),
-    CONSTRAINT fk_thread_user_id FOREIGN KEY ( user_id ) REFERENCES users ( id ),
-    CONSTRAINT fk_thread_first_post_id FOREIGN KEY ( first_post_id ) REFERENCES threads ( id ),
-    CONSTRAINT fk_thread_last_post_id FOREIGN KEY ( last_post_id ) REFERENCES threads ( id )
+    CONSTRAINT fk_thread_user_id FOREIGN KEY ( user_id ) REFERENCES users ( id )
 );
 
 CREATE INDEX index_thread_user_id ON threads ( user_id );
@@ -40,3 +38,6 @@ CREATE TABLE posts
 CREATE INDEX index_post_thread_id ON posts ( thread_id );
 CREATE INDEX index_post_ugc_id ON posts ( ugc_id );
 CREATE INDEX index_post_user_id ON posts ( user_id );
+
+ALTER TABLE threads ADD CONSTRAINT fk_thread_first_post_id FOREIGN KEY ( first_post_id ) REFERENCES posts ( id );
+ALTER TABLE threads ADD CONSTRAINT fk_thread_last_post_id FOREIGN KEY ( last_post_id ) REFERENCES posts ( id );

@@ -4,9 +4,9 @@ use crate::post::{NewPostFormData, PostForTemplate};
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
-use sea_orm::entity::*;
 use sea_orm::sea_query::Expr;
 use sea_orm::QueryFilter;
+use sea_orm::{entity::*, query::*};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -32,16 +32,23 @@ pub async fn create_reply(
     use crate::orm::{posts, threads};
     use crate::ugc::{create_ugc, NewUgcPartial};
 
+    // Begin Transaction
+    let txn = data
+        .pool
+        .begin()
+        .await
+        .map_err(|err| error::ErrorInternalServerError(err))?;
+
     let thread_id = path.into_inner().0;
     let our_thread = Thread::find_by_id(thread_id)
-        .one(&data.pool)
+        .one(&txn)
         .await
         .map_err(|_| error::ErrorInternalServerError("Could not look up thread."))?
         .ok_or_else(|| error::ErrorNotFound("Thread not found."))?;
 
     // Insert ugc and first revision
     let ugc_revision = create_ugc(
-        &data.pool,
+        &txn,
         NewUgcPartial {
             ip_id: None,
             user_id: None,
@@ -56,16 +63,26 @@ pub async fn create_reply(
         thread_id: Set(our_thread.id),
         ugc_id: ugc_revision.ugc_id,
         created_at: ugc_revision.created_at,
-        position: Set(our_thread.post_count),
+        position: Set(our_thread.post_count + 1),
         ..Default::default()
     }
-    .insert(&data.pool)
+    .insert(&txn)
     .await
     .map_err(|err| error::ErrorInternalServerError(err))?;
 
+    // Commit transaction
+    txn.commit()
+        .await
+        .map_err(|err| error::ErrorInternalServerError(err))?;
+
     // Update thread
     let post_id = new_post.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
+    dbg!(&post_id);
     threads::Entity::update_many()
+        .col_expr(
+            threads::Column::PostCount,
+            Expr::value(our_thread.post_count + 1),
+        )
         .col_expr(threads::Column::LastPostId, Expr::value(post_id))
         .col_expr(
             threads::Column::LastPostAt,
@@ -74,7 +91,7 @@ pub async fn create_reply(
         .filter(threads::Column::Id.eq(thread_id))
         .exec(&data.pool)
         .await
-        .map_err(|_| error::ErrorInternalServerError("Failed to update UGC to living revision."))?;
+        .map_err(|err| error::ErrorInternalServerError(err))?;
 
     Ok(HttpResponse::Found()
         .append_header(("Location", format!("/threads/{}/", our_thread.id)))

@@ -2,8 +2,8 @@ use crate::orm::{ugc, ugc_revisions};
 use actix_web::{error, Error};
 use chrono::prelude::Utc;
 use sea_orm::sea_query::Expr;
-use sea_orm::{entity::*, query::*, Set};
 use sea_orm::ConnectionTrait;
+use sea_orm::{entity::*, query::*, Set};
 
 // Contains only the UGC we can get from a form submission.
 pub struct NewUgcPartial<'a> {

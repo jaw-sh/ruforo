@@ -62,17 +62,19 @@ pub async fn create_thread(
     // Step 3. Create a post with the correct associations.
     let new_post = posts::ActiveModel {
         thread_id: Set(thread_res.last_insert_id),
-        ugc_id: revision.id,
+        ugc_id: revision.ugc_id,
         created_at: revision.created_at.clone(),
         position: Set(1),
         ..Default::default()
     }
     .insert(&txn)
     .await
-    .map_err(|_| error::ErrorInternalServerError("Failed to insert new post."))?;
+    .map_err(|err| error::ErrorInternalServerError(err))?;
 
+    // Step 4. Update the thread to include last, first post id info.
     let post_id = new_post.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
     threads::Entity::update_many()
+        .col_expr(threads::Column::PostCount, Expr::value(1))
         .col_expr(threads::Column::FirstPostId, Expr::value(post_id))
         .col_expr(threads::Column::LastPostId, Expr::value(post_id))
         .col_expr(
@@ -84,6 +86,7 @@ pub async fn create_thread(
         .await
         .map_err(|_| error::ErrorInternalServerError("Failed to update UGC to living revision."))?;
 
+    // Close transaction
     txn.commit()
         .await
         .map_err(|err| error::ErrorInternalServerError(err))?;
