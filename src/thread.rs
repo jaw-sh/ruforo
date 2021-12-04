@@ -77,7 +77,6 @@ pub async fn create_reply(
 
     // Update thread
     let post_id = new_post.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
-    dbg!(&post_id);
     threads::Entity::update_many()
         .col_expr(
             threads::Column::PostCount,
