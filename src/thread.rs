@@ -50,13 +50,13 @@ pub async fn create_reply(
 
     posts::ActiveModel {
         thread_id: Set(our_thread.id),
-        ugc_id: ugc_revision.id,
-        created_at: ugc_revision.created_at.to_owned(),
+        ugc_id: ugc_revision.ugc_id,
+        created_at: ugc_revision.created_at,
         ..Default::default()
     }
     .insert(&data.pool)
     .await
-    .map_err(|_| error::ErrorInternalServerError("Failed to insert new post."))?;
+    .map_err(|err| error::ErrorInternalServerError(err))?;
 
     Ok(HttpResponse::Found()
         .append_header(("Location", format!("/threads/{}/", our_thread.id)))
