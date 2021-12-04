@@ -8,6 +8,13 @@ use std::sync::RwLock;
 use std::time::Duration;
 use uuid::Uuid;
 
+#[derive(Copy, Clone)]
+pub struct Session {
+    pub user_id: i32,
+    pub expire: NaiveDateTime,
+}
+
+pub type SessionMap = RwLock<HashMap<Uuid, Session>>;
 pub struct BigChungus {
     pub val: RwLock<i32>,
     pub start_time: NaiveDateTime,
@@ -53,14 +60,6 @@ pub async fn new_db_pool() -> Result<DatabaseConnection, DbErr> {
         .sqlx_logging(true);
 
     Database::connect(opt).await
-}
-
-pub type SessionMap = RwLock<HashMap<Uuid, Session>>;
-
-#[derive(Copy, Clone)]
-pub struct Session {
-    pub user_id: i32,
-    pub expire: NaiveDateTime,
 }
 
 pub async fn new_session(
