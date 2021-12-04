@@ -12,6 +12,7 @@ PROJECT_NAME is a traditional web forum built in Rust.
 
 ## Aspirations
  - Minimal bloat.
+ - No-JS, Tor compatability.
  - Unit tested.
  - Event driven WebSocket subscriptions.
  - Total replacement for XenForo.
