@@ -1,5 +1,6 @@
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
+use crate::post::{NewPostFormData, PostForTemplate};
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
@@ -14,28 +15,11 @@ pub struct NewThreadFormData {
     pub content: String,
 }
 
-// TODO: Move to post.rs or templates.rs?
-pub struct PostForTemplate {
-    pub id: i32,
-    pub thread_id: i32,
-    pub ip_id: Option<i32>,
-    pub ugc_id: i32,
-    pub user_id: Option<i32>,
-    pub created_at: chrono::NaiveDateTime,
-    pub updated_at: chrono::NaiveDateTime,
-    pub content: Option<String>,
-}
-
 #[derive(Template)]
 #[template(path = "thread.html")]
-pub struct ThreadTemplate {
+pub struct ThreadTemplate<'a> {
     pub thread: super::orm::threads::Model,
-    pub posts: Vec<PostForTemplate>,
-}
-
-#[derive(Deserialize)]
-pub struct NewPostFormData {
-    content: String,
+    pub posts: Vec<PostForTemplate<'a>>,
 }
 
 #[post("/threads/{thread_id}/post-reply")]
@@ -58,7 +42,7 @@ pub async fn create_reply(
         NewUgcPartial {
             ip_id: None,
             user_id: None,
-            content: form.content.to_owned(),
+            content: &form.content,
         },
     )
     .await
@@ -91,43 +75,17 @@ pub async fn read_thread(
         .ok_or_else(|| error::ErrorNotFound("Thread not found."))?;
 
     // Load posts, their ugc associations, and their living revision.
-    let our_posts: Vec<PostForTemplate> = match Post::find()
+    let results = Post::find()
         .find_also_linked(super::orm::posts::PostToUgcRevision)
         .filter(super::orm::posts::Column::ThreadId.eq(our_thread.id))
         .all(&data.pool)
         .await
-    {
-        Ok(posts) => posts
-            .into_iter()
-            .map(|post| match post.1 {
-                Some(ugc) => PostForTemplate {
-                    id: post.0.id,
-                    created_at: post.0.created_at,
-                    updated_at: ugc.created_at,
-                    user_id: post.0.user_id,
-                    thread_id: post.0.thread_id,
-                    ugc_id: post.0.ugc_id,
-                    ip_id: ugc.ip_id,
-                    content: Some(ugc.content.to_owned()),
-                },
-                None => PostForTemplate {
-                    id: post.0.id,
-                    created_at: post.0.created_at,
-                    updated_at: post.0.created_at,
-                    user_id: post.0.user_id,
-                    thread_id: post.0.thread_id,
-                    ugc_id: post.0.ugc_id,
-                    ip_id: None,
-                    content: None,
-                },
-            })
-            .collect(),
-        Err(_) => {
-            return Err(error::ErrorInternalServerError(
-                "Could not find posts for this thread.",
-            ));
-        }
-    };
+        .map_err(|_| error::ErrorInternalServerError("Could not find posts for this thread."))?;
+
+    let mut our_posts = Vec::new();
+    for (p, u) in &results {
+        our_posts.push(PostForTemplate::from_orm(&p, &u));
+    }
 
     Ok(HttpResponse::Ok().body(
         ThreadTemplate {

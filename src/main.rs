@@ -2,10 +2,10 @@ extern crate dotenv;
 
 use actix_session::CookieSession;
 use actix_web::middleware::Logger;
-use actix_web::{web, App, HttpServer};
+use actix_web::{middleware, web, App, HttpServer};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use env_logger::Env;
-use ruforo::MainData;
+use ruforo::MainData; // I do not know why we can't reference this via crate::
 
 mod chat;
 mod create_user;
@@ -14,6 +14,7 @@ pub mod frontend;
 mod index;
 mod login;
 pub mod orm;
+mod post;
 pub mod session;
 mod status;
 pub mod templates;
@@ -49,9 +50,16 @@ async fn main() -> std::io::Result<()> {
     // let parsed_hash = PasswordHash::new(&password_hash).unwrap();
     // assert!(argon2.verify_password(password, &parsed_hash).is_ok());
 
+    // https://www.restapitutorial.com/lessons/httpmethods.html
+    // GET edit_ (get edit form)
+    // POST update_ (apply edit)
+
     // Start HTTP server
     HttpServer::new(move || {
         App::new()
+            // There is theoretically a way to enforce trailing slashes, but this fuckes
+            // with pseudofiles like style.css
+            //.wrap(middleware::NormalizePath::new(middleware::TrailingSlash::Always,))
             .app_data(my_data.clone())
             .wrap(Logger::default())
             .wrap(Logger::new("%a %{User-Agent}i"))
@@ -65,6 +73,8 @@ async fn main() -> std::io::Result<()> {
             .service(create_user::create_user_post)
             .service(login::login_get)
             .service(login::login_post)
+            .service(post::edit_post)
+            .service(post::update_post)
             .service(forum::create_thread)
             .service(forum::read_forum)
             .service(frontend::css::read_css)

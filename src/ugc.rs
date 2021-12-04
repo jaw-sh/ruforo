@@ -1,27 +1,24 @@
 use crate::orm::{ugc, ugc_revisions};
 use actix_web::{error, Error};
 use chrono::prelude::Utc;
+use sea_orm::sea_query::Expr;
 use sea_orm::DatabaseConnection;
-use sea_orm::{entity::*, Set};
+use sea_orm::{entity::*, query::*, Set};
 
 // Contains only the UGC we can get from a form submission.
-pub struct NewUgcPartial {
+pub struct NewUgcPartial<'a> {
     pub ip_id: Option<i32>,
     pub user_id: Option<i32>,
-    pub content: String,
+    pub content: &'a str,
 }
 
-pub async fn create_ugc(
+// Crates a new UGC and an accompanying first revision.
+pub async fn create_ugc<'a>(
     pool: &DatabaseConnection,
-    revision: NewUgcPartial,
+    revision: NewUgcPartial<'a>,
 ) -> Result<ugc_revisions::ActiveModel, Error> {
-    let timestamp = Utc::now().naive_utc();
-
-    // Run model through validator.
-    let revision = validate_ugc(revision).map_err(|err| err)?;
-
     // Insert new UGC reference with only default values.
-    let mut new_ugc = ugc::ActiveModel {
+    let new_ugc = ugc::ActiveModel {
         ugc_revision_id: Set(None),
         ..Default::default()
     }
@@ -29,24 +26,40 @@ pub async fn create_ugc(
     .await
     .map_err(|_| error::ErrorInternalServerError("Failed to insert new UGC."))?;
 
+    let ugc_id = new_ugc.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
+
+    Ok(create_ugc_revision(pool, ugc_id, revision).await?)
+}
+
+// Creates a new UGC revision and sets it as the living revision for the UGC it belongs to.
+pub async fn create_ugc_revision<'a>(
+    pool: &DatabaseConnection,
+    ugc_id: i32,
+    revision: NewUgcPartial<'a>,
+) -> Result<ugc_revisions::ActiveModel, Error> {
+    // Run model through validator.
+    let revision = validate_ugc(revision).map_err(|err| err)?;
+
     // Use supplied _revision to build a UGC Revision with referebasences we just created.
     let new_revision: ugc_revisions::ActiveModel = ugc_revisions::ActiveModel {
-        created_at: Set(timestamp),
-        ugc_id: new_ugc.id.to_owned(),
+        created_at: Set(Utc::now().naive_utc()),
+        ugc_id: Set(ugc_id),
         ip_id: Set(revision.ip_id),
         user_id: Set(revision.user_id),
-        content: Set(revision.content),
+        content: Set(revision.content.to_owned()),
         ..Default::default()
     }
     .insert(pool)
     .await
     .map_err(|_| error::ErrorInternalServerError("Failed to insert new UGC revision."))?;
 
-    // Update the new UGC to point at the living revision we just inserted.
-    new_ugc.ugc_revision_id = Set(Some(new_revision.id.to_owned().unwrap()));
-    new_ugc.update(pool).await.map_err(|_| {
-        error::ErrorInternalServerError("Could not update ugc with living revision id.")
-    })?;
+    let ugc_revision_id = new_revision.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
+    ugc::Entity::update_many()
+        .col_expr(ugc::Column::UgcRevisionId, Expr::value(ugc_revision_id))
+        .filter(ugc::Column::Id.eq(ugc_id))
+        .exec(pool)
+        .await
+        .map_err(|_| error::ErrorInternalServerError("Failed to update UGC to living revision."))?;
 
     Ok(new_revision)
 }
@@ -64,6 +77,6 @@ fn validate_ugc(revision: NewUgcPartial) -> Result<NewUgcPartial, Error> {
     Ok(NewUgcPartial {
         ip_id: revision.ip_id,
         user_id: revision.user_id,
-        content: clean_content.to_owned(),
+        content: clean_content,
     })
 }
