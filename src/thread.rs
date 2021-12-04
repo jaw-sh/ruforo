@@ -35,7 +35,7 @@ pub async fn create_reply(
         .one(&data.pool)
         .await
         .map_err(|_| error::ErrorInternalServerError("Could not look up thread."))?
-        .ok_or_else(|| error::ErrorNotFound("Thread not found."))?;
+        .ok_or(error::ErrorNotFound("Thread not found."))?;
 
     let ugc_revision = create_ugc(
         &data.pool,
@@ -72,7 +72,7 @@ pub async fn read_thread(
         .one(&data.pool)
         .await
         .map_err(|_| error::ErrorInternalServerError("Could not look up thread."))?
-        .ok_or_else(|| error::ErrorNotFound("Thread not found."))?;
+        .ok_or(error::ErrorNotFound("Thread not found."))?;
 
     // Load posts, their ugc associations, and their living revision.
     let results = Post::find()
