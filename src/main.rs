@@ -2,7 +2,7 @@ extern crate dotenv;
 
 use actix_session::CookieSession;
 use actix_web::middleware::Logger;
-use actix_web::{middleware, web, App, HttpServer};
+use actix_web::{web, App, HttpServer};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use env_logger::Env;
 use ruforo::MainData; // I do not know why we can't reference this via crate::

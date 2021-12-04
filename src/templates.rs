@@ -11,7 +11,9 @@ pub struct CreateUserTemplate<'a> {
 #[template(path = "login.html")]
 pub struct LoginTemplate<'a> {
     pub logged_in: bool,
+    pub user_id: Option<i32>,
     pub username: Option<&'a str>,
+    pub token: Option<&'a str>,
 }
 
 #[derive(Template)]

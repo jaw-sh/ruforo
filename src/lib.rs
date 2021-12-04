@@ -8,7 +8,9 @@ use uuid::Uuid;
 
 pub type SessionMap = RwLock<HashMap<Uuid, Session>>;
 
+#[derive(Copy, Clone)]
 pub struct Session {
+    pub user_id: i32,
     pub expire: NaiveDateTime,
 }
 

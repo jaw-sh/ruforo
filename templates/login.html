@@ -9,4 +9,28 @@
         <input type="password" id="password" name="password" placeholder="password"><br>
         <input type="submit">
     </form>
+
+    <div>
+    {% match user_id %}
+        {% when Some with (user_id) %}
+            Found {{ user_id }}
+        {% when None %}
+    {% endmatch %}
+    </div>
+
+    <div>
+    {% match username %}
+        {% when Some with (username) %}
+            Found {{ username }}
+        {% when None %}
+    {% endmatch %}
+    </div>
+
+    <div>
+    {% match token %}
+        {% when Some with (token) %}
+            Found {{ token }}
+        {% when None %}
+    {% endmatch %}
+    </div>
 {% endblock %}
