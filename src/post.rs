@@ -67,7 +67,7 @@ pub async fn edit_post(
         .one(&data.pool)
         .await
         .map_err(|_| error::ErrorInternalServerError("Could not look up post."))?
-        .ok_or(error::ErrorNotFound("Post not found."))?;
+        .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
 
     Ok(HttpResponse::Ok().body(
         PostFormTemplate {
@@ -91,7 +91,7 @@ pub async fn update_post(
         .one(&data.pool)
         .await
         .map_err(|_| error::ErrorInternalServerError("Could not look up post."))?
-        .ok_or(error::ErrorNotFound("Post not found."))?;
+        .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
 
     create_ugc_revision(
         &data.pool,

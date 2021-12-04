@@ -43,9 +43,7 @@ async fn login(
             log::error!("Login: {}", e);
             error::ErrorInternalServerError("DB error")
         })?
-        .ok_or(error::ErrorInternalServerError(
-            "user not found or bad password",
-        ))?;
+        .ok_or_else(|| error::ErrorInternalServerError("user not found or bad password"))?;
 
     let parsed_hash = PasswordHash::new(&user.password).unwrap();
     my.argon2
