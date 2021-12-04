@@ -63,7 +63,6 @@ pub async fn login_post(
     // don't forget to sanitize kek and add error handling
     let user_id = login(&my.pool, &form.username, &form.password, &my).await?;
 
-    log::error!("test");
     let uuid = session::new_session(&my.pool, &my.cache.sessions, user_id)
         .await
         .map_err(|e| {
