@@ -11,6 +11,7 @@ pub async fn new_session(
     user_id: i32,
 ) -> Result<Uuid, DbErr> {
     let ses = ruforo::Session {
+        user_id,
         expire: chrono::Utc::now().naive_utc(),
     };
     let mut uuid;
@@ -33,9 +34,18 @@ pub async fn new_session(
     Ok(uuid)
 }
 
-pub async fn get_session(
+/// copies a session out of the mutex protected hashmap
+pub async fn get_session(ses_map: &SessionMap, uuid: &Uuid) -> Option<ruforo::Session> {
+    match ses_map.read().unwrap().get(uuid) {
+        Some(uuid) => Some(uuid.to_owned()), // TODO add expiration checking
+        None => None,
+    }
+}
+
+/// use get_session instead unless you have a really good reason to talk to the DB
+pub async fn get_session_from_db(
     db: &DatabaseConnection,
-    session: &Uuid,
+    uuid: &Uuid,
 ) -> Result<Option<sessions::Model>, DbErr> {
-    Sessions::find_by_id(session.to_string()).one(db).await
+    Sessions::find_by_id(uuid.to_string()).one(db).await
 }
