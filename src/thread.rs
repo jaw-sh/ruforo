@@ -5,6 +5,7 @@ use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
 use sea_orm::entity::*;
+use sea_orm::sea_query::Expr;
 use sea_orm::QueryFilter;
 use serde::Deserialize;
 
@@ -28,15 +29,17 @@ pub async fn create_reply(
     path: web::Path<(i32,)>,
     form: web::Form<NewPostFormData>,
 ) -> Result<HttpResponse, Error> {
-    use crate::orm::posts;
+    use crate::orm::{posts, threads};
     use crate::ugc::{create_ugc, NewUgcPartial};
 
-    let our_thread = Thread::find_by_id(path.into_inner().0)
+    let thread_id = path.into_inner().0;
+    let our_thread = Thread::find_by_id(thread_id)
         .one(&data.pool)
         .await
         .map_err(|_| error::ErrorInternalServerError("Could not look up thread."))?
         .ok_or_else(|| error::ErrorNotFound("Thread not found."))?;
 
+    // Insert ugc and first revision
     let ugc_revision = create_ugc(
         &data.pool,
         NewUgcPartial {
@@ -48,15 +51,30 @@ pub async fn create_reply(
     .await
     .map_err(|err| error::ErrorInternalServerError(err))?;
 
-    posts::ActiveModel {
+    // Insert post
+    let new_post = posts::ActiveModel {
         thread_id: Set(our_thread.id),
         ugc_id: ugc_revision.ugc_id,
         created_at: ugc_revision.created_at,
+        position: Set(our_thread.post_count),
         ..Default::default()
     }
     .insert(&data.pool)
     .await
     .map_err(|err| error::ErrorInternalServerError(err))?;
+
+    // Update thread
+    let post_id = new_post.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
+    threads::Entity::update_many()
+        .col_expr(threads::Column::LastPostId, Expr::value(post_id))
+        .col_expr(
+            threads::Column::LastPostAt,
+            Expr::value(new_post.created_at.clone().unwrap()), // TODO: Change once SeaQL 0.5.0 is out
+        )
+        .filter(threads::Column::Id.eq(thread_id))
+        .exec(&data.pool)
+        .await
+        .map_err(|_| error::ErrorInternalServerError("Failed to update UGC to living revision."))?;
 
     Ok(HttpResponse::Found()
         .append_header(("Location", format!("/threads/{}/", our_thread.id)))

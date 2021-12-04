@@ -2,8 +2,8 @@ use crate::orm::{ugc, ugc_revisions};
 use actix_web::{error, Error};
 use chrono::prelude::Utc;
 use sea_orm::sea_query::Expr;
-use sea_orm::DatabaseConnection;
 use sea_orm::{entity::*, query::*, Set};
+use sea_orm::ConnectionTrait;
 
 // Contains only the UGC we can get from a form submission.
 pub struct NewUgcPartial<'a> {
@@ -13,10 +13,13 @@ pub struct NewUgcPartial<'a> {
 }
 
 // Crates a new UGC and an accompanying first revision.
-pub async fn create_ugc<'a>(
-    pool: &DatabaseConnection,
+pub async fn create_ugc<'a, C>(
+    pool: &'a C,
     revision: NewUgcPartial<'a>,
-) -> Result<ugc_revisions::ActiveModel, Error> {
+) -> Result<ugc_revisions::ActiveModel, Error>
+where
+    C: ConnectionTrait<'a>,
+{
     // Insert new UGC reference with only default values.
     let new_ugc = ugc::ActiveModel {
         ugc_revision_id: Set(None),
@@ -32,11 +35,14 @@ pub async fn create_ugc<'a>(
 }
 
 // Creates a new UGC revision and sets it as the living revision for the UGC it belongs to.
-pub async fn create_ugc_revision<'a>(
-    pool: &DatabaseConnection,
+pub async fn create_ugc_revision<'a, C>(
+    conn: &'a C,
     ugc_id: i32,
     revision: NewUgcPartial<'a>,
-) -> Result<ugc_revisions::ActiveModel, Error> {
+) -> Result<ugc_revisions::ActiveModel, Error>
+where
+    C: ConnectionTrait<'a>,
+{
     // Run model through validator.
     let revision = validate_ugc(revision).map_err(|err| err)?;
 
@@ -49,7 +55,7 @@ pub async fn create_ugc_revision<'a>(
         content: Set(revision.content.to_owned()),
         ..Default::default()
     }
-    .insert(pool)
+    .insert(conn)
     .await
     .map_err(|_| error::ErrorInternalServerError("Failed to insert new UGC revision."))?;
 
@@ -57,7 +63,7 @@ pub async fn create_ugc_revision<'a>(
     ugc::Entity::update_many()
         .col_expr(ugc::Column::UgcRevisionId, Expr::value(ugc_revision_id))
         .filter(ugc::Column::Id.eq(ugc_id))
-        .exec(pool)
+        .exec(conn)
         .await
         .map_err(|_| error::ErrorInternalServerError("Failed to update UGC to living revision."))?;
 

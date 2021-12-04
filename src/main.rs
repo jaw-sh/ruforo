@@ -82,7 +82,7 @@ async fn main() -> std::io::Result<()> {
             .service(post::edit_post)
             .service(post::update_post)
             .service(forum::create_thread)
-            .service(forum::read_forum)
+            .service(forum::view_forum)
             .service(frontend::css::read_css)
             .service(thread::create_reply)
             .service(thread::read_thread)
