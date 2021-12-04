@@ -1,11 +1,11 @@
 extern crate dotenv;
 
+use crate::session::{new_db_pool, reload_session_cache, MainData};
 use actix_session::CookieSession;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use env_logger::Env;
-use ruforo::MainData; // I do not know why we can't reference this via crate::
 
 mod chat;
 mod create_user;
@@ -21,9 +21,7 @@ pub mod templates;
 mod thread;
 pub mod ugc;
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    // Init logging
+async fn init_data() -> MainData<'static> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     dotenv::dotenv().ok();
@@ -39,9 +37,16 @@ async fn main() -> std::io::Result<()> {
         }
     };
     let salt = SaltString::new(&salt).unwrap();
-    let pool = ruforo::new_db_pool().await.expect("Failed to create pool");
-    let my_data = web::Data::new(MainData::new(pool, salt));
+    let pool = new_db_pool().await.expect("Failed to create pool");
+    let mut data = MainData::new(pool, salt);
+    reload_session_cache(&data.pool, &mut data.cache.sessions)
+        .await
+        .expect("failed to reload_session_cache");
+    data
+}
 
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
     // // Argon2 with default params (Argon2id v19)
     // let argon2 = web::Data::new(Argon2::default());
     // // Hash password to PHC string ($argon2id$v=19$...)
@@ -53,6 +58,7 @@ async fn main() -> std::io::Result<()> {
     // https://www.restapitutorial.com/lessons/httpmethods.html
     // GET edit_ (get edit form)
     // POST update_ (apply edit)
+    let data = web::Data::new(init_data().await);
 
     // Start HTTP server
     HttpServer::new(move || {
@@ -60,7 +66,7 @@ async fn main() -> std::io::Result<()> {
             // There is theoretically a way to enforce trailing slashes, but this fuckes
             // with pseudofiles like style.css
             //.wrap(middleware::NormalizePath::new(middleware::TrailingSlash::Always,))
-            .app_data(my_data.clone())
+            .app_data(data.clone())
             .wrap(Logger::default())
             .wrap(Logger::new("%a %{User-Agent}i"))
             .wrap(

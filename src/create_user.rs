@@ -1,10 +1,10 @@
 use crate::orm::users;
+use crate::session::MainData;
 use crate::templates::CreateUserTemplate;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use argon2::PasswordHasher;
 use askama_actix::TemplateToResponse;
 use chrono::Utc;
-use ruforo::MainData;
 use sea_orm::{entity::*, DatabaseConnection, DbErr, InsertResult};
 use serde::Deserialize;
 
