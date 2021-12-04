@@ -28,7 +28,7 @@ pub async fn create_thread(
         NewUgcPartial {
             ip_id: None,
             user_id: None,
-            content: form.content.to_owned(),
+            content: &form.content,
         },
     )
     .await

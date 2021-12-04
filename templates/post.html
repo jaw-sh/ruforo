@@ -1,0 +1,9 @@
+{% extends "container/main.html" %}
+
+{% block content %}
+<form action="/posts/{{ post.id }}/edit" method="post">
+    <h2>Edit Post</h2>
+    <textarea name="content" rows="8" cols="80">{% match post.content %}{% when Some with (content) %}{{ content }}{% when None %}{% endmatch %}</textarea>
+    <button>Sneed</button>
+</form>
+{% endblock %}
