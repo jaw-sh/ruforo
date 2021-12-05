@@ -3,10 +3,24 @@ pub mod css;
 use actix_web::{error::ErrorInternalServerError, HttpResponse};
 use askama_actix::{Template, TemplateToResponse};
 use bytes::BytesMut;
+use chrono::prelude::{NaiveDateTime, Utc};
+
+#[derive(Debug)]
+pub struct Context {
+    pub request_start: NaiveDateTime,
+}
+
+impl Context {
+    /// Returns human readable request time.
+    pub fn request_time(&self) -> Option<i64> {
+        (self.request_start - Utc::now().naive_utc()).num_microseconds()
+    }
+}
 
 #[derive(Template)]
 #[template(path = "container/public.html", escape = "none")]
-pub struct PublicPageTemplate {
+pub struct PublicPageTemplate<'a> {
+    context: &'a Context,
     content: String,
 }
 
@@ -25,8 +39,10 @@ impl<T: askama::Template> TemplateToPubResponse for T {
         //    return ErrorInternalServerError("Template rendering error (public)").error_response();
         //}
         //PublicPageTemplate { content: buffer }.to_response()
+        dbg!(HttpResponse::Ok().extensions().get::<Context>());
 
         PublicPageTemplate {
+            context: HttpResponse::Ok().extensions().get::<Context>().unwrap(),
             content: self.render().unwrap(),
         }
         .to_response()

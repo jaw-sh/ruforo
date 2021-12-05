@@ -13,6 +13,7 @@ mod forum;
 pub mod frontend;
 mod index;
 mod login;
+mod middleware;
 pub mod orm;
 mod post;
 pub mod session;
@@ -62,7 +63,6 @@ async fn main() -> std::io::Result<()> {
         App::new()
             // There is theoretically a way to enforce trailing slashes, but this fuckes
             // with pseudofiles like style.css
-            //.wrap(middleware::NormalizePath::new(middleware::TrailingSlash::Always,))
             .app_data(data.clone())
             .wrap(Logger::default())
             .wrap(Logger::new("%a %{User-Agent}i"))
@@ -70,7 +70,7 @@ async fn main() -> std::io::Result<()> {
                 CookieSession::signed(&[0; 32]) // <- create cookie based session middleware
                     .secure(false),
             )
-            .service(web::resource("/ws/").route(web::get().to(chat::ws_index)))
+            .wrap(middleware::AppendContext {})
             // https://www.restapitutorial.com/lessons/httpmethods.html
             // GET    edit_ (get edit form)
             // PATCH  update_ (apply edit)
