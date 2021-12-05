@@ -27,3 +27,7 @@ uuid = { version = "0.8.2", default-features = false, features = ["v4"] }
 
 [dev-dependencies]
 actix-test = "0.1.0-beta.7"
+
+[profile.debugo]
+inherits = "release"
+debug = true
