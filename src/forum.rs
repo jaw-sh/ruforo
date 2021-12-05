@@ -51,6 +51,7 @@ pub async fn create_thread(
             .to_owned()
             .map(|s| s.trim().to_owned())
             .filter(|s| s.len() != 0)),
+        view_count: Set(0),
         post_count: Set(1),
         ..Default::default()
     };
@@ -62,17 +63,19 @@ pub async fn create_thread(
     // Step 3. Create a post with the correct associations.
     let new_post = posts::ActiveModel {
         thread_id: Set(thread_res.last_insert_id),
-        ugc_id: revision.id,
+        ugc_id: revision.ugc_id,
         created_at: revision.created_at.clone(),
         position: Set(1),
         ..Default::default()
     }
     .insert(&txn)
     .await
-    .map_err(|_| error::ErrorInternalServerError("Failed to insert new post."))?;
+    .map_err(|err| error::ErrorInternalServerError(err))?;
 
+    // Step 4. Update the thread to include last, first post id info.
     let post_id = new_post.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
     threads::Entity::update_many()
+        .col_expr(threads::Column::PostCount, Expr::value(1))
         .col_expr(threads::Column::FirstPostId, Expr::value(post_id))
         .col_expr(threads::Column::LastPostId, Expr::value(post_id))
         .col_expr(
@@ -84,6 +87,7 @@ pub async fn create_thread(
         .await
         .map_err(|_| error::ErrorInternalServerError("Failed to update UGC to living revision."))?;
 
+    // Close transaction
     txn.commit()
         .await
         .map_err(|err| error::ErrorInternalServerError(err))?;
@@ -98,10 +102,15 @@ pub async fn create_thread(
 
 #[get("/forums/")]
 pub async fn view_forum(data: web::Data<MainData<'static>>) -> Result<HttpResponse, Error> {
-    match threads::Entity::find().all(&data.pool).await {
-        Ok(threads) => {
-            return Ok(HttpResponse::Ok().body(ForumTemplate { threads }.render().unwrap()))
+    Ok(HttpResponse::Ok().body(
+        ForumTemplate {
+            threads: threads::Entity::find()
+                .order_by_desc(threads::Column::LastPostAt)
+                .all(&data.pool)
+                .await
+                .map_err(|err| error::ErrorNotFound(err))?,
         }
-        Err(err) => return Err(error::ErrorNotFound(err)),
-    }
+        .render()
+        .unwrap(),
+    ))
 }

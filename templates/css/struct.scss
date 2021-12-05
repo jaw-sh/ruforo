@@ -1,0 +1,37 @@
+.struct-container {
+    border-collapse: collapse;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+
+}
+
+.struct-item {
+    display: table;
+    table-layout: fixed;
+    border-collapse: collapse;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+.struct-item-cell {
+    display: table-cell;
+    vertical-align: top;
+    padding: 8px;
+}
+.struct-item-cell--icon {
+    width: 50px;
+}
+.struct-item-cell--main {
+    //
+}
+.struct-item-cell--latest {
+    width: 190px;
+}
+.struct-item-cell--meta {
+    font-size: 0.85rem;
+    width: 115px;
+}

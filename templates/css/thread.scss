@@ -19,9 +19,21 @@
 }
 .message-header {
     font-size: 0.8rem;
+
+    &::after {
+        display: block;
+        content: " ";
+        clear: both;
+    }
+}
+.message-header--left {
+    float: left;
+}
+.message-header--right {
+    float: right;
 }
 .message-content {
-    margin: 0.5rem 0 0 0;
+    margin: 0.5rem 0;
 }
 .message-footer {
     display: flex;

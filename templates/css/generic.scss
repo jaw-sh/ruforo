@@ -1,0 +1,21 @@
+dl {
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+}
+dl:before, dl:after {
+    display: table;
+    content: " ";
+}
+dl:after {
+    clear: both;
+}
+dt {
+    float: left;
+    max-width: 100%;
+}
+dd {
+    float: right;
+    text-align: right;
+    max-width: 100%;
+}

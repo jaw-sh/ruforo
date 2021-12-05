@@ -13,6 +13,7 @@ pub struct Model {
     pub title: String,
     #[sea_orm(column_type = "Text", nullable)]
     pub subtitle: Option<String>,
+    pub view_count: i32,
     pub post_count: i32,
     pub first_post_id: i32,
     pub last_post_id: i32,
