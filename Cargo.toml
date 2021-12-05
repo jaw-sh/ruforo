@@ -1,7 +1,7 @@
 [package]
 name = "ruforo"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 actix = "0.12.0"
@@ -27,3 +27,7 @@ uuid = { version = "0.8.2", default-features = false, features = ["v4"] }
 
 [dev-dependencies]
 actix-test = "0.1.0-beta.7"
+
+[profile.debugo]
+inherits = "release"
+debug = true
