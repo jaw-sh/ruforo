@@ -55,9 +55,6 @@ async fn main() -> std::io::Result<()> {
     // let parsed_hash = PasswordHash::new(&password_hash).unwrap();
     // assert!(argon2.verify_password(password, &parsed_hash).is_ok());
 
-    // https://www.restapitutorial.com/lessons/httpmethods.html
-    // GET edit_ (get edit form)
-    // POST update_ (apply edit)
     let data = web::Data::new(init_data().await);
 
     // Start HTTP server
@@ -74,6 +71,11 @@ async fn main() -> std::io::Result<()> {
                     .secure(false),
             )
             .service(web::resource("/ws/").route(web::get().to(chat::ws_index)))
+            // https://www.restapitutorial.com/lessons/httpmethods.html
+            // GET    edit_ (get edit form)
+            // PATCH  update_ (apply edit)
+            // GET    view_ (read/view/render entity)
+            // Note: PUT and PATCH were added, removed, and re-added(?) to the HTML5 spec for <form method="">
             .service(index::index)
             .service(create_user::create_user_get)
             .service(create_user::create_user_post)
@@ -83,9 +85,9 @@ async fn main() -> std::io::Result<()> {
             .service(post::update_post)
             .service(forum::create_thread)
             .service(forum::view_forum)
-            .service(frontend::css::read_css)
+            .service(frontend::css::view_css)
             .service(thread::create_reply)
-            .service(thread::read_thread)
+            .service(thread::view_thread)
             .service(status::status_get)
             .service(status::status_get)
     })

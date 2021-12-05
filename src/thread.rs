@@ -98,11 +98,11 @@ pub async fn create_reply(
 }
 
 #[get("/threads/{thread_id}/")]
-pub async fn read_thread(
+pub async fn view_thread(
     path: web::Path<(i32,)>,
     data: web::Data<MainData<'static>>,
 ) -> Result<HttpResponse, Error> {
-    use crate::orm::threads;
+    use crate::orm::{posts, threads};
     use futures::{future::TryFutureExt, try_join};
 
     let thread = Thread::find_by_id(path.into_inner().0)
@@ -124,8 +124,9 @@ pub async fn read_thread(
 
     // Load posts, their ugc associations, and their living revision.
     let pfuture = Post::find()
-        .find_also_linked(super::orm::posts::PostToUgcRevision)
-        .filter(super::orm::posts::Column::ThreadId.eq(thread.id))
+        .find_also_linked(posts::PostToUgcRevision)
+        .filter(posts::Column::ThreadId.eq(thread.id))
+        .order_by_asc(posts::Column::Position)
         .all(&data.pool)
         //.await
         .map_err(|_| error::ErrorInternalServerError("Could not find posts for this thread."));
