@@ -102,10 +102,15 @@ pub async fn create_thread(
 
 #[get("/forums/")]
 pub async fn view_forum(data: web::Data<MainData<'static>>) -> Result<HttpResponse, Error> {
-    match threads::Entity::find().all(&data.pool).await {
-        Ok(threads) => {
-            return Ok(HttpResponse::Ok().body(ForumTemplate { threads }.render().unwrap()))
+    Ok(HttpResponse::Ok().body(
+        ForumTemplate {
+            threads: threads::Entity::find()
+                .order_by_desc(threads::Column::LastPostAt)
+                .all(&data.pool)
+                .await
+                .map_err(|err| error::ErrorNotFound(err))?,
         }
-        Err(err) => return Err(error::ErrorNotFound(err)),
-    }
+        .render()
+        .unwrap(),
+    ))
 }
