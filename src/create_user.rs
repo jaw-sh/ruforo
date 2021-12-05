@@ -23,11 +23,11 @@ async fn insert_new_user(
         created_at: Set(Utc::now().naive_utc()),
         name: Set(name.to_owned()),
         password: Set(pass.to_owned()),
+        password_cipher: Set(users::Cipher::Argon2id),
         ..Default::default() // all other attributes are `Unset`
     };
     // let res = user.insert(conn).await.expect("Error inserting person");
     let res = users::Entity::insert(user).exec(db).await?;
-    println!("Result: {:?}", res);
     Ok(res)
 }
 
@@ -52,6 +52,6 @@ pub async fn create_user_post(
         .to_string();
     insert_new_user(&my.pool, &form.username, &password_hash)
         .await
-        .map_err(|_| error::ErrorInternalServerError("user not found or bad password"))?;
+        .map_err(|e| { log::error!("{}", e); error::ErrorInternalServerError("user not found or bad password") })?;
     Ok(HttpResponse::Ok().finish())
 }
