@@ -12,6 +12,16 @@ pub struct Model {
     pub name: String,
     #[sea_orm(column_type = "Text")]
     pub password: String,
+    pub password_cipher: Cipher,
+}
+
+#[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum)]
+#[sea_orm(rs_type = "String", db_type = "String(Some(1))")]
+pub enum Cipher {
+    #[sea_orm(string_value = "argon2id")]
+    Argon2id,
+    #[sea_orm(string_value = "bcrypt")]
+    Bcrypt,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
