@@ -2,11 +2,20 @@
 
 {% block content %}
 <h2>Threads</h2>
-<div>
+<div class="struct-container">
     {% for thread in threads %}
-        <div>
-            <a href="/threads/{{ thread.id }}/">{{ thread.title }}<a>
+    <div class="struct-item struct-item--thread">
+        <div class="struct-item-cell struct-item-cell--icon struct-item-cell--iconStart" ></div>
+        <div class="struct-item-cell struct-item-cell--main">
+            <a href="/threads/{{ thread.id }}/">{{ thread.title }}</a>
         </div>
+        <div class="struct-item-cell struct-item-cell--meta">
+            <dl><dt>Replies:</dt><dd>{{ thread.post_count }}</dd></dl>
+            <dl><dt>Views:</dt><dd>{{ thread.view_count }}</dd></dl>
+        </div>
+        <div class="struct-item-cell struct-item-cell--latest"></div>
+        <div class="struct-item-cell struct-item-cell--icon struct-item-cell--iconEnd"></div>
+    </div>
     {% endfor %}
 </div>
 

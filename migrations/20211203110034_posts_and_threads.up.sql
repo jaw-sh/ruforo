@@ -7,6 +7,7 @@ CREATE TABLE threads
     created_at    timestamp NOT NULL,
     title         text NOT NULL,
     subtitle      text NULL,
+    view_count    int NOT NULL,
     post_count    int NOT NULL,
     first_post_id int NULL,
     last_post_id  int NULL,

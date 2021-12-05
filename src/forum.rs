@@ -51,6 +51,7 @@ pub async fn create_thread(
             .to_owned()
             .map(|s| s.trim().to_owned())
             .filter(|s| s.len() != 0)),
+        view_count: Set(0),
         post_count: Set(1),
         ..Default::default()
     };
