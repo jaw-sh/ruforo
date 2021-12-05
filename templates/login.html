@@ -1,36 +1,32 @@
-{% extends "container/main.html" %}
+<h2>Login</h2>
+<form action="/login" method="post">
+    <label for="username">username:</label><br>
+    <input type="text" id="username" name="username" placeholder="username"><br>
+    <label for="password">password:</label><br>
+    <input type="password" id="password" name="password" placeholder="password"><br>
+    <input type="submit">
+</form>
 
-{% block content %}
-    <h2>Login</h2>
-    <form action="/login" method="post">
-        <label for="username">username:</label><br>
-        <input type="text" id="username" name="username" placeholder="username"><br>
-        <label for="password">password:</label><br>
-        <input type="password" id="password" name="password" placeholder="password"><br>
-        <input type="submit">
-    </form>
+<div>
+{% match user_id %}
+    {% when Some with (user_id) %}
+        Found {{ user_id }}
+    {% when None %}
+{% endmatch %}
+</div>
 
-    <div>
-    {% match user_id %}
-        {% when Some with (user_id) %}
-            Found {{ user_id }}
-        {% when None %}
-    {% endmatch %}
-    </div>
+<div>
+{% match username %}
+    {% when Some with (username) %}
+        Found {{ username }}
+    {% when None %}
+{% endmatch %}
+</div>
 
-    <div>
-    {% match username %}
-        {% when Some with (username) %}
-            Found {{ username }}
-        {% when None %}
-    {% endmatch %}
-    </div>
-
-    <div>
-    {% match token %}
-        {% when Some with (token) %}
-            Found {{ token }}
-        {% when None %}
-    {% endmatch %}
-    </div>
-{% endblock %}
+<div>
+{% match token %}
+    {% when Some with (token) %}
+        Found {{ token }}
+    {% when None %}
+{% endmatch %}
+</div>

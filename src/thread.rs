@@ -1,3 +1,4 @@
+use crate::frontend::TemplateToPubResponse;
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
 use crate::post::{NewPostFormData, PostForTemplate};
@@ -91,7 +92,7 @@ async fn get_thread_and_replies_for_page(
         posts.push(PostForTemplate::from_orm(&p, &u));
     }
 
-    Ok(HttpResponse::Ok().body(ThreadTemplate { thread, posts }.render().unwrap()))
+    Ok(ThreadTemplate { thread, posts }.to_pub_response())
 }
 
 #[post("/threads/{thread_id}/post-reply")]

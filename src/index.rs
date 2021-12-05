@@ -1,7 +1,7 @@
 use crate::templates::IndexTemplate;
 use actix_session::Session;
 use actix_web::{get, Responder};
-use askama_actix::TemplateToResponse;
+use crate::frontend::TemplateToPubResponse;
 
 #[get("/")]
 async fn index(_session: Session) -> impl Responder {
@@ -15,5 +15,5 @@ async fn index(_session: Session) -> impl Responder {
         logged_in: true,
         username: None,
     }
-    .to_response()
+    .to_pub_response()
 }

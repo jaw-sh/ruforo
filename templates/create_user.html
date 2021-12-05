@@ -1,12 +1,8 @@
-{% extends "container/main.html" %}
-
-{% block content %}
-    <h2>Create User</h2>
-    <form action="/create_user" method="post">
-        <label for="username">username:</label><br>
-        <input type="text" id="username" name="username" placeholder="username"><br>
-        <label for="password">password:</label><br>
-        <input type="password" id="password" name="password" placeholder="password"><br>
-        <input type="submit">
-    </form>
-{% endblock %}
+<h2>Create User</h2>
+<form action="/create_user" method="post">
+    <label for="username">username:</label><br>
+    <input type="text" id="username" name="username" placeholder="username"><br>
+    <label for="password">password:</label><br>
+    <input type="password" id="password" name="password" placeholder="password"><br>
+    <input type="submit">
+</form>

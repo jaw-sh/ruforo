@@ -1,6 +1,3 @@
-{% extends "container/main.html" %}
-
-{% block content %}
 <div>
     <h2>{{ thread.title }}{% match thread.subtitle %}{% when Some with (subtitle) %}<span class="subtitle"> - {{ subtitle }}</span>{% when None %}{% endmatch %}</h2>
     {% for post in posts %}
@@ -13,4 +10,3 @@
     <textarea name="content" rows="8" cols="80"></textarea>
     <button>Sneed</button>
 </form>
-{% endblock %}

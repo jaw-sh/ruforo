@@ -1,7 +1,7 @@
+use crate::frontend::TemplateToPubResponse;
 use crate::session::MainData;
 use crate::templates::StatusTemplate;
 use actix_web::{get, web, Responder};
-use askama_actix::TemplateToResponse;
 
 #[get("/status")]
 pub async fn status_get(my: web::Data<MainData<'static>>) -> impl Responder {
@@ -17,5 +17,5 @@ pub async fn status_get(my: web::Data<MainData<'static>>) -> impl Responder {
         logged_in: true,
         username: None,
     }
-    .to_response()
+    .to_pub_response()
 }

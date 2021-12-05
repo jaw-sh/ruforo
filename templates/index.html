@@ -1,7 +1,5 @@
-{% extends "container/main.html" %}
-
-{% block content %}
-	{% if logged_in %}
-		yay
-	{% endif %}
-{% endblock %}
+{% if logged_in %}
+    Logged in!
+{% else %}
+    Guestmode.
+{% endif %}

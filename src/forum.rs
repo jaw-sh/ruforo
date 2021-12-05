@@ -1,3 +1,4 @@
+use crate::frontend::TemplateToPubResponse;
 use crate::orm::{posts, threads};
 use crate::thread::{validate_thread_form, NewThreadFormData};
 use crate::MainData;
@@ -102,15 +103,12 @@ pub async fn create_thread(
 
 #[get("/forums")]
 pub async fn view_forum(data: web::Data<MainData<'static>>) -> Result<HttpResponse, Error> {
-    Ok(HttpResponse::Ok().body(
-        ForumTemplate {
-            threads: threads::Entity::find()
-                .order_by_desc(threads::Column::LastPostAt)
-                .all(&data.pool)
-                .await
-                .map_err(|err| error::ErrorNotFound(err))?,
-        }
-        .render()
-        .unwrap(),
-    ))
+    Ok(ForumTemplate {
+        threads: threads::Entity::find()
+            .order_by_desc(threads::Column::LastPostAt)
+            .all(&data.pool)
+            .await
+            .map_err(|err| error::ErrorNotFound(err))?,
+    }
+    .to_pub_response())
 }

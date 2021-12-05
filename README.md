@@ -1,4 +1,4 @@
-# ruforo
+# ruforo - The most user friendly 
 _Name pending._
 
 PROJECT_NAME is a traditional web forum built in Rust.
@@ -20,3 +20,6 @@ PROJECT_NAME is a traditional web forum built in Rust.
 ## Still trying to figure out
  - l10n / i18n
  - JavaScript framework, if any, or JavaScript deployment stack
+
+## Contributions
+ - We use [rustfmt](https://github.com/rust-lang/rustfmt).
