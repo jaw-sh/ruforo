@@ -100,7 +100,7 @@ pub async fn create_thread(
         .finish())
 }
 
-#[get("/forums/")]
+#[get("/forums")]
 pub async fn view_forum(data: web::Data<MainData<'static>>) -> Result<HttpResponse, Error> {
     Ok(HttpResponse::Ok().body(
         ForumTemplate {
