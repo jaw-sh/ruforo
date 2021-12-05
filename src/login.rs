@@ -43,9 +43,7 @@ async fn login(
             log::error!("Login: {}", e);
             error::ErrorInternalServerError("DB error")
         })?
-        .ok_or(error::ErrorInternalServerError(
-            "user not found or bad password",
-        ))?;
+        .ok_or_else(|| error::ErrorInternalServerError("user not found or bad password"))?;
 
     let parsed_hash = PasswordHash::new(&user.password).unwrap();
     my.argon2
@@ -63,7 +61,6 @@ pub async fn login_post(
     // don't forget to sanitize kek and add error handling
     let user_id = login(&my.pool, &form.username, &form.password, &my).await?;
 
-    log::error!("test");
     let uuid = session::new_session(&my.pool, &my.cache.sessions, user_id)
         .await
         .map_err(|e| {
