@@ -39,6 +39,7 @@ CREATE TABLE posts
 CREATE INDEX index_post_thread_id ON posts ( thread_id );
 CREATE INDEX index_post_ugc_id ON posts ( ugc_id );
 CREATE INDEX index_post_user_id ON posts ( user_id );
+CREATE INDEX index_post_position ON posts ( position );
 
 ALTER TABLE threads ADD CONSTRAINT fk_thread_first_post_id FOREIGN KEY ( first_post_id ) REFERENCES posts ( id );
 ALTER TABLE threads ADD CONSTRAINT fk_thread_last_post_id FOREIGN KEY ( last_post_id ) REFERENCES posts ( id );
