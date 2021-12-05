@@ -52,6 +52,9 @@ pub async fn create_user_post(
         .to_string();
     insert_new_user(&my.pool, &form.username, &password_hash)
         .await
-        .map_err(|e| { log::error!("{}", e); error::ErrorInternalServerError("user not found or bad password") })?;
+        .map_err(|e| {
+            log::error!("{}", e);
+            error::ErrorInternalServerError("user not found or bad password")
+        })?;
     Ok(HttpResponse::Ok().finish())
 }
