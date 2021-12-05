@@ -9,7 +9,7 @@
                 {% if post.created_at != post.updated_at %}updated  at <time datetime="{{ post.updated_at }}">{{ post.updated_at.format("%v %r") }}</time>{% endif %}
             </div>
             <div class="message-header--right">
-                <a href="/threads/{{ post.thread_id }}/post-{{ post.id }}">#{{ post.position }}</a>
+                <a href="/threads/{{ post.thread_id }}/post-{{ post.id }}" title="Permanent link">#{{ post.position }}</a>
             </div>
         </div>
         <div class="message-content">

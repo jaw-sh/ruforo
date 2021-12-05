@@ -27,8 +27,22 @@ pub struct ThreadTemplate<'a> {
 }
 
 // Returns which human-readable page number this position will appear in.
-fn get_thread_page_for_pos(pos: i32) -> i32 {
+pub fn get_page_for_pos(pos: i32) -> i32 {
     return ((pos - 1) / POSTS_PER_PAGE) + 1;
+}
+
+// Returns the relative URL for the thread at this position.
+pub fn get_url_for_pos(thread_id: i32, pos: i32) -> String {
+    let page = get_page_for_pos(pos);
+    format!(
+        "/threads/{}/{}",
+        thread_id,
+        if page == 1 {
+            "".to_owned()
+        } else {
+            format!("page-{}", page)
+        }
+    )
 }
 
 // Returns a rendered view for a thread at a specified page.
@@ -127,9 +141,6 @@ pub async fn create_reply(
     .await
     .map_err(|err| error::ErrorInternalServerError(err))?;
 
-    // Used for the redirect.
-    let page = get_thread_page_for_pos(our_thread.post_count + 1);
-
     // Commit transaction
     txn.commit()
         .await
@@ -155,15 +166,7 @@ pub async fn create_reply(
     Ok(HttpResponse::Found()
         .append_header((
             "Location",
-            format!(
-                "/threads/{}/{}",
-                our_thread.id,
-                if page == 1 {
-                    "".to_owned()
-                } else {
-                    format!("page-{}", page)
-                }
-            ),
+            get_url_for_pos(our_thread.id, our_thread.post_count + 1),
         ))
         .finish())
 }

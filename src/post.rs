@@ -112,3 +112,35 @@ pub async fn update_post(
         .append_header(("Location", format!("/threads/{}/", post.thread_id)))
         .finish())
 }
+
+async fn view_post(data: web::Data<MainData<'static>>, id: i32) -> Result<HttpResponse, Error> {
+    use crate::orm::posts;
+    use crate::thread::get_url_for_pos;
+
+    let post = posts::Entity::find_by_id(id)
+        .one(&data.pool)
+        .await
+        .map_err(|e| error::ErrorInternalServerError(e))?
+        .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
+
+    Ok(HttpResponse::Found()
+        .append_header(("Location", get_url_for_pos(post.thread_id, post.position)))
+        .finish())
+}
+
+#[get("/posts/{post_id}")]
+pub async fn view_post_by_id(
+    data: web::Data<MainData<'static>>,
+    path: web::Path<(i32,)>,
+) -> Result<HttpResponse, Error> {
+    view_post(data, path.into_inner().0).await
+}
+
+// Permalink for a specific post.
+#[get("/threads/{thread_id}/post-{post_id}")]
+pub async fn view_post_in_thread(
+    data: web::Data<MainData<'static>>,
+    path: web::Path<(i32, i32)>,
+) -> Result<HttpResponse, Error> {
+    view_post(data, path.into_inner().1).await
+}
