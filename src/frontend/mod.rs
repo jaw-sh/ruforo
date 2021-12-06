@@ -3,11 +3,8 @@ pub mod css;
 
 pub use self::context::Context;
 
-use actix_web::{error, Error, HttpRequest, HttpResponse, Responder};
+use actix_web::{error, Error, HttpRequest, HttpResponse};
 use askama_actix::{Template, TemplateToResponse};
-use bytes::{Bytes, BytesMut};
-use futures::future::{ready, Ready};
-use serde::Serialize;
 
 /// Page container for most public views.
 #[derive(Template)]

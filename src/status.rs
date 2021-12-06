@@ -1,14 +1,10 @@
-use crate::frontend;
 use crate::frontend::TemplateToPubResponse;
 use crate::session::MainData;
 use crate::templates::StatusTemplate;
 use actix_web::{get, web, Responder};
 
 #[get("/status")]
-pub async fn view_status(
-    my: web::Data<MainData<'static>>,
-    ctx: web::ReqData<frontend::Context>,
-) -> impl Responder {
+pub async fn view_status(my: web::Data<MainData<'static>>) -> impl Responder {
     for (key, value) in &*my.cache.sessions.read().unwrap() {
         println!(
             "Session: {} / {:?}",
