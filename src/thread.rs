@@ -52,7 +52,7 @@ pub fn get_url_for_pos(thread_id: i32, pos: i32) -> String {
 
 /// Returns a Responder for a thread at a specific page.
 async fn get_thread_and_replies_for_page(
-    data: &MainData<'static>,
+    data: &MainData<'_>,
     thread_id: i32,
     page: i32,
 ) -> Result<impl Responder, Error> {
@@ -114,7 +114,7 @@ async fn get_thread_and_replies_for_page(
 
 #[post("/threads/{thread_id}/post-reply")]
 pub async fn create_reply(
-    data: web::Data<MainData<'static>>,
+    data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
     form: web::Form<NewPostFormData>,
 ) -> Result<impl Responder, Error> {

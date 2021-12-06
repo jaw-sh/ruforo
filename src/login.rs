@@ -21,7 +21,7 @@ async fn login(
     db: &DatabaseConnection,
     name_: &str,
     pass_: &str,
-    my: &web::Data<MainData<'static>>,
+    my: &web::Data<MainData<'_>>,
 ) -> Result<i32, Error> {
     #[derive(Debug, FromQueryResult)]
     struct SelectResult {
@@ -56,7 +56,7 @@ async fn login(
 pub async fn login_post(
     session: actix_session::Session,
     form: web::Form<FormData>,
-    my: web::Data<MainData<'static>>,
+    my: web::Data<MainData<'_>>,
 ) -> Result<HttpResponse, Error> {
     // don't forget to sanitize kek and add error handling
     let user_id = login(&my.pool, &form.username, &form.password, &my).await?;

@@ -15,7 +15,7 @@ pub struct ForumTemplate {
 
 #[post("/forums/post-thread")]
 pub async fn create_thread(
-    data: web::Data<MainData<'static>>,
+    data: web::Data<MainData<'_>>,
     form: web::Form<NewThreadFormData>,
 ) -> Result<impl Responder, Error> {
     use crate::ugc::{create_ugc, NewUgcPartial};

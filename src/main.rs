@@ -1,4 +1,6 @@
 extern crate dotenv;
+#[macro_use]
+extern crate lazy_static;
 
 use crate::session::{new_db_pool, reload_session_cache, MainData};
 use actix_session::CookieSession;
@@ -22,9 +24,11 @@ pub mod template;
 mod thread;
 pub mod ugc;
 
-async fn init_data() -> MainData<'static> {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+lazy_static! {
+    static ref SALT: SaltString = get_salt();
+}
 
+fn get_salt() -> SaltString {
     dotenv::dotenv().ok();
     let salt = match std::env::var("SALT") {
         Ok(v) => v,
@@ -37,7 +41,10 @@ async fn init_data() -> MainData<'static> {
             );
         }
     };
-    let salt = SaltString::new(&salt).unwrap();
+    SaltString::new(&salt).unwrap()
+}
+
+async fn init_data<'key>(salt: &'key SaltString) -> MainData<'key> {
     let pool = new_db_pool().await.expect("Failed to create pool");
     let mut data = MainData::new(pool, salt);
     reload_session_cache(&data.pool, &mut data.cache.sessions)
@@ -48,15 +55,8 @@ async fn init_data() -> MainData<'static> {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // // Argon2 with default params (Argon2id v19)
-    // let argon2 = web::Data::new(Argon2::default());
-    // // Hash password to PHC string ($argon2id$v=19$...)
-    // let password_hash = argon2.hash_password(password, &salt).unwrap().to_string();
-    // // Verify password against PHC string
-    // let parsed_hash = PasswordHash::new(&password_hash).unwrap();
-    // assert!(argon2.verify_password(password, &parsed_hash).is_ok());
-
-    let data = web::Data::new(init_data().await);
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    let data = web::Data::new(init_data(&SALT).await);
 
     // Start HTTP server
     HttpServer::new(move || {
