@@ -12,30 +12,16 @@ body {
     font: 1rem / 1.4 sans-serif;
     font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
-header, footer {
-    min-height: 100px;
-}
 main {
     flex: 1;
 }
-nav ul {
-    list-style-type: none;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background-color: #333;
-}
-nav li {
-    float: left;
-}
-nav a {
-    display: block;
-    color: white;
-    text-align: center;
-    padding: 14px 16px;
-    text-decoration: none;
+header {
+    margin-bottom: 16px;
+    padding-bottom: 0;
 }
 footer {
+    margin-top: 16px;
+    padding-top: 0;
     display: flex;
     align-items: center;
     justify-content: center;

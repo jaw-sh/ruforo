@@ -4,7 +4,7 @@ use askama_actix::{Template, TemplateToResponse};
 
 /// Page container to wrap public views.
 #[derive(Template)]
-#[template(path = "container/public.html", escape = "none")]
+#[template(path = "container/public.html")]
 struct PublicTemplate<'a> {
     context: &'a Context,
     content: &'a str,

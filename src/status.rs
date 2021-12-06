@@ -1,6 +1,6 @@
 use crate::frontend::TemplateToPubResponse;
 use crate::session::MainData;
-use crate::templates::StatusTemplate;
+use crate::template::StatusTemplate;
 use actix_web::{get, web, Responder};
 
 #[get("/status")]

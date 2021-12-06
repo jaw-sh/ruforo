@@ -1,0 +1,5 @@
+<nav class="paginated-nav">
+    {% for page in paginator.get_first_pages() %}
+    <a href="{{ paginator.base_url }}page-{{ page }}">{{ page }}</a>
+    {% endfor %}
+</nav>

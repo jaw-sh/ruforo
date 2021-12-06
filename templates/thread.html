@@ -1,8 +1,10 @@
 <div>
     <h2>{{ thread.title }}{% match thread.subtitle %}{% when Some with (subtitle) %}<span class="subtitle"> - {{ subtitle }}</span>{% when None %}{% endmatch %}</h2>
+    {{ paginator.as_html()|safe }}
     {% for post in posts %}
         {% include "ugc/message.html" %}
     {% endfor %}
+    {{ paginator.as_html()|safe }}
 </div>
 
 <form action="/threads/{{ thread.id }}/post-reply" method="post">
