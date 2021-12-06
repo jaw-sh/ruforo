@@ -4,7 +4,10 @@ use crate::orm::users;
 use crate::session::MainData;
 use crate::templates::CreateUserTemplate;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
-use argon2::PasswordHasher;
+use argon2::{
+    password_hash::{rand_core::OsRng, SaltString},
+    PasswordHasher,
+};
 use chrono::Utc;
 use sea_orm::{entity::*, DatabaseConnection, DbErr, InsertResult};
 use serde::Deserialize;
@@ -43,12 +46,12 @@ pub async fn create_user_get(ctx: web::ReqData<frontend::Context>) -> impl Respo
 #[post("/create_user")]
 pub async fn create_user_post(
     form: web::Form<FormData>,
-    my: web::Data<MainData<'static>>,
+    my: web::Data<MainData<'_>>,
 ) -> Result<HttpResponse, Error> {
     // don't forget to sanitize kek and add error handling
     let password_hash = my
         .argon2
-        .hash_password(form.password.as_bytes(), &my.salt)
+        .hash_password(form.password.as_bytes(), &SaltString::generate(&mut OsRng))
         .unwrap()
         .to_string();
     insert_new_user(&my.pool, &form.username, &password_hash)

@@ -6,7 +6,7 @@ use actix_web::{get, web, Responder};
 
 #[get("/status")]
 pub async fn status_get(
-    my: web::Data<MainData<'static>>,
+    my: web::Data<MainData<'_>>,
     ctx: web::ReqData<frontend::Context>,
 ) -> impl Responder {
     for (key, value) in &*my.cache.sessions.read().unwrap() {

@@ -60,7 +60,7 @@ pub struct NewPostFormData {
 
 #[get("/posts/{post_id}/edit")]
 pub async fn edit_post(
-    data: web::Data<MainData<'static>>,
+    data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
 ) -> Result<HttpResponse, Error> {
     use crate::orm::posts;
@@ -83,7 +83,7 @@ pub async fn edit_post(
 
 #[post("/posts/{post_id}/edit")]
 pub async fn update_post(
-    data: web::Data<MainData<'static>>,
+    data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
     form: web::Form<NewPostFormData>,
 ) -> Result<HttpResponse, Error> {
@@ -113,7 +113,7 @@ pub async fn update_post(
         .finish())
 }
 
-async fn view_post(data: web::Data<MainData<'static>>, id: i32) -> Result<HttpResponse, Error> {
+async fn view_post(data: web::Data<MainData<'_>>, id: i32) -> Result<HttpResponse, Error> {
     use crate::orm::posts;
     use crate::thread::get_url_for_pos;
 
@@ -130,7 +130,7 @@ async fn view_post(data: web::Data<MainData<'static>>, id: i32) -> Result<HttpRe
 
 #[get("/posts/{post_id}")]
 pub async fn view_post_by_id(
-    data: web::Data<MainData<'static>>,
+    data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
 ) -> Result<HttpResponse, Error> {
     view_post(data, path.into_inner().0).await
@@ -139,7 +139,7 @@ pub async fn view_post_by_id(
 // Permalink for a specific post.
 #[get("/threads/{thread_id}/post-{post_id}")]
 pub async fn view_post_in_thread(
-    data: web::Data<MainData<'static>>,
+    data: web::Data<MainData<'_>>,
     path: web::Path<(i32, i32)>,
 ) -> Result<HttpResponse, Error> {
     view_post(data, path.into_inner().1).await

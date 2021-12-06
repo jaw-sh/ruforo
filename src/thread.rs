@@ -47,7 +47,7 @@ pub fn get_url_for_pos(thread_id: i32, pos: i32) -> String {
 
 // Returns a rendered view for a thread at a specified page.
 async fn get_thread_and_replies_for_page(
-    data: &MainData<'static>,
+    data: &MainData<'_>,
     thread_id: i32,
     page: i32,
     ctx: &frontend::Context,
@@ -97,7 +97,7 @@ async fn get_thread_and_replies_for_page(
 
 #[post("/threads/{thread_id}/post-reply")]
 pub async fn create_reply(
-    data: web::Data<MainData<'static>>,
+    data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
     form: web::Form<NewPostFormData>,
 ) -> Result<HttpResponse, Error> {
@@ -175,7 +175,7 @@ pub async fn create_reply(
 #[get("/threads/{thread_id}/")]
 pub async fn view_thread(
     path: web::Path<(i32,)>,
-    data: web::Data<MainData<'static>>,
+    data: web::Data<MainData<'_>>,
     ctx: web::ReqData<frontend::Context>,
 ) -> Result<HttpResponse, Error> {
     get_thread_and_replies_for_page(&data, path.into_inner().0, 1, &ctx).await
@@ -184,7 +184,7 @@ pub async fn view_thread(
 #[get("/threads/{thread_id}/page-{page}")]
 pub async fn view_thread_page(
     path: web::Path<(i32, i32)>,
-    data: web::Data<MainData<'static>>,
+    data: web::Data<MainData<'_>>,
     ctx: web::ReqData<frontend::Context>,
 ) -> Result<HttpResponse, Error> {
     let params = path.into_inner();

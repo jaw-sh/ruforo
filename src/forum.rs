@@ -16,7 +16,7 @@ pub struct ForumTemplate {
 
 #[post("/forums/post-thread")]
 pub async fn create_thread(
-    data: web::Data<MainData<'static>>,
+    data: web::Data<MainData<'_>>,
     form: web::Form<NewThreadFormData>,
 ) -> Result<HttpResponse, Error> {
     use crate::ugc::{create_ugc, NewUgcPartial};
@@ -103,7 +103,10 @@ pub async fn create_thread(
 }
 
 #[get("/forums")]
-pub async fn view_forum(data: web::Data<MainData<'static>>, ctx: web::ReqData<frontend::Context>,) -> Result<HttpResponse, Error> {
+pub async fn view_forum(
+    data: web::Data<MainData<'_>>,
+    ctx: web::ReqData<frontend::Context>,
+) -> Result<HttpResponse, Error> {
     Ok(ForumTemplate {
         threads: threads::Entity::find()
             .order_by_desc(threads::Column::LastPostAt)

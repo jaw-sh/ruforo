@@ -32,17 +32,21 @@ impl BigChungus {
 }
 
 pub struct MainData<'key> {
-    pub salt: SaltString,
     pub argon2: Argon2<'key>,
     pub pool: DatabaseConnection,
     pub cache: BigChungus,
 }
 
-impl MainData<'_> {
-    pub fn new(pool: DatabaseConnection, salt: SaltString) -> Self {
-        Self {
-            salt,
-            argon2: Argon2::default(),
+impl<'key> MainData<'key> {
+    pub fn new(pool: DatabaseConnection, salt: &'key SaltString) -> Self {
+        MainData {
+            argon2: Argon2::new_with_secret(
+                salt.as_bytes(),
+                argon2::Algorithm::default(),
+                argon2::Version::default(),
+                argon2::Params::default(),
+            )
+            .expect("failed to create argon2"),
             pool,
             cache: BigChungus::new(),
         }
@@ -126,4 +130,34 @@ pub async fn reload_session_cache(
         );
     }
     Ok(())
+}
+
+pub async fn authenticate_by_cookie(
+    ses_map: &SessionMap,
+    cookies: &actix_session::Session,
+) -> Option<Session> {
+    let uuid = cookies.get::<String>("token");
+
+    let uuid = match uuid {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("{}", e);
+            return None;
+        }
+    };
+
+    let uuid = match uuid {
+        Some(v) => v,
+        None => return None,
+    };
+
+    let uuid = match Uuid::parse_str(&uuid) {
+        Ok(v) => v,
+        Err(_) => return None,
+    };
+
+    match ses_map.read().unwrap().get(&uuid) {
+        Some(v) => Some(v.to_owned()),
+        None => None,
+    }
 }
