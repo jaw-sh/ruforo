@@ -8,7 +8,7 @@ use argon2::{
     PasswordHasher,
 };
 use chrono::Utc;
-use sea_orm::{entity::*, DatabaseConnection, DbErr, InsertResult, QueryTrait};
+use sea_orm::{entity::*, DatabaseConnection, DbErr, InsertResult};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -30,12 +30,6 @@ async fn insert_new_user(
         ..Default::default() // all other attributes are `Unset`
     };
     // let res = user.insert(conn).await.expect("Error inserting person");
-    log::error!(
-        "SQL: {}",
-        users::Entity::insert(user.to_owned())
-            .build(sea_orm::DatabaseBackend::Postgres)
-            .to_string()
-    );
     let res = users::Entity::insert(user).exec(db).await?;
 
     Ok(res)

@@ -3,13 +3,12 @@ use crate::frontend::TemplateToPubResponse;
 use crate::orm::users;
 use crate::orm::users::Entity as Users;
 use crate::session;
-use crate::session::MainData;
+use crate::session::{authenticate_by_cookie, MainData};
 use crate::template::LoginTemplate;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult, QueryFilter};
 use serde::Deserialize;
-use uuid::Uuid;
 
 #[derive(Deserialize)]
 pub struct FormData {
@@ -91,27 +90,14 @@ pub async fn login_get(
         token: None,
     };
 
-    let uuid = cookies.get::<String>("token").map_err(|e| {
-        log::error!("{}", e);
-        error::ErrorInternalServerError("cookiejar error")
-    })?;
-
-    let uuid_str; // hack to make the compiler happy about lifetimes
-    if let Some(uuid) = uuid {
-        match Uuid::parse_str(&uuid) {
-            Ok(uuid) => {
-                // copying by value is not preferred, but we do it to prevent holding the mutex
-                if let Some(ses) = session::get_session(&my.cache.sessions, &uuid).await {
-                    tmpl.user_id = Some(ses.user_id);
-                    tmpl.logged_in = true;
-                    uuid_str = uuid.to_string();
-                    tmpl.token = Some(&uuid_str);
-                }
-            }
-            Err(e) => {
-                log::error!("{}", e);
-            }
-        }
+    let session = authenticate_by_cookie(&my.cache.sessions, &cookies).await;
+    let uuid;
+    if session.is_some() {
+        let session = session.unwrap();
+        tmpl.user_id = Some(session.session.user_id);
+        tmpl.logged_in = true;
+        uuid = session.uuid.to_string();
+        tmpl.token = Some(&uuid);
     }
 
     Ok(tmpl.to_pub_response())
