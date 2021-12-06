@@ -1,58 +1,54 @@
+pub mod context;
 pub mod css;
 
-use actix_web::{HttpRequest, HttpResponse};
+pub use self::context::Context;
+
+use actix_web::{error, Error, HttpRequest, HttpResponse, Responder};
 use askama_actix::{Template, TemplateToResponse};
-use chrono::prelude::{NaiveDateTime, Utc};
+use bytes::{Bytes, BytesMut};
+use futures::future::{ready, Ready};
+use serde::Serialize;
 
-#[derive(Debug, Clone)]
-pub struct Context {
-    pub request_start: NaiveDateTime,
-}
-
-impl Context {
-    /// Returns human readable request time.
-    pub fn request_time(&self) -> Option<i64> {
-        (self.request_start - Utc::now().naive_utc()).num_microseconds()
-    }
-}
-
+/// Page container for most public views.
 #[derive(Template)]
 #[template(path = "container/public.html", escape = "none")]
-pub struct PublicPageTemplate<'a> {
+struct PublicPageTemplate<'a> {
     context: &'a Context,
-    content: String,
+    content: &'a str,
 }
 
 pub trait TemplateToPubResponse {
-    fn to_pub_response(&self, ctx: &Context) -> HttpResponse;
-
-    /// alternate style for review and consideration
-    fn to_pub_response_alt(&self, req: &HttpRequest) -> HttpResponse;
+    fn to_pub_response(&self) -> Result<PublicPageResponder, Error>;
 }
 
 /// Produces an actix-web HttpResponse with a partial template that will be inset with the public container.
 impl<T: askama::Template> TemplateToPubResponse for T {
-    fn to_pub_response(&self, ctx: &Context) -> HttpResponse {
-        // there is conceivably a way to do this with a byte buffer but for now i cant be bothered
-        // the issue is that there's no BytesMut display implementation.
-        //
-        //let mut buffer = BytesMut::with_capacity(self.size_hint());
-        //if self.render_into(&mut buffer).is_err() {
-        //    return ErrorInternalServerError("Template rendering error (public)").error_response();
-        //}
-        //PublicPageTemplate { content: buffer }.to_response()
-
-        PublicPageTemplate {
-            context: ctx,
-            content: self.render().unwrap(),
+    fn to_pub_response(&self) -> Result<PublicPageResponder, Error> {
+        let mut buffer = String::new();
+        if self.render_into(&mut buffer).is_err() {
+            return Err(error::ErrorInternalServerError("Template parsing error"));
         }
-        .to_response()
-    }
 
-    fn to_pub_response_alt(&self, req: &HttpRequest) -> HttpResponse {
+        Ok(PublicPageResponder { content: buffer })
+    }
+}
+
+///
+pub struct PublicPageResponder {
+    content: String,
+}
+
+///
+impl actix_web::Responder for PublicPageResponder {
+    fn respond_to(self, req: &HttpRequest) -> HttpResponse {
+        if !req.extensions().contains::<Context>() {
+            return error::ErrorInternalServerError("Failed to pass context to container template")
+                .error_response();
+        }
+
         PublicPageTemplate {
+            content: &self.content,
             context: req.extensions().get::<Context>().unwrap(),
-            content: self.render().unwrap(),
         }
         .to_response()
     }

@@ -1,10 +1,9 @@
-use crate::frontend;
 use crate::frontend::TemplateToPubResponse;
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
 use crate::post::{NewPostFormData, PostForTemplate};
 use crate::MainData;
-use actix_web::{error, get, post, web, Error, HttpResponse};
+use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
 use sea_orm::{entity::*, query::*, sea_query::Expr, QueryFilter};
 use serde::Deserialize;
@@ -50,8 +49,7 @@ async fn get_thread_and_replies_for_page(
     data: &MainData<'static>,
     thread_id: i32,
     page: i32,
-    ctx: &frontend::Context,
-) -> Result<HttpResponse, Error> {
+) -> Result<impl Responder, Error> {
     use crate::orm::{posts, threads};
     use futures::{future::TryFutureExt, try_join};
 
@@ -92,7 +90,7 @@ async fn get_thread_and_replies_for_page(
         posts.push(PostForTemplate::from_orm(&p, &u));
     }
 
-    Ok(ThreadTemplate { thread, posts }.to_pub_response(ctx))
+    ThreadTemplate { thread, posts }.to_pub_response()
 }
 
 #[post("/threads/{thread_id}/post-reply")]
@@ -100,7 +98,7 @@ pub async fn create_reply(
     data: web::Data<MainData<'static>>,
     path: web::Path<(i32,)>,
     form: web::Form<NewPostFormData>,
-) -> Result<HttpResponse, Error> {
+) -> Result<impl Responder, Error> {
     use crate::orm::{posts, threads};
     use crate::ugc::{create_ugc, NewUgcPartial};
 
@@ -176,25 +174,24 @@ pub async fn create_reply(
 pub async fn view_thread(
     path: web::Path<(i32,)>,
     data: web::Data<MainData<'static>>,
-    ctx: web::ReqData<frontend::Context>,
-) -> Result<HttpResponse, Error> {
-    get_thread_and_replies_for_page(&data, path.into_inner().0, 1, &ctx).await
+) -> Result<impl Responder, Error> {
+    get_thread_and_replies_for_page(&data, path.into_inner().0, 1).await
 }
 
 #[get("/threads/{thread_id}/page-{page}")]
 pub async fn view_thread_page(
     path: web::Path<(i32, i32)>,
     data: web::Data<MainData<'static>>,
-    ctx: web::ReqData<frontend::Context>,
-) -> Result<HttpResponse, Error> {
+) -> Result<impl Responder, Error> {
     let params = path.into_inner();
 
-    if params.1 < 2 {
-        Ok(HttpResponse::Found()
-            .append_header(("Location", format!("/threads/{}/", params.0)))
-            .finish())
+    if params.1 > 1 {
+        get_thread_and_replies_for_page(&data, params.0, params.1).await
     } else {
-        get_thread_and_replies_for_page(&data, params.0, params.1, &ctx).await
+        get_thread_and_replies_for_page(&data, params.0, 1).await
+        //Ok(HttpResponse::Found()
+        //    .append_header(("Location", format!("/threads/{}/", params.0)))
+        //    .finish())
     }
 }
 

@@ -5,7 +5,7 @@ use crate::templates::StatusTemplate;
 use actix_web::{get, web, Responder};
 
 #[get("/status")]
-pub async fn status_get(
+pub async fn view_status(
     my: web::Data<MainData<'static>>,
     ctx: web::ReqData<frontend::Context>,
 ) -> impl Responder {
@@ -21,5 +21,5 @@ pub async fn status_get(
         logged_in: true,
         username: None,
     }
-    .to_pub_response(&ctx)
+    .to_pub_response()
 }

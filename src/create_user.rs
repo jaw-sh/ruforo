@@ -38,7 +38,7 @@ pub async fn create_user_get(ctx: web::ReqData<frontend::Context>) -> impl Respo
         logged_in: true,
         username: None,
     }
-    .to_pub_response(&ctx)
+    .to_pub_response()
 }
 #[post("/create_user")]
 pub async fn create_user_post(
