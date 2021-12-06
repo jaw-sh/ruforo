@@ -1,4 +1,6 @@
 // use crate::session::new_session;
+use crate::frontend;
+use crate::frontend::TemplateToPubResponse;
 use crate::orm::users;
 use crate::orm::users::Entity as Users;
 use crate::session;
@@ -6,7 +8,6 @@ use crate::session::MainData;
 use crate::templates::LoginTemplate;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
-use crate::frontend::TemplateToPubResponse;
 use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult, QueryFilter};
 use serde::Deserialize;
 use uuid::Uuid;
@@ -83,6 +84,7 @@ pub async fn login_post(
 pub async fn login_get(
     cookies: actix_session::Session,
     my: web::Data<MainData<'static>>,
+    ctx: web::ReqData<frontend::Context>,
 ) -> Result<HttpResponse, Error> {
     let mut tmpl = LoginTemplate {
         user_id: None,
@@ -114,5 +116,5 @@ pub async fn login_get(
         }
     }
 
-    Ok(tmpl.to_pub_response())
+    Ok(tmpl.to_pub_response(&ctx))
 }

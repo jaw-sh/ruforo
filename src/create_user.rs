@@ -1,3 +1,4 @@
+use crate::frontend;
 use crate::frontend::TemplateToPubResponse;
 use crate::orm::users;
 use crate::session::MainData;
@@ -32,12 +33,12 @@ async fn insert_new_user(
 }
 
 #[get("/create_user")]
-pub async fn create_user_get() -> impl Responder {
+pub async fn create_user_get(ctx: web::ReqData<frontend::Context>) -> impl Responder {
     CreateUserTemplate {
         logged_in: true,
         username: None,
     }
-    .to_pub_response()
+    .to_pub_response(&ctx)
 }
 #[post("/create_user")]
 pub async fn create_user_post(
