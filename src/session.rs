@@ -14,6 +14,12 @@ pub struct Session {
     pub expire: NaiveDateTime,
 }
 
+#[derive(Copy, Clone)]
+pub struct SessionWithUUID {
+    pub uuid: Uuid,
+    pub session: Session,
+}
+
 pub type SessionMap = RwLock<HashMap<Uuid, Session>>;
 pub struct BigChungus {
     pub val: RwLock<i32>,
@@ -135,7 +141,7 @@ pub async fn reload_session_cache(
 pub async fn authenticate_by_cookie(
     ses_map: &SessionMap,
     cookies: &actix_session::Session,
-) -> Option<Session> {
+) -> Option<SessionWithUUID> {
     let uuid = cookies.get::<String>("token");
 
     let uuid = match uuid {
@@ -157,7 +163,10 @@ pub async fn authenticate_by_cookie(
     };
 
     match ses_map.read().unwrap().get(&uuid) {
-        Some(v) => Some(v.to_owned()),
+        Some(session) => Some(SessionWithUUID {
+            uuid,
+            session: session.to_owned(),
+        }),
         None => None,
     }
 }
