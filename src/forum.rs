@@ -1,9 +1,8 @@
-use crate::frontend;
 use crate::frontend::TemplateToPubResponse;
 use crate::orm::{posts, threads};
 use crate::thread::{validate_thread_form, NewThreadFormData};
 use crate::MainData;
-use actix_web::{error, get, post, web, Error, HttpResponse};
+use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
 use sea_orm::sea_query::Expr;
 use sea_orm::{entity::*, query::*, Set};
@@ -18,7 +17,7 @@ pub struct ForumTemplate {
 pub async fn create_thread(
     data: web::Data<MainData<'_>>,
     form: web::Form<NewThreadFormData>,
-) -> Result<HttpResponse, Error> {
+) -> Result<impl Responder, Error> {
     use crate::ugc::{create_ugc, NewUgcPartial};
 
     // Run form data through validator.
@@ -103,10 +102,7 @@ pub async fn create_thread(
 }
 
 #[get("/forums")]
-pub async fn view_forum(
-    data: web::Data<MainData<'_>>,
-    ctx: web::ReqData<frontend::Context>,
-) -> Result<HttpResponse, Error> {
+pub async fn view_forum(data: web::Data<MainData<'_>>) -> Result<impl Responder, Error> {
     Ok(ForumTemplate {
         threads: threads::Entity::find()
             .order_by_desc(threads::Column::LastPostAt)
@@ -114,5 +110,5 @@ pub async fn view_forum(
             .await
             .map_err(|err| error::ErrorNotFound(err))?,
     }
-    .to_pub_response(&ctx))
+    .to_pub_response())
 }

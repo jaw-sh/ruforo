@@ -91,8 +91,7 @@ async fn main() -> std::io::Result<()> {
             .service(thread::create_reply)
             .service(thread::view_thread)
             .service(thread::view_thread_page)
-            .service(status::status_get)
-            .service(status::status_get)
+            .service(status::view_status)
     })
     .bind("127.0.0.1:8080")?
     .run()

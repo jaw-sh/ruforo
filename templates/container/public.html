@@ -66,8 +66,8 @@
     <footer class="container">
         <div class="footer-inner">
             {% block footer %}
-            🐍 Live Free or Die
-            {% match context.request_time() %}{% when Some with (micro) %}{{ "{:?}"|format(micro) }}{% when None %}{% endmatch %}
+            <p>🐍 Live Free or Die</p>
+            <p>{{ "Generated in {:?}ms"|format(context.request_time()) }}</p>
             {% endblock %}
         </div>
     </footer>

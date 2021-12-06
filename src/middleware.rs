@@ -1,8 +1,8 @@
 use crate::frontend::Context;
 use actix_web::dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform};
 use actix_web::Error;
-use chrono::prelude::Utc;
 use std::future::{ready, Ready};
+use std::time::Instant;
 
 // Documentation for middleware can be found here:
 // https://github.com/actix/actix-web/blob/master/src/middleware/normalize.rs
@@ -49,7 +49,7 @@ where
 
         // insert data into extensions if enabled
         httpreq.extensions_mut().insert(Context {
-            request_start: Utc::now().naive_utc(),
+            request_start: Instant::now(),
         });
 
         self.service.call(req)
