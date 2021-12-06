@@ -1,5 +1,4 @@
 use askama_actix::Template;
-use std::cmp::min;
 use std::ops::Range;
 
 const PAGINATOR_LOOK_AHEAD: i32 = 2;
