@@ -1,6 +1,6 @@
 pub mod css;
 
-use actix_web::HttpResponse;
+use actix_web::{HttpRequest, HttpResponse};
 use askama_actix::{Template, TemplateToResponse};
 use chrono::prelude::{NaiveDateTime, Utc};
 
@@ -25,9 +25,12 @@ pub struct PublicPageTemplate<'a> {
 
 pub trait TemplateToPubResponse {
     fn to_pub_response(&self, ctx: &Context) -> HttpResponse;
+
+    /// alternate style for review and consideration
+    fn to_pub_response_alt(&self, req: &HttpRequest) -> HttpResponse;
 }
 
-// Produces an actix-web HttpResponse with a partial template that will be inset with the public container.
+/// Produces an actix-web HttpResponse with a partial template that will be inset with the public container.
 impl<T: askama::Template> TemplateToPubResponse for T {
     fn to_pub_response(&self, ctx: &Context) -> HttpResponse {
         // there is conceivably a way to do this with a byte buffer but for now i cant be bothered
@@ -41,6 +44,14 @@ impl<T: askama::Template> TemplateToPubResponse for T {
 
         PublicPageTemplate {
             context: ctx,
+            content: self.render().unwrap(),
+        }
+        .to_response()
+    }
+
+    fn to_pub_response_alt(&self, req: &HttpRequest) -> HttpResponse {
+        PublicPageTemplate {
+            context: req.extensions().get::<Context>().unwrap(),
             content: self.render().unwrap(),
         }
         .to_response()

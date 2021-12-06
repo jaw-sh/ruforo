@@ -6,7 +6,7 @@ use crate::orm::users::Entity as Users;
 use crate::session;
 use crate::session::MainData;
 use crate::templates::LoginTemplate;
-use actix_web::{error, get, post, web, Error, HttpResponse};
+use actix_web::{error, get, post, web, Error, HttpRequest, HttpResponse};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult, QueryFilter};
 use serde::Deserialize;
@@ -82,6 +82,7 @@ pub async fn login_post(
 
 #[get("/login")]
 pub async fn login_get(
+    req: HttpRequest,
     cookies: actix_session::Session,
     my: web::Data<MainData<'static>>,
     ctx: web::ReqData<frontend::Context>,
@@ -116,5 +117,5 @@ pub async fn login_get(
         }
     }
 
-    Ok(tmpl.to_pub_response(&ctx))
+    Ok(tmpl.to_pub_response_alt(&req))
 }
