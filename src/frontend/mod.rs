@@ -3,4 +3,4 @@ pub mod css;
 pub mod responder;
 
 pub use self::context::Context;
-pub use self::responder::{PublicResponder, TemplateToPubResponse};
+pub use self::responder::{PublicResponse, TemplateToPubResponse};

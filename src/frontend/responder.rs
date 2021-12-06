@@ -11,29 +11,29 @@ struct PublicTemplate<'a> {
 }
 
 pub trait TemplateToPubResponse {
-    fn to_pub_response(&self) -> Result<PublicResponder, Error>;
+    fn to_pub_response(&self) -> Result<PublicResponse, Error>;
 }
 
 /// Produces an actix-web HttpResponse with a partial template that will be inset with the public container.
 impl<T: askama::Template> TemplateToPubResponse for T {
-    fn to_pub_response(&self) -> Result<PublicResponder, Error> {
+    fn to_pub_response(&self) -> Result<PublicResponse, Error> {
         let mut buffer = String::new();
         if self.render_into(&mut buffer).is_err() {
             return Err(error::ErrorInternalServerError("Template parsing error"));
         }
 
-        Ok(PublicResponder { content: buffer })
+        Ok(PublicResponse { content: buffer })
     }
 }
 
 /// PublicResponder wraps content from an inner template for the outer public Page Container.
 /// It implements the actix_web::Responder trait so that it can be returned as a result in actix_web functions.
 /// When returned to actix_web as the result of controller logic, it can access the HttpRequest and its extensions and pass it as context to the PublicTemplate.
-pub struct PublicResponder {
+pub struct PublicResponse {
     content: String,
 }
 
-impl actix_web::Responder for PublicResponder {
+impl actix_web::Responder for PublicResponse {
     fn respond_to(self, req: &HttpRequest) -> HttpResponse {
         if !req.extensions().contains::<Context>() {
             return error::ErrorInternalServerError("Failed to pass context to container template")
