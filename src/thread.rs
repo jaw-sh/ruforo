@@ -1,3 +1,4 @@
+use crate::frontend;
 use crate::frontend::TemplateToPubResponse;
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
@@ -5,9 +6,7 @@ use crate::post::{NewPostFormData, PostForTemplate};
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
-use sea_orm::sea_query::Expr;
-use sea_orm::QueryFilter;
-use sea_orm::{entity::*, query::*};
+use sea_orm::{entity::*, query::*, sea_query::Expr, QueryFilter};
 use serde::Deserialize;
 
 // TODO: Dynamic page sizing.
@@ -48,9 +47,10 @@ pub fn get_url_for_pos(thread_id: i32, pos: i32) -> String {
 
 // Returns a rendered view for a thread at a specified page.
 async fn get_thread_and_replies_for_page(
-    data: web::Data<MainData<'static>>,
+    data: &MainData<'static>,
     thread_id: i32,
     page: i32,
+    ctx: &frontend::Context,
 ) -> Result<HttpResponse, Error> {
     use crate::orm::{posts, threads};
     use futures::{future::TryFutureExt, try_join};
@@ -92,7 +92,7 @@ async fn get_thread_and_replies_for_page(
         posts.push(PostForTemplate::from_orm(&p, &u));
     }
 
-    Ok(ThreadTemplate { thread, posts }.to_pub_response())
+    Ok(ThreadTemplate { thread, posts }.to_pub_response(ctx))
 }
 
 #[post("/threads/{thread_id}/post-reply")]
@@ -176,14 +176,16 @@ pub async fn create_reply(
 pub async fn view_thread(
     path: web::Path<(i32,)>,
     data: web::Data<MainData<'static>>,
+    ctx: web::ReqData<frontend::Context>,
 ) -> Result<HttpResponse, Error> {
-    get_thread_and_replies_for_page(data, path.into_inner().0, 1).await
+    get_thread_and_replies_for_page(&data, path.into_inner().0, 1, &ctx).await
 }
 
 #[get("/threads/{thread_id}/page-{page}")]
 pub async fn view_thread_page(
     path: web::Path<(i32, i32)>,
     data: web::Data<MainData<'static>>,
+    ctx: web::ReqData<frontend::Context>,
 ) -> Result<HttpResponse, Error> {
     let params = path.into_inner();
 
@@ -192,7 +194,7 @@ pub async fn view_thread_page(
             .append_header(("Location", format!("/threads/{}/", params.0)))
             .finish())
     } else {
-        get_thread_and_replies_for_page(data, params.0, params.1).await
+        get_thread_and_replies_for_page(&data, params.0, params.1, &ctx).await
     }
 }
 

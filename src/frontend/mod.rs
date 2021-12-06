@@ -1,11 +1,10 @@
 pub mod css;
 
-use actix_web::{error::ErrorInternalServerError, HttpResponse};
+use actix_web::HttpResponse;
 use askama_actix::{Template, TemplateToResponse};
-use bytes::BytesMut;
 use chrono::prelude::{NaiveDateTime, Utc};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Context {
     pub request_start: NaiveDateTime,
 }
@@ -25,12 +24,12 @@ pub struct PublicPageTemplate<'a> {
 }
 
 pub trait TemplateToPubResponse {
-    fn to_pub_response(&self) -> HttpResponse;
+    fn to_pub_response(&self, ctx: &Context) -> HttpResponse;
 }
 
 // Produces an actix-web HttpResponse with a partial template that will be inset with the public container.
 impl<T: askama::Template> TemplateToPubResponse for T {
-    fn to_pub_response(&self) -> HttpResponse {
+    fn to_pub_response(&self, ctx: &Context) -> HttpResponse {
         // there is conceivably a way to do this with a byte buffer but for now i cant be bothered
         // the issue is that there's no BytesMut display implementation.
         //
@@ -39,10 +38,9 @@ impl<T: askama::Template> TemplateToPubResponse for T {
         //    return ErrorInternalServerError("Template rendering error (public)").error_response();
         //}
         //PublicPageTemplate { content: buffer }.to_response()
-        dbg!(HttpResponse::Ok().extensions().get::<Context>());
 
         PublicPageTemplate {
-            context: HttpResponse::Ok().extensions().get::<Context>().unwrap(),
+            context: ctx,
             content: self.render().unwrap(),
         }
         .to_response()

@@ -17,20 +17,20 @@ where
 {
     type Response = ServiceResponse<B>;
     type Error = Error;
-    type Transform = AppendContextAppendage<S>;
+    type Transform = AppendContextMiddleware<S>;
     type InitError = ();
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ready(Ok(AppendContextAppendage { service }))
+        ready(Ok(AppendContextMiddleware { service }))
     }
 }
 
-pub struct AppendContextAppendage<S> {
+pub struct AppendContextMiddleware<S> {
     service: S,
 }
 
-impl<S, B> Service<ServiceRequest> for AppendContextAppendage<S>
+impl<S, B> Service<ServiceRequest> for AppendContextMiddleware<S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
