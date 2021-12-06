@@ -1,7 +1,7 @@
 use crate::frontend::TemplateToPubResponse;
 use crate::orm::users;
 use crate::session::MainData;
-use crate::templates::CreateUserTemplate;
+use crate::template::CreateUserTemplate;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use argon2::{
     password_hash::{rand_core::OsRng, SaltString},

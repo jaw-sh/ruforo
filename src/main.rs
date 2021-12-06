@@ -20,7 +20,7 @@ pub mod orm;
 mod post;
 pub mod session;
 mod status;
-pub mod templates;
+pub mod template;
 mod thread;
 pub mod ugc;
 

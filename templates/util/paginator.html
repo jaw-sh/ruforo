@@ -1,0 +1,9 @@
+{% if paginator.has_pages() %}
+<nav class="paginated-nav">
+    <a href="{{ paginator.base_url }}">1</a>
+    {% for iter in paginator.get_first_pages() %}
+    {% let page = iter+1 %}
+    <a href="{{ paginator.base_url }}page-{{ page }}">{{ page }}</a>
+    {% endfor %}
+</nav>
+{% endif %}

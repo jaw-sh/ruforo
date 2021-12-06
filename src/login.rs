@@ -4,7 +4,7 @@ use crate::orm::users;
 use crate::orm::users::Entity as Users;
 use crate::session;
 use crate::session::MainData;
-use crate::templates::LoginTemplate;
+use crate::template::LoginTemplate;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult, QueryFilter};

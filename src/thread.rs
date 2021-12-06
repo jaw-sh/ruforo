@@ -2,6 +2,7 @@ use crate::frontend::TemplateToPubResponse;
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
 use crate::post::{NewPostFormData, PostForTemplate};
+use crate::template::{Paginator, PaginatorToHtml};
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
@@ -23,11 +24,16 @@ pub struct NewThreadFormData {
 pub struct ThreadTemplate<'a> {
     pub thread: super::orm::threads::Model,
     pub posts: Vec<PostForTemplate<'a>>,
+    pub paginator: Paginator,
 }
 
 /// Returns which human-readable page number this position will appear in.
 pub fn get_page_for_pos(pos: i32) -> i32 {
-    return ((pos - 1) / POSTS_PER_PAGE) + 1;
+    ((pos - 1) / POSTS_PER_PAGE) + 1
+}
+
+pub fn get_pages_in_thread(post_count: i32) -> i32 {
+    (post_count / POSTS_PER_PAGE) + 1
 }
 
 /// Returns the relative URL for the thread at this position.
@@ -74,7 +80,9 @@ async fn get_thread_and_replies_for_page(
     let pfuture = Post::find()
         .find_also_linked(posts::PostToUgcRevision)
         .filter(posts::Column::ThreadId.eq(thread_id))
-        .filter(posts::Column::Position.between((page - 1) * POSTS_PER_PAGE, page * POSTS_PER_PAGE))
+        .filter(
+            posts::Column::Position.between((page - 1) * POSTS_PER_PAGE + 1, page * POSTS_PER_PAGE),
+        )
         .order_by_asc(posts::Column::Position)
         .order_by_asc(posts::Column::CreatedAt)
         .all(&data.pool)
@@ -90,7 +98,18 @@ async fn get_thread_and_replies_for_page(
         posts.push(PostForTemplate::from_orm(&p, &u));
     }
 
-    ThreadTemplate { thread, posts }.to_pub_response()
+    let paginator = dbg!(Paginator {
+        base_url: format!("/threads/{}/", thread_id),
+        this_page: page,
+        page_count: get_pages_in_thread(thread.post_count),
+    });
+
+    ThreadTemplate {
+        thread,
+        posts,
+        paginator,
+    }
+    .to_pub_response()
 }
 
 #[post("/threads/{thread_id}/post-reply")]

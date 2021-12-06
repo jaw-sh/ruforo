@@ -1,5 +1,5 @@
 use crate::frontend::TemplateToPubResponse;
-use crate::templates::IndexTemplate;
+use crate::template::IndexTemplate;
 use actix_session::Session;
 use actix_web::{get, Responder};
 

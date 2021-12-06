@@ -40,13 +40,13 @@
     {% endblock %}
 </head>
 <body>
-    <header>
-        <div class="container header-inner">
+    <header class="container">
+        <div class="header-inner">
         {% block header %}
             <h1>ruforo</h1>
         {% endblock %}
         {% block navigation %}
-            <nav>
+            <nav id="primary-nav">
                 <ul>
                     <li><a href="/">Home</a></li>
                     <li><a href="/forums">Forums</a></li>
@@ -60,7 +60,7 @@
     </header>
     <main class="container">
         {% block content %}
-        {{ content }}
+        {{ content|safe }}
         {% endblock %}
     </main>
     <footer class="container">
