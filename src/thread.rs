@@ -25,12 +25,12 @@ pub struct ThreadTemplate<'a> {
     pub posts: Vec<PostForTemplate<'a>>,
 }
 
-// Returns which human-readable page number this position will appear in.
+/// Returns which human-readable page number this position will appear in.
 pub fn get_page_for_pos(pos: i32) -> i32 {
     return ((pos - 1) / POSTS_PER_PAGE) + 1;
 }
 
-// Returns the relative URL for the thread at this position.
+/// Returns the relative URL for the thread at this position.
 pub fn get_url_for_pos(thread_id: i32, pos: i32) -> String {
     let page = get_page_for_pos(pos);
     format!(
@@ -44,7 +44,7 @@ pub fn get_url_for_pos(thread_id: i32, pos: i32) -> String {
     )
 }
 
-// Returns a rendered view for a thread at a specified page.
+/// Returns a Responder for a thread at a specific page.
 async fn get_thread_and_replies_for_page(
     data: &MainData<'static>,
     thread_id: i32,
