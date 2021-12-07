@@ -53,7 +53,6 @@
                     <li><a href="/create_user">Signup</a></li>
                     <li><a href="/login">Login</a></li>
                     <li><a href="/users">Users</a></li>
-                    <li><a href="/status">Status</a></li>
                   </ul>
             </nav>
         {% endblock %}
@@ -68,7 +67,7 @@
         <div class="footer-inner">
             {% block footer %}
             <p>🐍 Live Free or Die</p>
-            <p>{{ "Generated in {:?}ms"|format(context.request_time()) }}</p>
+            <p>Generated in {{ context.request_time_as_string() }}</p>
             {% endblock %}
         </div>
     </footer>

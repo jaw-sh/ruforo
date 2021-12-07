@@ -16,11 +16,7 @@ pub struct Model {
 }
 
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum)]
-#[sea_orm(
-    rs_type = "String",
-    db_type = "Enum",
-    enum_name = "password_cipher"
-)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "password_cipher")]
 pub enum Cipher {
     #[sea_orm(string_value = "argon2id")]
     Argon2id,

@@ -83,15 +83,13 @@ impl PaginatorToHtml for Paginator {
         if self.has_pages() {
             let mut buffer = String::new();
             let template = PaginatorTemplate { paginator: &self };
-            dbg!(self.get_first_pages());
-
             if template.render_into(&mut buffer).is_err() {
                 "[Paginator Util Error]".to_owned()
             } else {
                 buffer
             }
         } else {
-            "No pages".to_owned()
+            "".to_owned()
         }
     }
 }
@@ -110,19 +108,4 @@ pub struct LoginTemplate<'a> {
     pub user_id: Option<i32>,
     pub username: Option<&'a str>,
     pub token: Option<&'a str>,
-}
-
-#[derive(Template)]
-#[template(path = "index.html")]
-pub struct IndexTemplate<'a> {
-    pub logged_in: bool,
-    pub username: Option<&'a str>,
-}
-
-#[derive(Template)]
-#[template(path = "status.html")]
-pub struct StatusTemplate<'a> {
-    pub start_time: &'a str,
-    pub logged_in: bool,
-    pub username: Option<&'a str>,
 }

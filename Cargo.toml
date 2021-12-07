@@ -21,6 +21,7 @@ futures-util = "0.3.18"
 lazy_static = "1.4.0"
 lettre = { version = "0.10.0-rc.4", default-features = false, features = [ "rustls", "smtp-transport", "pool", "hostname", "builder" ] }
 log = "0.4.14"
+rand = "0.8.4"
 rsass = "0.22.2"
 sea-orm = { version = "0.4.0", features = [ "sqlx-postgres", "runtime-actix-rustls", "macros" ], default-features = false }
 serde = "1.0.130"

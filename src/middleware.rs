@@ -42,8 +42,6 @@ where
     forward_ready!(service);
 
     fn call(&self, mut req: ServiceRequest) -> Self::Future {
-        println!("request is passing through the AppendContext middleware");
-
         // get mut HttpRequest from ServiceRequest
         let (httpreq, _payload) = req.parts_mut();
 

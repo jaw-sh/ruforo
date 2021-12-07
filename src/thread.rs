@@ -57,7 +57,6 @@ async fn get_thread_and_replies_for_page(
     page: i32,
 ) -> Result<impl Responder, Error> {
     use crate::orm::{posts, threads};
-    use futures::{future::TryFutureExt, try_join};
 
     let thread = Thread::find_by_id(thread_id)
         .one(&data.pool)
@@ -66,18 +65,20 @@ async fn get_thread_and_replies_for_page(
         .ok_or_else(|| error::ErrorNotFound("Thread not found."))?;
 
     // Update thread to include views.
-    let tfuture = Thread::update_many()
-        .col_expr(
-            threads::Column::ViewCount,
-            Expr::value(thread.view_count + 1),
-        )
-        .filter(threads::Column::Id.eq(thread_id))
-        .exec(&data.pool)
-        //.await
-        .map_err(|err| error::ErrorInternalServerError(err));
+    actix_web::rt::spawn(async move {
+        let pool = crate::session::new_db_pool().await.unwrap();
+        Thread::update_many()
+            .col_expr(
+                threads::Column::ViewCount,
+                Expr::value(thread.view_count + 1),
+            )
+            .filter(threads::Column::Id.eq(thread_id))
+            .exec(&pool)
+            .await
+    });
 
     // Load posts, their ugc associations, and their living revision.
-    let pfuture = Post::find()
+    let presults = Post::find()
         .find_also_linked(posts::PostToUgcRevision)
         .filter(posts::Column::ThreadId.eq(thread_id))
         .filter(
@@ -86,23 +87,19 @@ async fn get_thread_and_replies_for_page(
         .order_by_asc(posts::Column::Position)
         .order_by_asc(posts::Column::CreatedAt)
         .all(&data.pool)
-        //.await
-        .map_err(|_| error::ErrorInternalServerError("Could not find posts for this thread."));
-
-    // Multi-thread drifting!
-    let (presults, _) =
-        try_join!(pfuture, tfuture).map_err(|err| error::ErrorInternalServerError(err))?;
+        .await
+        .map_err(|err| error::ErrorInternalServerError(err))?;
 
     let mut posts = Vec::new();
     for (p, u) in &presults {
         posts.push(PostForTemplate::from_orm(&p, &u));
     }
 
-    let paginator = dbg!(Paginator {
+    let paginator = Paginator {
         base_url: format!("/threads/{}/", thread_id),
         this_page: page,
         page_count: get_pages_in_thread(thread.post_count),
-    });
+    };
 
     ThreadTemplate {
         thread,
