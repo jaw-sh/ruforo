@@ -1,0 +1,20 @@
+<h2>Users</h2>
+<div>
+    <table class="users-table">
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Account Created</th>
+            <th>Password Cipher</th>
+        </tr>
+
+    {% for user in users %}
+        <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.name }}</td>
+            <td>{{ user.created_at.format("%v %r") }}</td>
+            <td>{{ "{:?}"|format(user.password_cipher) }}</td>
+        </tr>
+    {% endfor %}
+    </table>
+</div>

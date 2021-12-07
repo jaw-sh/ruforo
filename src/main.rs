@@ -10,6 +10,7 @@ use argon2::password_hash::{rand_core::OsRng, SaltString};
 use env_logger::Env;
 
 mod chat;
+mod users;
 mod create_user;
 mod forum;
 pub mod frontend;
@@ -81,6 +82,7 @@ async fn main() -> std::io::Result<()> {
             .service(create_user::create_user_post)
             .service(login::login_get)
             .service(login::login_post)
+            .service(users::list_users)
             .service(post::edit_post)
             .service(post::update_post)
             .service(post::view_post_by_id)
