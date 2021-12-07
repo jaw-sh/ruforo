@@ -19,10 +19,10 @@ mod middleware;
 pub mod orm;
 mod post;
 pub mod session;
-mod status;
 pub mod template;
 mod thread;
 pub mod ugc;
+pub mod user;
 
 lazy_static! {
     static ref SALT: SaltString = get_salt();
@@ -76,7 +76,7 @@ async fn main() -> std::io::Result<()> {
             // PATCH  update_ (apply edit)
             // GET    view_ (read/view/render entity)
             // Note: PUT and PATCH were added, removed, and re-added(?) to the HTML5 spec for <form method="">
-            .service(index::index)
+            .service(index::view_index)
             .service(create_user::create_user_get)
             .service(create_user::create_user_post)
             .service(login::login_get)
@@ -91,7 +91,6 @@ async fn main() -> std::io::Result<()> {
             .service(thread::create_reply)
             .service(thread::view_thread)
             .service(thread::view_thread_page)
-            .service(status::view_status)
     })
     .bind("127.0.0.1:8080")?
     .run()

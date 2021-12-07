@@ -1,5 +1,2 @@
-{% if logged_in %}
-    Logged in!
-{% else %}
-    Guestmode.
-{% endif %}
+Welcome, {{ client.get_name() }}.
+Ruforo has been running since {{ start_time.format("%Y-%m-%d %H:%M:%S") }}.
