@@ -98,11 +98,11 @@ async fn get_thread_and_replies_for_page(
         posts.push(PostForTemplate::from_orm(&p, &u));
     }
 
-    let paginator = dbg!(Paginator {
+    let paginator = Paginator {
         base_url: format!("/threads/{}/", thread_id),
         this_page: page,
         page_count: get_pages_in_thread(thread.post_count),
-    });
+    };
 
     ThreadTemplate {
         thread,

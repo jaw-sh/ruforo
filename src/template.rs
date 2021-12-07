@@ -83,15 +83,13 @@ impl PaginatorToHtml for Paginator {
         if self.has_pages() {
             let mut buffer = String::new();
             let template = PaginatorTemplate { paginator: &self };
-            dbg!(self.get_first_pages());
-
             if template.render_into(&mut buffer).is_err() {
                 "[Paginator Util Error]".to_owned()
             } else {
                 buffer
             }
         } else {
-            "No pages".to_owned()
+            "".to_owned()
         }
     }
 }
