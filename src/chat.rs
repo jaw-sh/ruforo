@@ -1,101 +1,209 @@
-// use bytestring::ByteString;
-// use ruforo::DbPool;
-// use std::sync::Arc;
-// use std::sync::Mutex;
-use std::time::{Duration, Instant};
-
 use actix::prelude::*;
-use actix_web::{web, Error, HttpRequest, HttpResponse};
-use actix_web_actors::ws;
+use rand::{self, rngs::ThreadRng, Rng};
+use std::collections::{HashMap, HashSet};
 
-/// How often heartbeat pings are sent
-const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
-/// How long before lack of client response causes a timeout
-const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
+/// Chat server sends this messages to session
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct Message(pub String);
 
-/// do websocket handshake and start `MyWebSocket` actor
-pub async fn ws_index(
-    // pool: web::Data<DbPool>,
-    r: HttpRequest,
-    stream: web::Payload,
-) -> Result<HttpResponse, Error> {
-    println!("{:?}", r);
-    let res = ws::start(MyWebSocket::new(), &r, stream);
-    println!("{:?}", res);
-    res
+/// Message for chat server communications
+
+/// New chat session is created
+#[derive(Message)]
+#[rtype(usize)]
+pub struct Connect {
+    pub addr: Recipient<Message>,
 }
 
-// struct SocketList {
-//  sockets: Vec<MyWebSocket>
-// }
-/// websocket connection is long running connection, it easier
-/// to handle with an actor
-struct MyWebSocket {
-    /// Client must send ping at least once per 10 seconds (CLIENT_TIMEOUT),
-    /// otherwise we drop connection.
-    hb: Instant,
-    // sockets: Arc<Mutex<Vec<MyWebSocket>>>,
+/// Session is disconnected
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct Disconnect {
+    pub id: usize,
 }
 
-impl Actor for MyWebSocket {
-    type Context = ws::WebsocketContext<Self>;
-
-    /// Method is called on actor start. We start the heartbeat process here.
-    fn started(&mut self, ctx: &mut Self::Context) {
-        self.hb(ctx);
-    }
+/// Send message to specific room
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct ClientMessage {
+    /// Id of the client session
+    pub id: usize,
+    /// Peer message
+    pub msg: String,
+    /// Room name
+    pub room: String,
 }
 
-/// Handler for `ws::Message`
-impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocket {
-    fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
-        // process websocket messages
-        println!("WS: {:?}", msg);
-        match msg {
-            Ok(ws::Message::Ping(msg)) => {
-                self.hb = Instant::now();
-                ctx.pong(&msg);
-            }
-            Ok(ws::Message::Pong(_)) => {
-                self.hb = Instant::now();
-            }
-            Ok(ws::Message::Text(text)) => ctx.text(text),
-            Ok(ws::Message::Binary(bin)) => ctx.binary(bin),
-            Ok(ws::Message::Close(reason)) => {
-                ctx.close(reason);
-                ctx.stop();
-            }
-            _ => ctx.stop(),
+/// List of available rooms
+pub struct ListRooms;
+
+impl actix::Message for ListRooms {
+    type Result = Vec<String>;
+}
+
+/// Join room, if room does not exists create new one.
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct Join {
+    /// Client id
+    pub id: usize,
+    /// Room name
+    pub name: String,
+}
+
+/// `ChatServer` manages chat rooms and responsible for coordinating chat
+/// session. implementation is super primitive
+pub struct ChatServer {
+    sessions: HashMap<usize, Recipient<Message>>,
+    rooms: HashMap<String, HashSet<usize>>,
+    rng: ThreadRng,
+    // visitor_count: Arc<AtomicUsize>,
+}
+
+impl ChatServer {
+    pub fn new() -> ChatServer {
+        log::info!("New ChatServer");
+        // pub fn new(visitor_count: Arc<AtomicUsize>) -> ChatServer {
+        // default room
+        let mut rooms = HashMap::new();
+        rooms.insert("Main".to_owned(), HashSet::new());
+
+        ChatServer {
+            sessions: HashMap::new(),
+            rooms,
+            rng: rand::thread_rng(),
+            // visitor_count,
         }
     }
 }
 
-impl MyWebSocket {
-    fn new() -> Self {
-        Self {
-            hb: Instant::now(),
-            // sockets: Arc::new(Mutex::new(Vec::new())),
+impl ChatServer {
+    /// Send message to all users in the room
+    fn send_message(&self, room: &str, message: &str, skip_id: usize) {
+        if let Some(sessions) = self.rooms.get(room) {
+            for id in sessions {
+                if *id != skip_id {
+                    if let Some(addr) = self.sessions.get(id) {
+                        let _ = addr.do_send(Message(message.to_owned()));
+                    }
+                }
+            }
         }
     }
+}
 
-    /// helper method that sends ping to client every second.
-    ///
-    /// also this method checks heartbeats from client
-    fn hb(&self, ctx: &mut <Self as Actor>::Context) {
-        ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
-            // check client heartbeats
-            if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
-                // heartbeat timed out
-                println!("Websocket Client heartbeat failed, disconnecting!");
+/// Make actor from `ChatServer`
+impl Actor for ChatServer {
+    /// We are going to use simple Context, we just need ability to communicate
+    /// with other actors.
+    type Context = Context<Self>;
+}
 
-                // stop actor
-                ctx.stop();
+/// Handler for Connect message.
+///
+/// Register new session and assign unique id to this session
+impl Handler<Connect> for ChatServer {
+    type Result = usize;
 
-                // don't try to send a ping
-                return;
+    fn handle(&mut self, msg: Connect, _: &mut Context<Self>) -> Self::Result {
+        println!("Someone joined");
+
+        // notify all users in same room
+        self.send_message(&"Main".to_owned(), "Someone joined", 0);
+
+        // register session with random id
+        let id = self.rng.gen::<usize>();
+        self.sessions.insert(id, msg.addr);
+
+        // auto join session to Main room
+        self.rooms
+            .entry("Main".to_owned())
+            .or_insert_with(HashSet::new)
+            .insert(id);
+
+        // let count = self.visitor_count.fetch_add(1, Ordering::SeqCst);
+        // self.send_message("Main", &format!("Total visitors {}", count), 0);
+
+        // send id back
+        id
+    }
+}
+
+/// Handler for Disconnect message.
+impl Handler<Disconnect> for ChatServer {
+    type Result = ();
+
+    fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
+        println!("Someone disconnected");
+
+        let mut rooms: Vec<String> = Vec::new();
+
+        // remove address
+        if self.sessions.remove(&msg.id).is_some() {
+            // remove session from all rooms
+            for (name, sessions) in &mut self.rooms {
+                if sessions.remove(&msg.id) {
+                    rooms.push(name.to_owned());
+                }
             }
+        }
+        // send message to other users
+        for room in rooms {
+            self.send_message(&room, "Someone disconnected", 0);
+        }
+    }
+}
 
-            ctx.ping(b"");
-        });
+/// Handler for Message message.
+impl Handler<ClientMessage> for ChatServer {
+    type Result = ();
+
+    fn handle(&mut self, msg: ClientMessage, _: &mut Context<Self>) {
+        self.send_message(&msg.room, msg.msg.as_str(), msg.id);
+    }
+}
+
+/// Handler for `ListRooms` message.
+impl Handler<ListRooms> for ChatServer {
+    type Result = MessageResult<ListRooms>;
+
+    fn handle(&mut self, _: ListRooms, _: &mut Context<Self>) -> Self::Result {
+        let mut rooms = Vec::new();
+
+        for key in self.rooms.keys() {
+            rooms.push(key.to_owned())
+        }
+
+        MessageResult(rooms)
+    }
+}
+
+/// Join room, send disconnect message to old room
+/// send join message to new room
+impl Handler<Join> for ChatServer {
+    type Result = ();
+
+    fn handle(&mut self, msg: Join, _: &mut Context<Self>) {
+        let Join { id, name } = msg;
+        let mut rooms = Vec::new();
+
+        // remove session from all rooms
+        for (n, sessions) in &mut self.rooms {
+            if sessions.remove(&id) {
+                rooms.push(n.to_owned());
+            }
+        }
+        // send message to other users
+        for room in rooms {
+            self.send_message(&room, "Someone disconnected", 0);
+        }
+
+        self.rooms
+            .entry(name.clone())
+            .or_insert_with(HashSet::new)
+            .insert(id);
+
+        self.send_message(&name, "Someone connected", id);
     }
 }
