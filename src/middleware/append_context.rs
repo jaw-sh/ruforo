@@ -1,9 +1,11 @@
 use crate::frontend::Context;
-use actix_web::dev::{forward_ready, Service, Transform};
-use actix_web::Error;
+use crate::session::MainData;
+use crate::user::Client;
+use actix_identity::Identity;
 use actix_web::{
-    dev::{ServiceRequest, ServiceResponse},
-    HttpMessage,
+    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
+    web::Data,
+    Error, FromRequest, HttpMessage,
 };
 use std::future::{ready, Ready};
 use std::time::Instant;
@@ -43,14 +45,49 @@ where
     forward_ready!(service);
 
     fn call(&self, mut req: ServiceRequest) -> Self::Future {
+        use crate::orm::users::Entity as User;
+        use actix_identity::Identity;
+        use sea_orm::entity::*;
+
         // get mut HttpRequest from ServiceRequest
-        let (httpreq, _payload) = req.parts_mut();
+        let (httpreq, _payload) = &req.parts_mut();
+        println!("1. Starting auth.");
 
         // insert data into extensions if enabled
-        httpreq.extensions_mut().insert(Context {
+        let context = Context {
+            client: match Identity::extract(&httpreq).into_inner() {
+                Ok(id) => match httpreq.app_data::<Data<MainData>>() {
+                    Some(data) => Client {
+                        user: match id.identity() {
+                            Some(id) => match crate::session::authenticate_by_uuid_string(
+                                &data.cache.sessions,
+                                id,
+                            ) {
+                                Some(session) => futures::executor::block_on(async move {
+                                    println!("AUTHED AS USER #{}", session.session.user_id);
+                                    User::find_by_id(session.session.user_id)
+                                        .one(&data.pool)
+                                        .await
+                                        .unwrap_or(None)
+                                }),
+                                None => None,
+                            },
+                            None => None,
+                        },
+                    },
+                    None => Client::default(),
+                },
+                Err(_) => Client::default(),
+            },
             request_start: Instant::now(),
+        };
+
+        futures::executor::block_on(async move {
+            println!("2b. Sneed");
         });
 
+        println!("3. Signed in as: {}", context.client.get_name());
+        httpreq.extensions_mut().insert(context);
         self.service.call(req)
     }
 }

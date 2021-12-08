@@ -10,6 +10,7 @@ use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use env_logger::Env;
+use middleware::AppendContext;
 
 pub mod chat;
 mod create_user;
@@ -28,6 +29,7 @@ pub mod session;
 pub mod template;
 mod thread;
 pub mod ugc;
+pub mod user;
 
 lazy_static! {
     static ref SALT: SaltString = get_salt();
@@ -73,13 +75,11 @@ async fn main() -> std::io::Result<()> {
             .secure(true);
 
         App::new()
-            // There is theoretically a way to enforce trailing slashes, but this fuckes
-            // with pseudofiles like style.css
             .app_data(data.clone())
             .app_data(chat.clone())
             .wrap(Logger::new("%a %{User-Agent}i"))
             .wrap(IdentityService::new(policy))
-            .wrap(middleware::AppendContext::default())
+            .wrap(AppendContext::default())
             // https://www.restapitutorial.com/lessons/httpmethods.html
             // GET    edit_ (get edit form)
             // PATCH  update_ (apply edit)

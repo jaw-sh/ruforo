@@ -1,5 +1,7 @@
 use crate::orm;
 use crate::orm::sessions::Entity as Sessions;
+use crate::user::Client;
+use actix_identity::Identity;
 use argon2::{password_hash::SaltString, Argon2};
 use chrono::{NaiveDateTime, Utc};
 use sea_orm::{entity::*, ConnectOptions, Database, DatabaseConnection, DbErr};
@@ -7,18 +9,6 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 use std::time::Duration;
 use uuid::Uuid;
-
-/// Represents information about this request's client.
-#[derive(Debug, Clone, Default)]
-pub struct Client<'a> {
-    pub user: Option<&'a crate::orm::users::Model>,
-}
-
-impl<'a> Client<'a> {
-    pub fn get_name(&self) -> String {
-        "Guest".to_owned()
-    }
-}
 
 #[derive(Copy, Clone)]
 pub struct Session {
@@ -69,35 +59,50 @@ impl<'key> MainData<'key> {
             cache: BigChungus::new(),
         }
     }
+
+    pub fn client_from_identity(&self, id: Identity) -> Client {
+        use crate::orm::users::Entity as User;
+        Client {
+            user: match id.identity() {
+                Some(id) => match authenticate_by_uuid_string(&self.cache.sessions, id) {
+                    Some(session) => futures::executor::block_on(async move {
+                        println!("AUTHED AS USER #{}", session.session.user_id);
+                        User::find_by_id(session.session.user_id)
+                            .one(&self.pool)
+                            .await
+                            .unwrap_or(None)
+                    }),
+                    None => None,
+                },
+                None => None,
+            },
+        }
+    }
 }
 
+/// Accepts the actix_web Cookies jar and returns a session, if authentication can be found and made.
 pub fn authenticate_by_cookie(
     ses_map: &SessionMap,
     cookies: &actix_session::Session,
 ) -> Option<SessionWithUuid> {
-    let uuid = cookies.get::<String>("token");
-
-    let uuid = match uuid {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!("{}", e);
-            return None;
-        }
-    };
-
-    let uuid = match uuid {
-        Some(v) => v,
-        None => return None,
-    };
-
-    let uuid = match Uuid::parse_str(&uuid) {
-        Ok(v) => v,
-        Err(_) => return None,
-    };
-
-    authenticate_by_uuid(ses_map, uuid)
+    match cookies.get::<String>("token") {
+        Ok(token) => match token {
+            Some(uuid) => authenticate_by_uuid_string(ses_map, uuid),
+            None => None,
+        },
+        _ => None,
+    }
 }
 
+/// Accepts a UUID as a string and returns a session, if the UUID can parse and authenticate.
+pub fn authenticate_by_uuid_string(ses_map: &SessionMap, uuid: String) -> Option<SessionWithUuid> {
+    match Uuid::parse_str(&uuid) {
+        Ok(uuid) => authenticate_by_uuid(ses_map, uuid),
+        _ => None,
+    }
+}
+
+/// Accepts a uuid::Uuid type and returns a session if the token can authenticate.
 pub fn authenticate_by_uuid(ses_map: &SessionMap, uuid: Uuid) -> Option<SessionWithUuid> {
     match ses_map.read().unwrap().get(&uuid) {
         Some(session) => Some(SessionWithUuid {

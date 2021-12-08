@@ -40,9 +40,11 @@ impl actix_web::Responder for PublicResponse {
                 .error_response();
         }
 
+        dbg!(req.extensions().get::<Context>().unwrap());
+
         PublicTemplate {
             content: &self.content,
-            context: req.extensions().get::<Context>().unwrap(),
+            context: &req.extensions().get::<Context>().unwrap(),
         }
         .to_response()
     }

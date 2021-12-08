@@ -1,9 +1,11 @@
+use crate::user::Client;
 use std::time::{Duration, Instant};
 
 /// Contextual information passed to the page container.
 /// Initialized in Middleware. Passed in a Handler.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Context {
+    pub client: Client,
     pub request_start: Instant,
 }
 

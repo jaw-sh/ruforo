@@ -47,13 +47,20 @@
         {% endblock %}
         {% block navigation %}
             <nav id="primary-nav">
-                <ul>
+                <ul class="nav-main">
                     <li><a href="/">Home</a></li>
                     <li><a href="/forums">Forums</a></li>
-                    <li><a href="/create_user">Signup</a></li>
-                    <li><a href="/login">Login</a></li>
                     <li><a href="/members">Members</a></li>
-                  </ul>
+                </ul>
+                <ul class="nav-side">
+                    {% if context.client.is_user() %}
+                    <li><a href="/">{{ context.client.get_name() }}</a></li>
+                    <li><a href="/logout">Logout</a></li>
+                    {% else %}
+                    <li><a href="/create_user">Register</a></li>
+                    <li><a href="/login">Login</a></li>
+                    {% endif %}
+                </ul>
             </nav>
         {% endblock %}
         </div>

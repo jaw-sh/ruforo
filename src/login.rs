@@ -83,9 +83,10 @@ pub async fn post_login(
 
 #[get("/login")]
 pub async fn view_login(
-    id: Identity,
     my: web::Data<MainData<'_>>,
+    cookies: actix_session::Session,
 ) -> Result<impl Responder, Error> {
+    let uuid;
     let mut tmpl = LoginTemplate {
         user_id: None,
         logged_in: false,
@@ -93,14 +94,11 @@ pub async fn view_login(
         token: None,
     };
 
-    //let session = authenticate_by_cookie(&my.cache.sessions, &cookies);
-    if let Some(id) = id.identity() {
-        dbg!(id);
-        //let session = session.unwrap();
-        //tmpl.user_id = Some(session.session.user_id);
-        //tmpl.logged_in = true;
-        //uuid = session.uuid.to_string();
-        //tmpl.token = Some(&uuid);
+    if let Some(session) = authenticate_by_cookie(&my.cache.sessions, &cookies) {
+        tmpl.user_id = Some(session.session.user_id);
+        tmpl.logged_in = true;
+        uuid = session.uuid.to_string();
+        tmpl.token = Some(&uuid);
     }
 
     Ok(tmpl.to_pub_response())
