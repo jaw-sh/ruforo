@@ -4,7 +4,8 @@ extern crate lazy_static;
 
 use crate::session::{new_db_pool, reload_session_cache, MainData};
 use actix::Actor;
-use actix_session::CookieSession;
+use actix_identity::{CookieIdentityPolicy, IdentityService};
+//use actix_session::CookieSession;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
@@ -18,6 +19,7 @@ pub mod frontend;
 mod hub;
 mod index;
 mod login;
+mod member;
 mod middleware;
 pub mod orm;
 mod post;
@@ -26,7 +28,6 @@ pub mod session;
 pub mod template;
 mod thread;
 pub mod ugc;
-mod users;
 
 lazy_static! {
     static ref SALT: SaltString = get_salt();
@@ -59,23 +60,25 @@ async fn init_data<'key>(salt: &'key SaltString) -> MainData<'key> {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // Build Main Data
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     let data = web::Data::new(init_data(&SALT).await);
     let chat = web::Data::new(chat::ChatServer::new().start());
 
     // Start HTTP server
     HttpServer::new(move || {
+        // Authentication policy
+        let policy = CookieIdentityPolicy::new(&[0; 32]) // TODO: Set a 32B Salt
+            .name("auth")
+            .secure(true);
+
         App::new()
             // There is theoretically a way to enforce trailing slashes, but this fuckes
             // with pseudofiles like style.css
             .app_data(data.clone())
             .app_data(chat.clone())
-            .wrap(Logger::default())
             .wrap(Logger::new("%a %{User-Agent}i"))
-            .wrap(
-                CookieSession::signed(&[0; 32]) // <- create cookie based session middleware
-                    .secure(false),
-            )
+            .wrap(IdentityService::new(policy))
             .wrap(middleware::AppendContext::default())
             // https://www.restapitutorial.com/lessons/httpmethods.html
             // GET    edit_ (get edit form)
@@ -87,7 +90,7 @@ async fn main() -> std::io::Result<()> {
             .service(create_user::create_user_post)
             .service(login::view_login)
             .service(login::post_login)
-            .service(users::list_users)
+            .service(member::view_members)
             .service(filesystem::put_file)
             .service(post::edit_post)
             .service(post::update_post)

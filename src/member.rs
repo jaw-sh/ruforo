@@ -1,21 +1,21 @@
+use crate::frontend::TemplateToPubResponse;
+use crate::orm::users;
 use crate::session::MainData;
 use actix_web::{error, get, web, Responder};
-use crate::orm::users;
 use askama_actix::Template;
 use sea_orm::entity::*;
-use crate::frontend::TemplateToPubResponse;
 
 #[derive(Template)]
-#[template(path = "users.html")]
-pub struct UsersTemplate {
+#[template(path = "members.html")]
+pub struct MembersTemplate {
     pub users: Vec<users::Model>,
 }
 
-#[get("/users")]
-pub async fn list_users(data: web::Data<MainData<'static>>) -> impl Responder {
+#[get("/members")]
+pub async fn view_members(data: web::Data<MainData<'static>>) -> impl Responder {
     match users::Entity::find().all(&data.pool).await {
         Ok(users) => {
-            return Ok(UsersTemplate{ users }.to_pub_response());
+            return Ok(MembersTemplate { users }.to_pub_response());
         }
         Err(e) => {
             log::error!("error {:?}", e);

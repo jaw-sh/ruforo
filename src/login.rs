@@ -5,6 +5,7 @@ use crate::orm::users::Entity as Users;
 use crate::session;
 use crate::session::{authenticate_by_cookie, MainData};
 use crate::template::LoginTemplate;
+use actix_identity::Identity;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult, QueryFilter};
@@ -18,8 +19,8 @@ pub struct FormData {
 
 async fn login(
     db: &DatabaseConnection,
-    name_: &str,
-    pass_: &str,
+    name: &str,
+    pass: &str,
     my: &web::Data<MainData<'_>>,
 ) -> Result<i32, Error> {
     #[derive(Debug, FromQueryResult)]
@@ -32,7 +33,7 @@ async fn login(
         .select_only()
         .column(users::Column::Id)
         .column(users::Column::Password)
-        .filter(users::Column::Name.eq(name_));
+        .filter(users::Column::Name.eq(name));
 
     let user = select
         .into_model::<SelectResult>()
@@ -46,18 +47,19 @@ async fn login(
 
     let parsed_hash = PasswordHash::new(&user.password).unwrap();
     my.argon2
-        .verify_password(pass_.as_bytes(), &parsed_hash)
+        .verify_password(pass.as_bytes(), &parsed_hash)
         .map_err(|_| error::ErrorInternalServerError("user not found or bad password"))?;
     Ok(user.id)
 }
 
 #[post("/login")]
 pub async fn post_login(
+    id: Identity,
     session: actix_session::Session,
     form: web::Form<FormData>,
     my: web::Data<MainData<'_>>,
 ) -> Result<HttpResponse, Error> {
-    // don't forget to sanitize kek and add error handling
+    // TODO: Sanitize input and check for errors.
     let user_id = login(&my.pool, &form.username, &form.password, &my).await?;
 
     let uuid = session::new_session(&my.pool, &my.cache.sessions, user_id)
@@ -75,12 +77,13 @@ pub async fn post_login(
         .insert("token", uuid)
         .map_err(|_| error::ErrorInternalServerError("middleware error"))?;
 
+    id.remember(uuid.to_string());
     Ok(HttpResponse::Ok().finish())
 }
 
 #[get("/login")]
 pub async fn view_login(
-    cookies: actix_session::Session,
+    id: Identity,
     my: web::Data<MainData<'_>>,
 ) -> Result<impl Responder, Error> {
     let mut tmpl = LoginTemplate {
@@ -90,14 +93,14 @@ pub async fn view_login(
         token: None,
     };
 
-    let session = authenticate_by_cookie(&my.cache.sessions, &cookies);
-    let uuid;
-    if session.is_some() {
-        let session = session.unwrap();
-        tmpl.user_id = Some(session.session.user_id);
-        tmpl.logged_in = true;
-        uuid = session.uuid.to_string();
-        tmpl.token = Some(&uuid);
+    //let session = authenticate_by_cookie(&my.cache.sessions, &cookies);
+    if let Some(id) = id.identity() {
+        dbg!(id);
+        //let session = session.unwrap();
+        //tmpl.user_id = Some(session.session.user_id);
+        //tmpl.logged_in = true;
+        //uuid = session.uuid.to_string();
+        //tmpl.token = Some(&uuid);
     }
 
     Ok(tmpl.to_pub_response())
