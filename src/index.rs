@@ -1,6 +1,6 @@
 use crate::frontend::TemplateToPubResponse;
 use crate::session::MainData;
-use crate::user::{Client, ClientUserInterface};
+use crate::user::Client;
 use actix_web::{get, web, Responder};
 use askama_actix::Template;
 
@@ -12,8 +12,8 @@ pub struct IndexTemplate<'a> {
 }
 
 #[get("/")]
-async fn view_index(my: web::Data<MainData<'_>>) -> impl Responder {
-    for (key, value) in &*my.cache.sessions.read().unwrap() {
+async fn view_index(client: Client, data: web::Data<MainData<'_>>) -> impl Responder {
+    for (key, value) in &*data.cache.sessions.read().unwrap() {
         println!(
             "Session: {} / {:?}",
             key,
@@ -21,11 +21,9 @@ async fn view_index(my: web::Data<MainData<'_>>) -> impl Responder {
         );
     }
 
-    let client = Client { user: None };
-
     IndexTemplate {
         client: &client,
-        start_time: &my.cache.start_time,
+        start_time: &data.cache.start_time,
     }
     .to_pub_response()
 }

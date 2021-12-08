@@ -1,16 +1,11 @@
 #primary-nav {
+    background-color: #333;
+    
     ul {
         list-style-type: none;
         margin: 0;
         padding: 0;
         overflow: hidden;
-        background-color: #333;
-
-        &::after {
-            display: table;
-            content: " ";
-            clear: both;
-        }
     }
     li {
         float: left;
@@ -22,4 +17,17 @@
         padding: 14px 16px;
         text-decoration: none;
     }
+
+    &::after {
+        display: table;
+        content: " ";
+        clear: both;
+    }
+}
+
+.nav-main {
+    float: left;
+}
+.nav-side {
+    float: right;
 }

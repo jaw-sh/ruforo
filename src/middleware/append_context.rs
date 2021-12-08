@@ -1,13 +1,16 @@
 use crate::frontend::Context;
-use actix_web::dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform};
-use actix_web::Error;
+use crate::session::MainData;
+use crate::user::Client;
+use actix_identity::Identity;
+use actix_web::{
+    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
+    web::Data,
+    Error, FromRequest, HttpMessage,
+};
 use std::future::{ready, Ready};
 use std::time::Instant;
 
-// Documentation for middleware can be found here:
-// https://github.com/actix/actix-web/blob/master/src/middleware/normalize.rs
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct AppendContext {}
 
 impl<S, B> Transform<S, ServiceRequest> for AppendContext
@@ -43,13 +46,26 @@ where
 
     fn call(&self, mut req: ServiceRequest) -> Self::Future {
         // get mut HttpRequest from ServiceRequest
-        let (httpreq, _payload) = req.parts_mut();
+        let (httpreq, _payload) = &req.parts_mut();
 
         // insert data into extensions if enabled
         httpreq.extensions_mut().insert(Context {
             request_start: Instant::now(),
         });
 
+        // log in using cookies
+        let client = match Identity::extract(&httpreq).into_inner() {
+            Ok(id) => {
+                dbg!(id.identity());
+                match httpreq.app_data::<Data<MainData>>() {
+                    Some(data) => data.client_from_identity(&id),
+                    None => Client::default(),
+                }
+            }
+            Err(_) => Client::default(),
+        };
+
+        httpreq.extensions_mut().insert(client);
         self.service.call(req)
     }
 }

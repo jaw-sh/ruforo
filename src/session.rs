@@ -1,5 +1,7 @@
 use crate::orm;
 use crate::orm::sessions::Entity as Sessions;
+use crate::user::Client;
+use actix_identity::Identity;
 use argon2::{password_hash::SaltString, Argon2};
 use chrono::{NaiveDateTime, Utc};
 use sea_orm::{entity::*, ConnectOptions, Database, DatabaseConnection, DbErr};
@@ -15,7 +17,7 @@ pub struct Session {
 }
 
 #[derive(Copy, Clone)]
-pub struct SessionWithUUID {
+pub struct SessionWithUuid {
     pub uuid: Uuid,
     pub session: Session,
 }
@@ -56,6 +58,67 @@ impl<'key> MainData<'key> {
             pool,
             cache: BigChungus::new(),
         }
+    }
+
+    pub fn client_from_identity(&self, id: &Identity) -> Client {
+        use crate::orm::users::Entity as User;
+        Client {
+            user: match id.identity() {
+                Some(id) => match authenticate_by_uuid_string(&self.cache.sessions, id) {
+                    Some(session) => futures::executor::block_on(async move {
+                        println!("External authed as user #{}", session.session.user_id);
+                        User::find_by_id(session.session.user_id)
+                            .one(&self.pool)
+                            .await
+                            .unwrap_or({
+                                println!("2a. Unwrapped nothing!");
+                                None
+                            })
+                    }),
+                    None => {
+                        println!("2a. No session given.");
+                        None
+                    }
+                },
+                None => {
+                    println!("2a. No identity given.");
+                    None
+                }
+            },
+        }
+    }
+}
+
+/// Accepts the actix_web Cookies jar and returns a session, if authentication can be found and made.
+pub fn authenticate_by_cookie(
+    ses_map: &SessionMap,
+    cookies: &actix_session::Session,
+) -> Option<SessionWithUuid> {
+    match cookies.get::<String>("token") {
+        Ok(token) => match token {
+            Some(uuid) => authenticate_by_uuid_string(ses_map, uuid),
+            None => None,
+        },
+        _ => None,
+    }
+}
+
+/// Accepts a UUID as a string and returns a session, if the UUID can parse and authenticate.
+pub fn authenticate_by_uuid_string(ses_map: &SessionMap, uuid: String) -> Option<SessionWithUuid> {
+    match Uuid::parse_str(&uuid) {
+        Ok(uuid) => authenticate_by_uuid(ses_map, uuid),
+        _ => None,
+    }
+}
+
+/// Accepts a uuid::Uuid type and returns a session if the token can authenticate.
+pub fn authenticate_by_uuid(ses_map: &SessionMap, uuid: Uuid) -> Option<SessionWithUuid> {
+    match ses_map.read().unwrap().get(&uuid) {
+        Some(session) => Some(SessionWithUuid {
+            uuid,
+            session: session.to_owned(),
+        }),
+        None => None,
     }
 }
 
@@ -102,7 +165,7 @@ pub async fn new_session(
 }
 
 /// copies a session out of the mutex protected hashmap
-pub async fn get_session(ses_map: &SessionMap, uuid: &Uuid) -> Option<Session> {
+pub fn get_session(ses_map: &SessionMap, uuid: &Uuid) -> Option<Session> {
     match ses_map.read().unwrap().get(uuid) {
         Some(uuid) => Some(uuid.to_owned()), // TODO add expiration checking
         None => None,
@@ -136,37 +199,4 @@ pub async fn reload_session_cache(
         );
     }
     Ok(())
-}
-
-pub async fn authenticate_by_cookie(
-    ses_map: &SessionMap,
-    cookies: &actix_session::Session,
-) -> Option<SessionWithUUID> {
-    let uuid = cookies.get::<String>("token");
-
-    let uuid = match uuid {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!("{}", e);
-            return None;
-        }
-    };
-
-    let uuid = match uuid {
-        Some(v) => v,
-        None => return None,
-    };
-
-    let uuid = match Uuid::parse_str(&uuid) {
-        Ok(v) => v,
-        Err(_) => return None,
-    };
-
-    match ses_map.read().unwrap().get(&uuid) {
-        Some(session) => Some(SessionWithUUID {
-            uuid,
-            session: session.to_owned(),
-        }),
-        None => None,
-    }
 }
