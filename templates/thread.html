@@ -10,5 +10,22 @@
 <form action="/threads/{{ thread.id }}/post-reply" method="post">
     <h2>Post Reply</h2>
     <textarea name="content" rows="8" cols="80"></textarea>
+    <div><input id="fileupload" type="file" name="attachment" /><button id="submitfile">Upload</button></div>
     <button>Sneed</button>
 </form>
+
+<script>
+    document.getElementById('submitfile').addEventListener('click', async function uploadFile(event) {
+        event.preventDefault();
+
+        let formData = new FormData();
+        formData.append("file", fileupload.files[0]);
+        await fetch('/fs/upload-file', {
+          method: "POST",
+          body: formData
+        });
+        console.log("Triggered successfully.");
+
+        return false; // prevent default
+    });
+</script>

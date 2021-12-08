@@ -12,6 +12,7 @@ use env_logger::Env;
 
 pub mod chat;
 mod create_user;
+pub mod filesystem;
 mod forum;
 pub mod frontend;
 mod hub;
@@ -87,6 +88,7 @@ async fn main() -> std::io::Result<()> {
             .service(login::login_get)
             .service(login::login_post)
             .service(users::list_users)
+            .service(filesystem::put_file)
             .service(post::edit_post)
             .service(post::update_post)
             .service(post::view_post_by_id)
