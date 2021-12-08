@@ -1,13 +1,14 @@
 use crate::frontend::Context;
-use actix_web::dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform};
+use actix_web::dev::{forward_ready, Service, Transform};
 use actix_web::Error;
+use actix_web::{
+    dev::{ServiceRequest, ServiceResponse},
+    HttpMessage,
+};
 use std::future::{ready, Ready};
 use std::time::Instant;
 
-// Documentation for middleware can be found here:
-// https://github.com/actix/actix-web/blob/master/src/middleware/normalize.rs
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct AppendContext {}
 
 impl<S, B> Transform<S, ServiceRequest> for AppendContext

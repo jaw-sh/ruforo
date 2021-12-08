@@ -8,6 +8,18 @@ use std::sync::RwLock;
 use std::time::Duration;
 use uuid::Uuid;
 
+/// Represents information about this request's client.
+#[derive(Debug, Clone, Default)]
+pub struct Client<'a> {
+    pub user: Option<&'a crate::orm::users::Model>,
+}
+
+impl<'a> Client<'a> {
+    pub fn get_name(&self) -> String {
+        "Guest".to_owned()
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct Session {
     pub user_id: i32,
@@ -15,7 +27,7 @@ pub struct Session {
 }
 
 #[derive(Copy, Clone)]
-pub struct SessionWithUUID {
+pub struct SessionWithUuid {
     pub uuid: Uuid,
     pub session: Session,
 }
@@ -56,6 +68,43 @@ impl<'key> MainData<'key> {
             pool,
             cache: BigChungus::new(),
         }
+    }
+}
+
+pub fn authenticate_by_cookie(
+    ses_map: &SessionMap,
+    cookies: &actix_session::Session,
+) -> Option<SessionWithUuid> {
+    let uuid = cookies.get::<String>("token");
+
+    let uuid = match uuid {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("{}", e);
+            return None;
+        }
+    };
+
+    let uuid = match uuid {
+        Some(v) => v,
+        None => return None,
+    };
+
+    let uuid = match Uuid::parse_str(&uuid) {
+        Ok(v) => v,
+        Err(_) => return None,
+    };
+
+    authenticate_by_uuid(ses_map, uuid)
+}
+
+pub fn authenticate_by_uuid(ses_map: &SessionMap, uuid: Uuid) -> Option<SessionWithUuid> {
+    match ses_map.read().unwrap().get(&uuid) {
+        Some(session) => Some(SessionWithUuid {
+            uuid,
+            session: session.to_owned(),
+        }),
+        None => None,
     }
 }
 
@@ -102,7 +151,7 @@ pub async fn new_session(
 }
 
 /// copies a session out of the mutex protected hashmap
-pub async fn get_session(ses_map: &SessionMap, uuid: &Uuid) -> Option<Session> {
+pub fn get_session(ses_map: &SessionMap, uuid: &Uuid) -> Option<Session> {
     match ses_map.read().unwrap().get(uuid) {
         Some(uuid) => Some(uuid.to_owned()), // TODO add expiration checking
         None => None,
@@ -136,37 +185,4 @@ pub async fn reload_session_cache(
         );
     }
     Ok(())
-}
-
-pub async fn authenticate_by_cookie(
-    ses_map: &SessionMap,
-    cookies: &actix_session::Session,
-) -> Option<SessionWithUUID> {
-    let uuid = cookies.get::<String>("token");
-
-    let uuid = match uuid {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!("{}", e);
-            return None;
-        }
-    };
-
-    let uuid = match uuid {
-        Some(v) => v,
-        None => return None,
-    };
-
-    let uuid = match Uuid::parse_str(&uuid) {
-        Ok(v) => v,
-        Err(_) => return None,
-    };
-
-    match ses_map.read().unwrap().get(&uuid) {
-        Some(session) => Some(SessionWithUUID {
-            uuid,
-            session: session.to_owned(),
-        }),
-        None => None,
-    }
 }

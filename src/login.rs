@@ -52,7 +52,7 @@ async fn login(
 }
 
 #[post("/login")]
-pub async fn login_post(
+pub async fn post_login(
     session: actix_session::Session,
     form: web::Form<FormData>,
     my: web::Data<MainData<'_>>,
@@ -79,7 +79,7 @@ pub async fn login_post(
 }
 
 #[get("/login")]
-pub async fn login_get(
+pub async fn view_login(
     cookies: actix_session::Session,
     my: web::Data<MainData<'_>>,
 ) -> Result<impl Responder, Error> {
@@ -90,7 +90,7 @@ pub async fn login_get(
         token: None,
     };
 
-    let session = authenticate_by_cookie(&my.cache.sessions, &cookies).await;
+    let session = authenticate_by_cookie(&my.cache.sessions, &cookies);
     let uuid;
     if session.is_some() {
         let session = session.unwrap();

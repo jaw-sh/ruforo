@@ -10,7 +10,6 @@ use argon2::password_hash::{rand_core::OsRng, SaltString};
 use env_logger::Env;
 
 mod chat;
-mod users;
 mod create_user;
 mod forum;
 pub mod frontend;
@@ -23,7 +22,7 @@ pub mod session;
 pub mod template;
 mod thread;
 pub mod ugc;
-pub mod user;
+mod users;
 
 lazy_static! {
     static ref SALT: SaltString = get_salt();
@@ -71,7 +70,7 @@ async fn main() -> std::io::Result<()> {
                 CookieSession::signed(&[0; 32]) // <- create cookie based session middleware
                     .secure(false),
             )
-            .wrap(middleware::AppendContext {})
+            .wrap(middleware::AppendContext::default())
             // https://www.restapitutorial.com/lessons/httpmethods.html
             // GET    edit_ (get edit form)
             // PATCH  update_ (apply edit)
@@ -80,8 +79,8 @@ async fn main() -> std::io::Result<()> {
             .service(index::view_index)
             .service(create_user::create_user_get)
             .service(create_user::create_user_post)
-            .service(login::login_get)
-            .service(login::login_post)
+            .service(login::view_login)
+            .service(login::post_login)
             .service(users::list_users)
             .service(post::edit_post)
             .service(post::update_post)

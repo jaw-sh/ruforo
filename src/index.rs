@@ -1,13 +1,12 @@
 use crate::frontend::TemplateToPubResponse;
-use crate::session::MainData;
-use crate::user::{Client, ClientUserInterface};
+use crate::session::{Client, MainData};
 use actix_web::{get, web, Responder};
 use askama_actix::Template;
 
 #[derive(Template)]
 #[template(path = "index.html")]
 pub struct IndexTemplate<'a> {
-    pub client: &'a Client,
+    pub client: &'a Client<'a>,
     pub start_time: &'a chrono::NaiveDateTime,
 }
 
