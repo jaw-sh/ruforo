@@ -1950,6 +1950,7 @@ dependencies = [
  "lazy_static",
  "lettre",
  "log",
+ "rand",
  "rsass",
  "sea-orm",
  "serde",

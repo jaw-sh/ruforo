@@ -3,16 +3,18 @@ extern crate dotenv;
 extern crate lazy_static;
 
 use crate::session::{new_db_pool, reload_session_cache, MainData};
+use actix::Actor;
 use actix_session::CookieSession;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use env_logger::Env;
 
-mod chat;
+pub mod chat;
 mod create_user;
 mod forum;
 pub mod frontend;
+mod hub;
 mod index;
 mod login;
 mod middleware;
@@ -57,6 +59,7 @@ async fn init_data<'key>(salt: &'key SaltString) -> MainData<'key> {
 async fn main() -> std::io::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     let data = web::Data::new(init_data(&SALT).await);
+    let chat = web::Data::new(chat::ChatServer::new().start());
 
     // Start HTTP server
     HttpServer::new(move || {
@@ -64,6 +67,7 @@ async fn main() -> std::io::Result<()> {
             // There is theoretically a way to enforce trailing slashes, but this fuckes
             // with pseudofiles like style.css
             .app_data(data.clone())
+            .app_data(chat.clone())
             .wrap(Logger::default())
             .wrap(Logger::new("%a %{User-Agent}i"))
             .wrap(
@@ -92,6 +96,7 @@ async fn main() -> std::io::Result<()> {
             .service(thread::create_reply)
             .service(thread::view_thread)
             .service(thread::view_thread_page)
+            .service(web::resource("/chat").to(hub::chat_route))
     })
     .bind("127.0.0.1:8080")?
     .run()
