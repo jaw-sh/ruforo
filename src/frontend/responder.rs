@@ -1,4 +1,5 @@
 use super::Context;
+use crate::user::Client;
 use actix_web::{error, Error, HttpRequest, HttpResponse};
 use askama_actix::{Template, TemplateToResponse};
 
@@ -8,6 +9,7 @@ use askama_actix::{Template, TemplateToResponse};
 struct PublicTemplate<'a> {
     context: &'a Context,
     content: &'a str,
+    client: &'a Client,
 }
 
 pub trait TemplateToPubResponse {
@@ -40,11 +42,10 @@ impl actix_web::Responder for PublicResponse {
                 .error_response();
         }
 
-        dbg!(req.extensions().get::<Context>().unwrap());
-
         PublicTemplate {
             content: &self.content,
             context: &req.extensions().get::<Context>().unwrap(),
+            client: &req.extensions().get::<Client>().unwrap(),
         }
         .to_response()
     }

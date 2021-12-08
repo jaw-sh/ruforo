@@ -45,49 +45,27 @@ where
     forward_ready!(service);
 
     fn call(&self, mut req: ServiceRequest) -> Self::Future {
-        use crate::orm::users::Entity as User;
-        use actix_identity::Identity;
-        use sea_orm::entity::*;
-
         // get mut HttpRequest from ServiceRequest
         let (httpreq, _payload) = &req.parts_mut();
-        println!("1. Starting auth.");
 
         // insert data into extensions if enabled
-        let context = Context {
-            client: match Identity::extract(&httpreq).into_inner() {
-                Ok(id) => match httpreq.app_data::<Data<MainData>>() {
-                    Some(data) => Client {
-                        user: match id.identity() {
-                            Some(id) => match crate::session::authenticate_by_uuid_string(
-                                &data.cache.sessions,
-                                id,
-                            ) {
-                                Some(session) => futures::executor::block_on(async move {
-                                    println!("AUTHED AS USER #{}", session.session.user_id);
-                                    User::find_by_id(session.session.user_id)
-                                        .one(&data.pool)
-                                        .await
-                                        .unwrap_or(None)
-                                }),
-                                None => None,
-                            },
-                            None => None,
-                        },
-                    },
-                    None => Client::default(),
-                },
-                Err(_) => Client::default(),
-            },
+        httpreq.extensions_mut().insert(Context {
             request_start: Instant::now(),
-        };
-
-        futures::executor::block_on(async move {
-            println!("2b. Sneed");
         });
 
-        println!("3. Signed in as: {}", context.client.get_name());
-        httpreq.extensions_mut().insert(context);
+        // log in using cookies
+        let client = match Identity::extract(&httpreq).into_inner() {
+            Ok(id) => {
+                dbg!(id.identity());
+                match httpreq.app_data::<Data<MainData>>() {
+                    Some(data) => data.client_from_identity(&id),
+                    None => Client::default(),
+                }
+            }
+            Err(_) => Client::default(),
+        };
+
+        httpreq.extensions_mut().insert(client);
         self.service.call(req)
     }
 }

@@ -53,8 +53,8 @@
                     <li><a href="/members">Members</a></li>
                 </ul>
                 <ul class="nav-side">
-                    {% if context.client.is_user() %}
-                    <li><a href="/">{{ context.client.get_name() }}</a></li>
+                    {% if client.is_user() %}
+                    <li><a href="/">{{ client.get_name() }}</a></li>
                     <li><a href="/logout">Logout</a></li>
                     {% else %}
                     <li><a href="/create_user">Register</a></li>

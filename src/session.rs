@@ -60,21 +60,30 @@ impl<'key> MainData<'key> {
         }
     }
 
-    pub fn client_from_identity(&self, id: Identity) -> Client {
+    pub fn client_from_identity(&self, id: &Identity) -> Client {
         use crate::orm::users::Entity as User;
         Client {
             user: match id.identity() {
                 Some(id) => match authenticate_by_uuid_string(&self.cache.sessions, id) {
                     Some(session) => futures::executor::block_on(async move {
-                        println!("AUTHED AS USER #{}", session.session.user_id);
+                        println!("External authed as user #{}", session.session.user_id);
                         User::find_by_id(session.session.user_id)
                             .one(&self.pool)
                             .await
-                            .unwrap_or(None)
+                            .unwrap_or({
+                                println!("2a. Unwrapped nothing!");
+                                None
+                            })
                     }),
-                    None => None,
+                    None => {
+                        println!("2a. No session given.");
+                        None
+                    }
                 },
-                None => None,
+                None => {
+                    println!("2a. No identity given.");
+                    None
+                }
             },
         }
     }

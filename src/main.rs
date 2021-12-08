@@ -77,9 +77,10 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(data.clone())
             .app_data(chat.clone())
-            .wrap(Logger::new("%a %{User-Agent}i"))
-            .wrap(IdentityService::new(policy))
+            // Order of middleware IS IMPORTANT and is in REVERSE EXECUTION ORDER.
             .wrap(AppendContext::default())
+            .wrap(IdentityService::new(policy))
+            .wrap(Logger::new("%a %{User-Agent}i"))
             // https://www.restapitutorial.com/lessons/httpmethods.html
             // GET    edit_ (get edit form)
             // PATCH  update_ (apply edit)
