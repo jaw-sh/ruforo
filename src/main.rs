@@ -63,6 +63,7 @@ async fn main() -> std::io::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     let data = web::Data::new(init_data(&SALT).await);
     let chat = web::Data::new(chat::ChatServer::new().start());
+    let s3 = web::Data::new(s3::s3_test_client());
 
     // Start HTTP server
     HttpServer::new(move || {
@@ -71,6 +72,7 @@ async fn main() -> std::io::Result<()> {
             // with pseudofiles like style.css
             .app_data(data.clone())
             .app_data(chat.clone())
+            .app_data(s3.clone())
             .wrap(Logger::default())
             .wrap(Logger::new("%a %{User-Agent}i"))
             .wrap(

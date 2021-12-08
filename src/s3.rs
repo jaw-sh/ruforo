@@ -19,15 +19,17 @@ impl S3Bucket {
 
     pub async fn put_object(
         &self,
+        data: Vec<u8>,
         filename: &str,
     ) -> Result<PutObjectOutput, RusotoError<PutObjectError>> {
-        let mut contents: Vec<u8> = Vec::new();
-        contents.push(b'a');
+        log::info!("S3Bucket: put_object: {}", filename);
+
+        // let check_for_file // TODO
 
         let put_request = PutObjectRequest {
             bucket: self.bucket_name.to_owned(),
             key: filename.to_owned(),
-            body: Some(contents.into()),
+            body: Some(data.into()),
             ..Default::default()
         };
 
@@ -35,33 +37,11 @@ impl S3Bucket {
     }
 }
 
-pub async fn upload() {
-    // Hash an input all at once.
-    let hash1 = blake3::hash(b"foobarbaz");
-
-    // Hash an input incrementally.
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(b"foo");
-    hasher.update(b"bar");
-    hasher.update(b"baz");
-    let hash2 = hasher.finalize();
-    assert_eq!(hash1, hash2);
-
-    // Extended output. OutputReader also implements Read and Seek.
-    let mut output = [0; 1000];
-    let mut output_reader = hasher.finalize_xof();
-    output_reader.fill(&mut output);
-    assert_eq!(&output[..32], hash1.as_bytes());
-
-    // Print a hash as hex.
-    println!("{}", hash1);
-}
-
-pub async fn s3_test() {
+/// my test bucket, TODO support multiple buckets with configuration stored in the DB
+pub fn s3_test_client() -> S3Bucket {
     let my_region = Region::Custom {
         name: "localhost".to_owned(),
         endpoint: "http://localhost:9000".to_owned(),
     };
-    let s3 = S3Bucket::new(my_region, "test0");
-    s3.put_object("README0.md").await.unwrap();
+    S3Bucket::new(my_region, "test0")
 }
