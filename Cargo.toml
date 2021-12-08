@@ -12,6 +12,7 @@ actix-web-actors = "4.0.0-beta.7"
 argon2 = "0.3.1"
 askama = { git = "https://github.com/djc/askama", default-features = false, features = ["with-actix-web", "mime", "mime_guess"] }
 askama_actix = { git = "https://github.com/djc/askama" }
+blake3 = "1.2.0"
 bytes = "1.1.0"
 bytestring = "1.0.0"
 chrono = { version = "0.4.19", features = ["serde"] }
@@ -24,6 +25,8 @@ lettre = { version = "0.10.0-rc.4", default-features = false, features = [ "rust
 log = "0.4.14"
 rand = "0.8.4"
 rsass = "0.22.2"
+rusoto_core = "0.47.0"
+rusoto_s3 = "0.47.0"
 sea-orm = { version = "0.4.0", features = [ "sqlx-postgres", "runtime-actix-rustls", "macros" ], default-features = false }
 serde = "1.0.130"
 uuid = { version = "0.8.2", default-features = false, features = ["v4"] }
