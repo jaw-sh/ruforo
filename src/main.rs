@@ -20,6 +20,7 @@ mod login;
 mod middleware;
 pub mod orm;
 mod post;
+pub mod s3;
 pub mod session;
 pub mod template;
 mod thread;
