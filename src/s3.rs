@@ -23,6 +23,7 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
             ("bmp", "bmp"),
             ("djvu", "djvu"),
             ("gif", "gif"),
+            ("htm", "html"),
             ("html", "html"),
             ("ico", "ico"),
             ("jpeg", "jpeg"),
@@ -47,6 +48,7 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
             ("webm", "webm"),
             ("webp", "webp"),
             ("xml", "xml"),
+            ("zip", "zip"),
         ]);
     };
     fn get_extension_guess_return(filename: &str, idx: usize) -> Option<String> {
@@ -129,6 +131,7 @@ pub fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
             ("application/pdf", "pdf"),
             ("application/vnd.rn-realmedia", "rm"),
             ("application/x-sh", "sh"),
+            ("application/zip", "zip"),
             ("audio/aac", "aac"),
             ("audio/m4a", "m4a"),
             ("audio/mp4", "mp4"),
