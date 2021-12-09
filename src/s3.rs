@@ -5,6 +5,7 @@ use rusoto_s3::{
     ListObjectsV2Error, ListObjectsV2Output, ListObjectsV2Request, PutObjectError, PutObjectOutput,
     PutObjectRequest, S3Client, S3,
 };
+use std::collections::HashMap;
 
 pub struct S3Bucket {
     s3: S3Client,
@@ -13,6 +14,41 @@ pub struct S3Bucket {
 
 /// this is my fancy intelligent extension extractor
 pub fn get_extension_guess(filename: &str) -> Option<String> {
+    lazy_static! {
+        static ref EXT_LOOKUP: HashMap<&'static str, &'static str> = HashMap::from([
+            ("aac", "aac"),
+            ("apng", "apng"),
+            ("avi", "avi"),
+            ("avif", "avif"),
+            ("bmp", "bmp"),
+            ("djvu", "djvu"),
+            ("gif", "gif"),
+            ("html", "html"),
+            ("ico", "ico"),
+            ("jpeg", "jpeg"),
+            ("jpg", "jpeg"),
+            ("json", "json"),
+            ("ktx", "ktx"),
+            ("m4a", "m4a"),
+            ("mka", "mka"),
+            ("mkv", "mkv"),
+            ("mov", "mov"),
+            ("mp3", "mp3"),
+            ("mp4", "mp4"),
+            ("ogg", "ogg"),
+            ("ogv", "ogv"),
+            ("pdf", "pdf"),
+            ("png", "png"),
+            ("rm", "rm"),
+            ("sh", "sh"),
+            ("svg", "svg"),
+            ("txt", "txt"),
+            ("weba", "weba"),
+            ("webm", "webm"),
+            ("webp", "webp"),
+            ("xml", "xml"),
+        ]);
+    };
     fn get_extension_guess_return(filename: &str, idx: usize) -> Option<String> {
         Some(filename[idx + 1..].to_ascii_lowercase())
     }
@@ -21,7 +57,6 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
     // get and specially check the top-level extension, we intentionally skip some rules
     let mut begin_idx = match filename.rfind('.') {
         Some(idx) => {
-            log::error!("WTF: {:?}", filename.len() - idx);
             if idx == 0
                 || idx == filename.len()
                 || filename.len() - idx > MAX_EXT_LEN + 1 // +1 because we count the '.' here
@@ -29,7 +64,15 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
             {
                 return None;
             }
-            idx
+
+            // we have a list of extensions that we're okay with just accepting
+            match EXT_LOOKUP.get(&filename[idx + 1..]) {
+                Some(ext) => {
+                    log::error!("EXT_LOOKUP: {}", ext);
+                    return Some(ext.to_string());
+                }
+                None => idx,
+            }
         }
         None => return None,
     };
@@ -77,34 +120,83 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
 }
 
 pub fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
-    match mime.type_() {
-        mime::IMAGE => match mime.subtype().as_str() {
-            "apng" => Some("apng".to_owned()),
-            "avif" => Some("avif".to_owned()),
-            "bmp" => Some("bmp".to_owned()),
-            "gif" => Some("gif".to_owned()),
-            "jpeg" => Some("jpeg".to_owned()),
-            "png" => Some("png".to_owned()),
-            "svg+xml" => Some("svg".to_owned()),
-            "webp" => Some("webp".to_owned()),
-            _ => get_extension_guess(filename),
-        },
-        mime::VIDEO => match mime.subtype().as_str() {
-            "x-msvideo" => Some("avi".to_owned()),
-            "ogg" => Some("ogv".to_owned()),
-            "webm" => Some("webm".to_owned()),
-            "x-matroska" => Some("mkv".to_owned()),
-            _ => get_extension_guess(filename),
-        },
-        mime::AUDIO => match mime.subtype().as_str() {
-            "m4a" => Some("m4a".to_owned()),
-            "ogg" => Some("ogg".to_owned()),
-            "webm" => Some("webm".to_owned()),
-            "x-matroska" => Some("mka".to_owned()),
-            _ => get_extension_guess(filename),
-        },
-        _ => get_extension_guess(filename),
+    // We check the MIME manually because the mime and mime_guess crates are both inadequate. We
+    // are only looking for formats where we can assume it is the only relevant extension.
+    // For example we'd never want to add a format like .gz to the hashmaps, we'd rely on _guess for that.
+    lazy_static! {
+        static ref MIME_LOOKUP: HashMap<&'static str, &'static str> = HashMap::from([
+            ("application/json", "json"),
+            ("application/pdf", "pdf"),
+            ("application/vnd.rn-realmedia", "rm"),
+            ("application/x-sh", "sh"),
+            ("audio/aac", "aac"),
+            ("audio/m4a", "m4a"),
+            ("audio/mp4", "mp4"),
+            ("audio/mpeg", "mp3"),
+            ("audio/ogg", "ogg"),
+            ("audio/webm", "weba"),
+            ("audio/x-matroska", "mka"),
+            ("image/apng", "apng"),
+            ("image/avif", "avif"),
+            ("image/bmp", "bmp"),
+            ("image/gif", "gif"),
+            ("image/jpeg", "jpeg"),
+            ("image/ktx", "ktx"),
+            ("image/png", "png"),
+            ("image/svg+xml", "svg"),
+            ("image/vnd.djvu", "djvu"),
+            ("image/webp", "webp"),
+            ("image/x-icon", "ico"),
+            ("text/html", "html"),
+            ("text/plain", "txt"),
+            ("text/xml", "xml"),
+            ("video/mp4", "mp4"),
+            ("video/ogg", "ogv"),
+            ("video/quicktime", "mov"),
+            ("video/webm", "webm"),
+            ("video/x-matroska", "mkv"),
+            ("video/x-msvideo", "avi"),
+        ]);
     }
+    let result = MIME_LOOKUP.get(mime.as_ref());
+    match result {
+        Some(v) => {
+            log::error!("MIME_LOOKUP: Found {}", v);
+            Some(v.to_string())
+        }
+        None => get_extension_guess(filename),
+    }
+
+    // Old Method, static hashmap is probably faster than a jump table
+    //
+    // match mime.type_() {
+    //     mime::IMAGE => match mime.subtype().as_str() {
+    //         "apng" => Some("apng".to_owned()),
+    //         "avif" => Some("avif".to_owned()),
+    //         "bmp" => Some("bmp".to_owned()),
+    //         "gif" => Some("gif".to_owned()),
+    //         "jpeg" => Some("jpeg".to_owned()),
+    //         "png" => Some("png".to_owned()),
+    //         "svg+xml" => Some("svg".to_owned()),
+    //         "webp" => Some("webp".to_owned()),
+    //         _ => get_extension_guess(filename),
+    //     },
+    //     mime::VIDEO => match mime.subtype().as_str() {
+    //         "x-msvideo" => Some("avi".to_owned()),
+    //         "ogg" => Some("ogv".to_owned()),
+    //         "webm" => Some("webm".to_owned()),
+    //         "x-matroska" => Some("mkv".to_owned()),
+    //         _ => get_extension_guess(filename),
+    //     },
+    //     mime::AUDIO => match mime.subtype().as_str() {
+    //         "m4a" => Some("m4a".to_owned()),
+    //         "ogg" => Some("ogg".to_owned()),
+    //         "webm" => Some("webm".to_owned()),
+    //         "x-matroska" => Some("mka".to_owned()),
+    //         _ => get_extension_guess(filename),
+    //     },
+    //     _ => get_extension_guess(filename),
+    // }
 }
 
 impl S3Bucket {
