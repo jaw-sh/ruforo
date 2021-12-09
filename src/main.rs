@@ -1,4 +1,5 @@
 extern crate dotenv;
+extern crate ffmpeg_next as ffmpeg;
 #[macro_use]
 extern crate lazy_static;
 
@@ -64,6 +65,7 @@ async fn init_data<'key>(salt: &'key SaltString) -> MainData<'key> {
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
+    ffmpeg::init().expect("!!! ffmpeg Init Failure !!!");
 
     // Check Cache Dir
     let cache_dir =

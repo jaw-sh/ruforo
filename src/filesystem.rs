@@ -1,4 +1,4 @@
-use crate::s3::{get_extension, S3Bucket};
+use crate::s3::{get_extension, get_extension_ffmpeg, S3Bucket};
 use actix_multipart::Multipart;
 use actix_web::{post, web, Error, HttpResponse, Responder};
 use futures::{StreamExt, TryStreamExt};
@@ -102,7 +102,7 @@ pub async fn put_file(
         let parsed = UploadPayload {
             data: buf,
             filename,
-            tmp_path: filepath,
+            tmp_path: filepath, // WARNING we delete tmp_path at the end, don't screw up
             hash: hasher.finalize(),
             mime: field.content_type().to_owned(),
         };
@@ -114,6 +114,9 @@ pub async fn put_file(
         log::info!("Filename: {}", payload.filename);
         log::info!("BLAKE3: {}", payload.hash);
         log::info!("MIME: {}", payload.mime);
+
+        let extension = get_extension_ffmpeg(&payload.tmp_path).await;
+        log::error!("get_extension_ffmpeg: {:#?}", extension);
 
         let extension = get_extension(&payload.filename, &payload.mime);
         let s3_filename = match extension {
@@ -146,6 +149,37 @@ pub async fn put_file(
             log::info!("put_file: duplicate upload, skipping S3 put_object");
         }
 
+        // ffmpeg
+        match ffmpeg::format::input(&payload.tmp_path) {
+            Ok(ctx) => {
+                let format = ctx.format();
+                log::error!("Name: {:#?}", format.name());
+                log::error!("Description: {:#?}", format.description());
+                log::error!("Extensions: {:#?}", format.extensions());
+                log::error!("MIME Types: {:#?}", format.mime_types());
+                for (k, v) in ctx.metadata().iter() {
+                    log::error!("{}: {}", k, v);
+                }
+                for stream in ctx.streams() {
+                    let codec = stream.codec();
+                    log::error!("\tmedium: {:?}", codec.medium());
+                    log::error!("\tid: {:?}", codec.id());
+                }
+            }
+            Err(e) => {
+                log::error!("ffmpeg: {}", e);
+                match e {
+                    ffmpeg::Error::InvalidData => {
+                        log::error!("ffmpeg: invalid data {}", e);
+                    }
+                    _ => {
+                        log::error!("ffmpeg: unhandled input error: {}", e);
+                    }
+                };
+            }
+        }
+
+        // WARNING we delete a file, be mindful and don't fucking delete my porn folder
         log::warn!("Deleting Tmp File: {:#?}", payload.tmp_path);
         std::fs::remove_file(payload.tmp_path).map_err(|e| {
             log::error!("put_file: delete tmp file error: {}", e);

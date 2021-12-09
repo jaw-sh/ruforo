@@ -6,6 +6,7 @@ use rusoto_s3::{
     PutObjectRequest, S3Client, S3,
 };
 use std::collections::HashMap;
+use std::path::Path;
 
 pub struct S3Bucket {
     s3: S3Client,
@@ -119,6 +120,51 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
         }
 
         begin_idx = new_idx;
+    }
+}
+
+pub async fn get_extension_ffmpeg<P: AsRef<Path>>(path: &P) -> Option<String> {
+    match ffmpeg::format::input(path) {
+        Ok(ctx) => {
+            let format = ctx.format();
+            log::error!("Name: {:#?}", format.name());
+            log::error!("Description: {:#?}", format.description());
+            log::error!("Extensions: {:#?}", format.extensions());
+            log::error!("MIME Types: {:#?}", format.mime_types());
+            let acodec = ctx.audio_codec();
+            if let Some(codec) = acodec {
+                log::error!("AudioCodec: {} - {}", codec.name(), codec.description());
+            }
+            let vcodec = ctx.video_codec();
+            if let Some(codec) = vcodec {
+                log::error!("VideoCodec: {} - {}", codec.name(), codec.description());
+            }
+            if let Some(codec) = ctx.data_codec() {
+                log::error!("DataCodec: {} - {}", codec.name(), codec.description());
+            }
+            // for v in ctx.video_codec().iter() {
+            //     log::error!("VideoCodec: {} - {}", v.name(), v.description());
+            // }
+            for (k, v) in ctx.metadata().iter() {
+                log::error!("{}: {}", k, v);
+            }
+            for stream in ctx.streams() {
+                let codec = stream.codec();
+                log::error!("\tmedium: {:?}", codec.medium());
+                log::error!("\tid: {:?}", codec.id());
+            }
+            Some("Yes".to_owned())
+        }
+        Err(e) => match e {
+            ffmpeg::Error::InvalidData => {
+                log::error!("ffmpeg: invalid data {}", e);
+                None
+            }
+            _ => {
+                log::error!("ffmpeg: unhandled input error: {}", e);
+                None
+            }
+        },
     }
 }
 

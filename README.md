@@ -33,3 +33,11 @@ SALT=GPIb5gy10Vw/SEj5f+cjeA
 AWS_ACCESS_KEY_ID=testaccesskey
 AWS_SECRET_ACCESS_KEY=testsecretkey
 ```
+
+### WebM Validation Notes
+ - https://www.webmproject.org/docs/container/
+ - VP8
+ - VP9
+ - AV1
+ - OPUS
+ - VORBIS
