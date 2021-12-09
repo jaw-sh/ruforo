@@ -28,18 +28,18 @@ pub async fn put_file(
             .to_owned();
 
         let mut hasher = blake3::Hasher::new();
-        let mut my_vec: Vec<u8> = Vec::with_capacity(1024); // TODO can we estimate a real size from the multipart?
+        let mut buf: Vec<u8> = Vec::with_capacity(1024); // TODO can we estimate a real size from the multipart?
         while let Some(chunk) = field.next().await {
-            let my_bytes = chunk.map_err(|e| {
+            let bytes = chunk.map_err(|e| {
                 log::error!("put_file: multipart read error: {}", e);
                 actix_web::error::ErrorInternalServerError("put_file: error reading upload data")
             })?;
-            hasher.update(&my_bytes);
-            my_vec.extend(my_bytes);
+            hasher.update(&bytes);
+            buf.extend(bytes);
         }
 
         let parsed = UploadPayload {
-            data: my_vec,
+            data: buf,
             filename,
             hash: hasher.finalize(),
         };
@@ -51,12 +51,30 @@ pub async fn put_file(
         log::error!("Filename: {}", payload.filename);
         log::error!("Content: {}", std::str::from_utf8(&payload.data).unwrap());
         log::error!("BLAKE3: {}", payload.hash);
-        s3.put_object(payload.data, &payload.filename)
-            .await
-            .map_err(|e| {
+
+        // TODO probably check DB instead of the S3 bucket, or both
+        let hash = payload.hash.to_string();
+        let list = s3.list_objects_v2(&hash).await.map_err(|e| {
+            log::error!("put_file: failed to list_objects_v2: {}", e);
+            actix_web::error::ErrorInternalServerError("put_file: failed to check if file exists")
+        })?;
+
+        // TODO check and insert DB entry here
+
+        let count = list.key_count.ok_or_else(|| {
+            log::error!("put_file: key_count, I don't think this should ever happen");
+            actix_web::error::ErrorInternalServerError("put_file: failed to check if file exists")
+        })?;
+
+        // count should only ever be 0 or 1, otherwise there's something wrong with the prefix
+        if count == 0 {
+            s3.put_object(payload.data, &hash).await.map_err(|e| {
                 log::error!("put_file: failed to put_object: {}", e);
                 actix_web::error::ErrorInternalServerError("put_file: failed to store file")
             })?;
+        } else {
+            log::info!("put_file: duplicate upload, skipping S3 put_object");
+        }
     }
 
     Ok(HttpResponse::Ok()

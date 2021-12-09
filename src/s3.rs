@@ -1,6 +1,9 @@
 use rusoto_core::Region;
 use rusoto_core::RusotoError;
-use rusoto_s3::{PutObjectError, PutObjectOutput, PutObjectRequest, S3Client, S3};
+use rusoto_s3::{
+    ListObjectsV2Error, ListObjectsV2Output, ListObjectsV2Request, PutObjectError, PutObjectOutput,
+    PutObjectRequest, S3Client, S3,
+};
 
 pub struct S3Bucket {
     s3: S3Client,
@@ -17,14 +20,29 @@ impl S3Bucket {
         }
     }
 
+    pub async fn list_objects_v2(
+        &self,
+        filename: &str,
+    ) -> Result<ListObjectsV2Output, RusotoError<ListObjectsV2Error>> {
+        log::info!("S3Bucket: list_objects_v2: {}", filename);
+
+        // dude claims list_objects_v2 is faster than head_object
+        // https://www.peterbe.com/plog/fastest-way-to-find-out-if-a-file-exists-in-s3
+        let list_request = ListObjectsV2Request {
+            bucket: self.bucket_name.to_owned(),
+            prefix: Some(filename.to_owned()),
+            ..Default::default()
+        };
+
+        self.s3.list_objects_v2(list_request).await
+    }
+
     pub async fn put_object(
         &self,
         data: Vec<u8>,
         filename: &str,
     ) -> Result<PutObjectOutput, RusotoError<PutObjectError>> {
         log::info!("S3Bucket: put_object: {}", filename);
-
-        // let check_for_file // TODO
 
         let put_request = PutObjectRequest {
             bucket: self.bucket_name.to_owned(),
