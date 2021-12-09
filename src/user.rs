@@ -10,6 +10,10 @@ pub struct Client {
 }
 
 impl Client {
+    /// Returns either the user's id or None.
+    pub fn get_id(&self) -> Option<i32> {
+        self.user.as_ref().map_or(None, |u| Some(u.id))
+    }
     /// Returns either the user's name or the word for guest.
     /// TODO: l10n "Guest"
     pub fn get_name(&self) -> String {

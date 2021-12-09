@@ -27,14 +27,14 @@ where
     }
     .insert(pool)
     .await
-    .map_err(|_| error::ErrorInternalServerError("Failed to insert new UGC."))?;
+    .map_err(|err| error::ErrorInternalServerError(err))?;
 
     let ugc_id = new_ugc.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
 
     Ok(create_ugc_revision(pool, ugc_id, revision).await?)
 }
 
-// Creates a new UGC revision and sets it as the living revision for the UGC it belongs to.
+/// Creates a new UGC revision and sets it as the living revision for the UGC it belongs to.
 pub async fn create_ugc_revision<'a, C>(
     conn: &'a C,
     ugc_id: i32,
@@ -57,7 +57,7 @@ where
     }
     .insert(conn)
     .await
-    .map_err(|_| error::ErrorInternalServerError("Failed to insert new UGC revision."))?;
+    .map_err(|err| error::ErrorInternalServerError(err))?;
 
     let ugc_revision_id = new_revision.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
     ugc::Entity::update_many()
@@ -65,7 +65,7 @@ where
         .filter(ugc::Column::Id.eq(ugc_id))
         .exec(conn)
         .await
-        .map_err(|_| error::ErrorInternalServerError("Failed to update UGC to living revision."))?;
+        .map_err(|err| error::ErrorInternalServerError(err))?;
 
     Ok(new_revision)
 }

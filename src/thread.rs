@@ -1,8 +1,10 @@
 use crate::frontend::TemplateToPubResponse;
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
+use crate::orm::{posts, threads, ugc_revisions, users};
 use crate::post::{NewPostFormData, PostForTemplate};
 use crate::template::{Paginator, PaginatorToHtml};
+use crate::user::Client;
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
@@ -23,7 +25,7 @@ pub struct NewThreadFormData {
 #[template(path = "thread.html")]
 pub struct ThreadTemplate<'a> {
     pub thread: super::orm::threads::Model,
-    pub posts: Vec<PostForTemplate<'a>>,
+    pub posts: &'a Vec<PostForTemplate>,
     pub paginator: Paginator,
 }
 
@@ -56,8 +58,6 @@ async fn get_thread_and_replies_for_page(
     thread_id: i32,
     page: i32,
 ) -> Result<impl Responder, Error> {
-    use crate::orm::{posts, threads};
-
     let thread = Thread::find_by_id(thread_id)
         .one(&data.pool)
         .await
@@ -78,22 +78,25 @@ async fn get_thread_and_replies_for_page(
     });
 
     // Load posts, their ugc associations, and their living revision.
-    let presults = Post::find()
-        .find_also_linked(posts::PostToUgcRevision)
+    let posts: Vec<PostForTemplate> = Post::find()
+        .left_join(users::Entity)
+        .column_as(users::Column::Name, "username")
+        .left_join(ugc_revisions::Entity)
+        .column_as(ugc_revisions::Column::Content, "content")
+        .column_as(ugc_revisions::Column::IpId, "ip_id")
+        .column_as(ugc_revisions::Column::CreatedAt, "updated_at")
+        //.find_also_related(users::Entity)
+        //.find_also_linked(posts::PostToUgcRevision)
         .filter(posts::Column::ThreadId.eq(thread_id))
         .filter(
             posts::Column::Position.between((page - 1) * POSTS_PER_PAGE + 1, page * POSTS_PER_PAGE),
         )
         .order_by_asc(posts::Column::Position)
         .order_by_asc(posts::Column::CreatedAt)
+        .into_model::<PostForTemplate>()
         .all(&data.pool)
         .await
         .map_err(|err| error::ErrorInternalServerError(err))?;
-
-    let mut posts = Vec::new();
-    for (p, u) in &presults {
-        posts.push(PostForTemplate::from_orm(&p, &u));
-    }
 
     let paginator = Paginator {
         base_url: format!("/threads/{}/", thread_id),
@@ -103,7 +106,7 @@ async fn get_thread_and_replies_for_page(
 
     ThreadTemplate {
         thread,
-        posts,
+        posts: &posts,
         paginator,
     }
     .to_pub_response()
@@ -111,6 +114,7 @@ async fn get_thread_and_replies_for_page(
 
 #[post("/threads/{thread_id}/post-reply")]
 pub async fn create_reply(
+    client: Client,
     data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
     form: web::Form<NewPostFormData>,
@@ -137,7 +141,7 @@ pub async fn create_reply(
         &txn,
         NewUgcPartial {
             ip_id: None,
-            user_id: None,
+            user_id: client.get_id(),
             content: &form.content,
         },
     )
@@ -147,6 +151,7 @@ pub async fn create_reply(
     // Insert post
     let new_post = posts::ActiveModel {
         thread_id: Set(our_thread.id),
+        user_id: ugc_revision.user_id,
         ugc_id: ugc_revision.ugc_id,
         created_at: ugc_revision.created_at,
         position: Set(our_thread.post_count + 1),

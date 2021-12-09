@@ -1,56 +1,30 @@
-use crate::orm::posts::Model as Post;
-use crate::orm::ugc_revisions::Model as UgcRevision;
+use crate::orm::{posts, ugc_revisions, users};
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
-use sea_orm::entity::*;
+use sea_orm::{entity::*, query::*, sea_query::Expr, FromQueryResult, QueryFilter};
 use serde::Deserialize;
 
-pub struct PostForTemplate<'a> {
+#[derive(Debug, FromQueryResult)]
+pub struct PostForTemplate {
     pub id: i32,
     pub thread_id: i32,
-    pub ip_id: Option<i32>,
     pub ugc_id: i32,
     pub user_id: Option<i32>,
     pub position: i32,
     pub created_at: chrono::NaiveDateTime,
     pub updated_at: chrono::NaiveDateTime,
-    pub content: Option<&'a str>,
-}
-
-impl<'a> PostForTemplate<'a> {
-    pub fn from_orm(post: &Post, revision: &'a Option<UgcRevision>) -> Self {
-        match revision {
-            Some(r) => PostForTemplate {
-                id: post.id,
-                created_at: post.created_at,
-                updated_at: r.created_at,
-                position: post.position,
-                user_id: post.user_id,
-                thread_id: post.thread_id,
-                ugc_id: post.ugc_id,
-                ip_id: r.ip_id,
-                content: Some(&r.content),
-            },
-            None => PostForTemplate {
-                id: post.id,
-                created_at: post.created_at,
-                updated_at: post.created_at,
-                position: post.position,
-                user_id: post.user_id,
-                thread_id: post.thread_id,
-                ugc_id: post.ugc_id,
-                ip_id: None,
-                content: None,
-            },
-        }
-    }
+    // join ugc
+    pub content: Option<String>,
+    pub ip_id: Option<i32>,
+    // join user
+    pub username: Option<String>,
 }
 
 #[derive(Template)]
 #[template(path = "post.html")]
-pub struct PostFormTemplate<'a> {
-    pub post: PostForTemplate<'a>,
+pub struct PostEditTemplate<'a> {
+    pub post: &'a PostForTemplate,
 }
 
 #[derive(Deserialize)]
@@ -63,22 +37,20 @@ pub async fn edit_post(
     data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
 ) -> Result<HttpResponse, Error> {
-    use crate::orm::posts;
-
-    let result = posts::Entity::find_by_id(path.into_inner().0)
-        .find_also_linked(super::orm::posts::PostToUgcRevision)
+    let post: PostForTemplate = posts::Entity::find_by_id(path.into_inner().0)
+        .left_join(users::Entity)
+        .column_as(users::Column::Name, "username")
+        .left_join(ugc_revisions::Entity)
+        .column_as(ugc_revisions::Column::Content, "content")
+        .column_as(ugc_revisions::Column::IpId, "ip_id")
+        .column_as(ugc_revisions::Column::CreatedAt, "updated_id")
+        .into_model::<PostForTemplate>()
         .one(&data.pool)
         .await
-        .map_err(|_| error::ErrorInternalServerError("Could not look up post."))?
+        .map_err(|err| error::ErrorInternalServerError(err))?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
 
-    Ok(HttpResponse::Ok().body(
-        PostFormTemplate {
-            post: PostForTemplate::from_orm(&result.0, &result.1),
-        }
-        .render()
-        .unwrap(),
-    ))
+    Ok(HttpResponse::Ok().body(PostEditTemplate { post: &post }.render().unwrap()))
 }
 
 #[post("/posts/{post_id}/edit")]
@@ -93,7 +65,7 @@ pub async fn update_post(
     let post = posts::Entity::find_by_id(path.into_inner().0)
         .one(&data.pool)
         .await
-        .map_err(|_| error::ErrorInternalServerError("Could not look up post."))?
+        .map_err(|err| error::ErrorInternalServerError(err))?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
 
     create_ugc_revision(
@@ -114,7 +86,6 @@ pub async fn update_post(
 }
 
 async fn view_post(data: web::Data<MainData<'_>>, id: i32) -> Result<HttpResponse, Error> {
-    use crate::orm::posts;
     use crate::thread::get_url_for_pos;
 
     let post = posts::Entity::find_by_id(id)
