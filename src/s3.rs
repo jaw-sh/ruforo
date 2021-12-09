@@ -158,7 +158,7 @@ pub fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
             ("video/x-msvideo", "avi"),
         ]);
     }
-    let result = MIME_LOOKUP.get(mime.as_ref());
+    let result = MIME_LOOKUP.get(mime.as_ref().to_ascii_lowercase().as_str());
     match result {
         Some(v) => {
             log::error!("MIME_LOOKUP: Found {}", v);
