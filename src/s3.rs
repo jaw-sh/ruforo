@@ -1,3 +1,4 @@
+use mime::Mime;
 use rusoto_core::Region;
 use rusoto_core::RusotoError;
 use rusoto_s3::{
@@ -11,8 +12,8 @@ pub struct S3Bucket {
 }
 
 /// this is my fancy intelligent extension extractor
-pub fn get_extension_greedy(filename: &str) -> Option<String> {
-    fn get_extension_greedy_return(filename: &str, idx: usize) -> Option<String> {
+pub fn get_extension_guess(filename: &str) -> Option<String> {
+    fn get_extension_guess_return(filename: &str, idx: usize) -> Option<String> {
         Some(filename[idx + 1..].to_ascii_lowercase())
     }
     const MAX_EXT_LEN: usize = 9; // longest extensions I can think of: sha256sum/gitignore
@@ -24,7 +25,7 @@ pub fn get_extension_greedy(filename: &str) -> Option<String> {
             if idx == 0
                 || idx == filename.len()
                 || filename.len() - idx > MAX_EXT_LEN + 1 // +1 because we count the '.' here
-                || filename[idx + 1..].is_ascii() == false
+                || filename[idx + 1..].chars().all(|x| x.is_ascii_alphanumeric()) == false
             {
                 return None;
             }
@@ -40,13 +41,13 @@ pub fn get_extension_greedy(filename: &str) -> Option<String> {
         // find beginning of next possible extension
         let new_idx = match sub_str.rfind('.') {
             Some(idx) => idx,
-            None => return get_extension_greedy_return(&filename, begin_idx),
+            None => return get_extension_guess_return(&filename, begin_idx),
         };
 
         // check if double period
         if new_idx == begin_idx - 1 {
             log::info!("get_extension_greedy: found double");
-            return get_extension_greedy_return(&filename, begin_idx);
+            return get_extension_guess_return(&filename, begin_idx);
         }
 
         // new sub-extension
@@ -55,22 +56,54 @@ pub fn get_extension_greedy(filename: &str) -> Option<String> {
         // check if too long
         if sub_ext.len() > MAX_EXT_LEN {
             log::info!("get_extension_greedy: too long");
-            return get_extension_greedy_return(&filename, begin_idx);
+            return get_extension_guess_return(&filename, begin_idx);
         }
 
         // check if all numbers
+
         if sub_ext.parse::<u32>().is_ok() {
             log::info!("get_extension_greedy: all numbers");
-            return get_extension_greedy_return(&filename, begin_idx);
+            return get_extension_guess_return(&filename, begin_idx);
         }
 
         // check if isn't ASCII
-        if sub_ext.is_ascii() == false {
+        if sub_ext.chars().all(|x| x.is_ascii_alphanumeric()) == false {
             log::info!("get_extension_greedy: not ASCII");
-            return get_extension_greedy_return(&filename, begin_idx);
+            return get_extension_guess_return(&filename, begin_idx);
         }
 
         begin_idx = new_idx;
+    }
+}
+
+pub fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
+    match mime.type_() {
+        mime::IMAGE => match mime.subtype().as_str() {
+            "apng" => Some("apng".to_owned()),
+            "avif" => Some("avif".to_owned()),
+            "bmp" => Some("bmp".to_owned()),
+            "gif" => Some("gif".to_owned()),
+            "jpeg" => Some("jpeg".to_owned()),
+            "png" => Some("png".to_owned()),
+            "svg+xml" => Some("svg".to_owned()),
+            "webp" => Some("webp".to_owned()),
+            _ => get_extension_guess(filename),
+        },
+        mime::VIDEO => match mime.subtype().as_str() {
+            "x-msvideo" => Some("avi".to_owned()),
+            "ogg" => Some("ogv".to_owned()),
+            "webm" => Some("webm".to_owned()),
+            "x-matroska" => Some("mkv".to_owned()),
+            _ => get_extension_guess(filename),
+        },
+        mime::AUDIO => match mime.subtype().as_str() {
+            "m4a" => Some("m4a".to_owned()),
+            "ogg" => Some("ogg".to_owned()),
+            "webm" => Some("webm".to_owned()),
+            "x-matroska" => Some("mka".to_owned()),
+            _ => get_extension_guess(filename),
+        },
+        _ => get_extension_guess(filename),
     }
 }
 

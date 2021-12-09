@@ -1,4 +1,4 @@
-use crate::s3::{get_extension_greedy, S3Bucket};
+use crate::s3::{get_extension, S3Bucket};
 use actix_multipart::Multipart;
 use actix_web::{post, web, Error, HttpResponse, Responder};
 use futures::{StreamExt, TryStreamExt};
@@ -55,9 +55,9 @@ pub async fn put_file(
         log::error!("Content: {:#?}", std::str::from_utf8(&payload.data));
         log::error!("BLAKE3: {}", payload.hash);
         log::error!("MIME: {}", payload.mime);
-        log::error!("Suffix: {:#?}", payload.mime.suffix());
 
-        let s3_filename = match get_extension_greedy(&payload.filename) {
+        let extension = get_extension(&payload.filename, &payload.mime);
+        let s3_filename = match extension {
             Some(v) => format!("{}.{}", payload.hash, v),
             None => payload.hash.to_string(),
         };
