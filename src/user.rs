@@ -1,6 +1,6 @@
 use crate::orm::users::Model as User;
 use actix_web::error::ErrorInternalServerError;
-use actix_web::{dev, web, App, Error, FromRequest, HttpRequest};
+use actix_web::{dev, Error, FromRequest, HttpRequest};
 use futures_util::future::{err, ok, Ready};
 
 /// Represents information about this request's client.
