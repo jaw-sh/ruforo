@@ -5,12 +5,12 @@ extern crate lazy_static;
 use crate::session::{new_db_pool, reload_session_cache, MainData};
 use actix::Actor;
 use actix_identity::{CookieIdentityPolicy, IdentityService};
-//use actix_session::CookieSession;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use env_logger::Env;
 use middleware::AppendContext;
+use std::path::Path;
 
 pub mod chat;
 mod create_user;
@@ -62,8 +62,20 @@ async fn init_data<'key>(salt: &'key SaltString) -> MainData<'key> {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Build Main Data
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    dotenv::dotenv().ok();
+    env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
+
+    // Check Cache Dir
+    let cache_dir =
+        std::env::var("CACHE_DIR").expect("missing CACHE_DIR environment variable (hint: './tmp')");
+    let cache_path = Path::new(&cache_dir);
+    if cache_path.exists() == false {
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .create(cache_path)
+            .expect("failed to create CACHE_DIR");
+    }
+
     let data = web::Data::new(init_data(&SALT).await);
     let chat = web::Data::new(chat::ChatServer::new().start());
     let s3 = web::Data::new(s3::s3_test_client());

@@ -3,10 +3,15 @@ use actix_multipart::Multipart;
 use actix_web::{post, web, Error, HttpResponse, Responder};
 use futures::{StreamExt, TryStreamExt};
 use mime::Mime;
+use std::fs::File;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use uuid::Uuid;
 
 struct UploadPayload {
     data: Vec<u8>,
     filename: String,
+    tmp_path: PathBuf,
     hash: blake3::Hash,
     mime: Mime,
 }
@@ -29,20 +34,75 @@ pub async fn put_file(
             })?
             .to_owned();
 
+        let f = web::block(move || {
+            let mut filepath;
+            let mut uuid;
+            loop {
+                uuid = format!("./tmp/{}", Uuid::new_v4());
+                filepath = Path::new(&uuid);
+                match filepath.metadata() {
+                    Ok(metadata) => {
+                        log::error!(
+                            "put_file: file already exists: {:#?}\n{:#?}",
+                            filepath,
+                            metadata
+                        );
+                    }
+                    Err(e) => {
+                        match e.kind() {
+                            std::io::ErrorKind::NotFound => {
+                                break;
+                            }
+                            std::io::ErrorKind::PermissionDenied => {
+                                log::error!("put_file tmp permission error: {}", e);
+                                return Err(e);
+                            }
+                            _ => {
+                                log::error!("put_file unhandled fs error: {}", e);
+                                return Err(e);
+                            }
+                        };
+                    }
+                }
+            }
+            Ok((File::create(filepath), filepath.to_owned()))
+        });
+
         let mut hasher = blake3::Hasher::new();
         let mut buf: Vec<u8> = Vec::with_capacity(1024); // TODO can we estimate a real size from the multipart?
+
+        let (f, filepath) = f
+            .await
+            .map_err(|e| {
+                log::error!("put_file: {}", e);
+                actix_web::error::ErrorInternalServerError("put_file: saving data")
+            })?
+            .map_err(|e| {
+                log::error!("put_file: {}", e);
+                actix_web::error::ErrorInternalServerError("put_file: saving data")
+            })?;
+
+        let mut f = f.map_err(|e| {
+            log::error!("put_file: {}", e);
+            actix_web::error::ErrorInternalServerError("put_file: saving data")
+        })?;
+
         while let Some(chunk) = field.next().await {
             let bytes = chunk.map_err(|e| {
                 log::error!("put_file: multipart read error: {}", e);
                 actix_web::error::ErrorInternalServerError("put_file: error reading upload data")
             })?;
             hasher.update(&bytes);
-            buf.extend(bytes);
+            buf.extend(bytes.to_owned());
+            f = web::block(move || f.write_all(&bytes.clone()).map(|_| f))
+                .await
+                .unwrap()?;
         }
 
         let parsed = UploadPayload {
             data: buf,
             filename,
+            tmp_path: filepath,
             hash: hasher.finalize(),
             mime: field.content_type().to_owned(),
         };
@@ -51,10 +111,9 @@ pub async fn put_file(
     }
 
     for payload in payloads {
-        log::error!("Filename: {}", payload.filename);
-        log::error!("Content: {:#?}", std::str::from_utf8(&payload.data));
-        log::error!("BLAKE3: {}", payload.hash);
-        log::error!("MIME: {}", payload.mime);
+        log::info!("Filename: {}", payload.filename);
+        log::info!("BLAKE3: {}", payload.hash);
+        log::info!("MIME: {}", payload.mime);
 
         let extension = get_extension(&payload.filename, &payload.mime);
         let s3_filename = match extension {
@@ -86,6 +145,12 @@ pub async fn put_file(
         } else {
             log::info!("put_file: duplicate upload, skipping S3 put_object");
         }
+
+        log::warn!("Deleting Tmp File: {:#?}", payload.tmp_path);
+        std::fs::remove_file(payload.tmp_path).map_err(|e| {
+            log::error!("put_file: delete tmp file error: {}", e);
+            actix_web::error::ErrorInternalServerError("put_file: failed to store file")
+        })?;
     }
 
     Ok(HttpResponse::Ok()

@@ -22,6 +22,7 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
             ("avif", "avif"),
             ("bmp", "bmp"),
             ("djvu", "djvu"),
+            ("flac", "flac"),
             ("gif", "gif"),
             ("htm", "html"),
             ("html", "html"),
@@ -133,6 +134,7 @@ pub fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
             ("application/x-sh", "sh"),
             ("application/zip", "zip"),
             ("audio/aac", "aac"),
+            ("audio/flac", "flac"),
             ("audio/m4a", "m4a"),
             ("audio/mp4", "mp4"),
             ("audio/mpeg", "mp3"),
@@ -164,7 +166,7 @@ pub fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
     let result = MIME_LOOKUP.get(mime.as_ref().to_ascii_lowercase().as_str());
     match result {
         Some(v) => {
-            log::error!("MIME_LOOKUP: Found {}", v);
+            log::info!("MIME_LOOKUP: Found {}", v);
             Some(v.to_string())
         }
         None => get_extension_guess(filename),
