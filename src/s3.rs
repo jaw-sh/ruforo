@@ -1,3 +1,4 @@
+use ffmpeg_next::codec::id::Id::{AV1, OPUS, VORBIS, VP8, VP9};
 use mime::Mime;
 use rusoto_core::Region;
 use rusoto_core::RusotoError;
@@ -131,20 +132,7 @@ pub async fn get_extension_ffmpeg<P: AsRef<Path>>(path: &P) -> Option<String> {
             log::error!("Description: {:#?}", format.description());
             log::error!("Extensions: {:#?}", format.extensions());
             log::error!("MIME Types: {:#?}", format.mime_types());
-            let acodec = ctx.audio_codec();
-            if let Some(codec) = acodec {
-                log::error!("AudioCodec: {} - {}", codec.name(), codec.description());
-            }
-            let vcodec = ctx.video_codec();
-            if let Some(codec) = vcodec {
-                log::error!("VideoCodec: {} - {}", codec.name(), codec.description());
-            }
-            if let Some(codec) = ctx.data_codec() {
-                log::error!("DataCodec: {} - {}", codec.name(), codec.description());
-            }
-            // for v in ctx.video_codec().iter() {
-            //     log::error!("VideoCodec: {} - {}", v.name(), v.description());
-            // }
+
             for (k, v) in ctx.metadata().iter() {
                 log::error!("{}: {}", k, v);
             }
@@ -153,7 +141,42 @@ pub async fn get_extension_ffmpeg<P: AsRef<Path>>(path: &P) -> Option<String> {
                 log::error!("\tmedium: {:?}", codec.medium());
                 log::error!("\tid: {:?}", codec.id());
             }
-            Some("Yes".to_owned())
+
+            match format.name() {
+                "matroska,webm" => {
+                    log::info!("get_extension_ffmpeg: found mkv/webm");
+                    let stream_count = ctx.streams().count();
+                    if stream_count != 2 {
+                        log::info!("get_extension_ffmpeg: stream_count: {:?}", stream_count);
+                        return Some("mkv".to_owned());
+                    }
+                    let mut streams = ctx.streams();
+                    let video_id = streams.next().unwrap().codec().id(); // we already counted the streams, unwrapping should be fine
+                    match video_id {
+                        VP8 | VP9 | AV1 => {
+                            let audio_id = streams.next().unwrap().codec().id();
+                            match audio_id {
+                                OPUS | VORBIS => {
+                                    log::info!("get_extension_ffmpeg: validated webm");
+                                    Some("webm".to_owned())
+                                }
+                                _ => {
+                                    log::info!("get_extension_ffmpeg: audio_id: {:?}", audio_id);
+                                    Some("mkv".to_owned())
+                                }
+                            }
+                        }
+                        _ => {
+                            log::info!("get_extension_ffmpeg: video_id: {:?}", video_id);
+                            Some("mkv".to_owned())
+                        }
+                    }
+                }
+                _ => {
+                    log::error!("get_extension_ffmpeg: unhandled format");
+                    None
+                }
+            }
         }
         Err(e) => match e {
             ffmpeg::Error::InvalidData => {

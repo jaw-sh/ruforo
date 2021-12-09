@@ -119,10 +119,11 @@ pub async fn put_file(
         log::info!("BLAKE3: {}", payload.hash);
         log::info!("MIME: {}", payload.mime);
 
-        let extension = get_extension_ffmpeg(&payload.tmp_path).await;
-        log::error!("get_extension_ffmpeg: {:#?}", extension);
+        let extension = match get_extension_ffmpeg(&payload.tmp_path).await {
+            Some(v) => Some(v),
+            None => get_extension(&payload.filename, &payload.mime),
+        };
 
-        let extension = get_extension(&payload.filename, &payload.mime);
         let s3_filename = match extension {
             Some(v) => format!("{}.{}", payload.hash, v),
             None => payload.hash.to_string(),
@@ -151,36 +152,6 @@ pub async fn put_file(
                 })?;
         } else {
             log::info!("put_file: duplicate upload, skipping S3 put_object");
-        }
-
-        // ffmpeg
-        match ffmpeg::format::input(&payload.tmp_path) {
-            Ok(ctx) => {
-                let format = ctx.format();
-                log::error!("Name: {:#?}", format.name());
-                log::error!("Description: {:#?}", format.description());
-                log::error!("Extensions: {:#?}", format.extensions());
-                log::error!("MIME Types: {:#?}", format.mime_types());
-                for (k, v) in ctx.metadata().iter() {
-                    log::error!("{}: {}", k, v);
-                }
-                for stream in ctx.streams() {
-                    let codec = stream.codec();
-                    log::error!("\tmedium: {:?}", codec.medium());
-                    log::error!("\tid: {:?}", codec.id());
-                }
-            }
-            Err(e) => {
-                log::error!("ffmpeg: {}", e);
-                match e {
-                    ffmpeg::Error::InvalidData => {
-                        log::error!("ffmpeg: invalid data {}", e);
-                    }
-                    _ => {
-                        log::error!("ffmpeg: unhandled input error: {}", e);
-                    }
-                };
-            }
         }
 
         // WARNING we delete a file, be mindful and don't fucking delete my porn folder
