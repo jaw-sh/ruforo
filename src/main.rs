@@ -34,6 +34,11 @@ pub mod user;
 
 lazy_static! {
     static ref SALT: SaltString = get_salt();
+    pub static ref DIR_TMP: String = {
+        dotenv::dotenv().ok();
+        std::env::var("DIR_TMP")
+            .expect("missing DIR_TMP environment variable (hint: 'DIR_TMP=./tmp')")
+    };
 }
 
 fn get_salt() -> SaltString {
@@ -68,14 +73,14 @@ async fn main() -> std::io::Result<()> {
     ffmpeg::init().expect("!!! ffmpeg Init Failure !!!");
 
     // Check Cache Dir
-    let cache_dir =
-        std::env::var("CACHE_DIR").expect("missing CACHE_DIR environment variable (hint: './tmp')");
+    let cache_dir = std::env::var("DIR_TMP")
+        .expect("missing DIR_TMP environment variable (hint: 'DIR_TMP=./tmp')");
     let cache_path = Path::new(&cache_dir);
     if cache_path.exists() == false {
         std::fs::DirBuilder::new()
             .recursive(true)
             .create(cache_path)
-            .expect("failed to create CACHE_DIR");
+            .expect("failed to create DIR_TMP");
     }
 
     let data = web::Data::new(init_data(&SALT).await);

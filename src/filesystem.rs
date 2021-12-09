@@ -38,7 +38,7 @@ pub async fn put_file(
             let mut filepath;
             let mut uuid;
             loop {
-                uuid = format!("./tmp/{}", Uuid::new_v4());
+                uuid = format!("{}/{}", crate::DIR_TMP.as_str(), Uuid::new_v4());
                 filepath = Path::new(&uuid);
                 match filepath.metadata() {
                     Ok(metadata) => {
@@ -65,6 +65,10 @@ pub async fn put_file(
                     }
                 }
             }
+            log::info!(
+                "put_file: creating tmp file: {}",
+                filepath.to_str().unwrap()
+            );
             Ok((File::create(filepath), filepath.to_owned()))
         });
 
