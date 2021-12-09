@@ -2173,6 +2173,7 @@ dependencies = [
  "lazy_static",
  "lettre",
  "log",
+ "mime",
  "rand",
  "rsass",
  "rusoto_core",

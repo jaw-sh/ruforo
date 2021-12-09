@@ -10,6 +10,45 @@ pub struct S3Bucket {
     bucket_name: String,
 }
 
+/// this is my fancy intelligent extension extractor
+pub fn get_extension_greedy(filename: &str) -> Option<&str> {
+    let mut begin_idx = match filename.rfind('.') {
+        Some(idx) => {
+            if idx == 0 || idx == filename.len() {
+                return None;
+            }
+            idx
+        }
+        None => return None,
+    };
+
+    loop {
+        let sub_str = &filename[..begin_idx];
+        log::error!("sub_str: {}", sub_str);
+
+        // find beginning of next possible extension
+        let new_idx = match sub_str.rfind('.') {
+            Some(idx) => idx,
+            None => return Some(&filename[begin_idx + 1..]),
+        };
+
+        // check if double period
+        if new_idx == begin_idx - 1 {
+            log::info!("get_extension_greedy: found double");
+            return Some(&filename[begin_idx + 1..]);
+        }
+
+        // check if the extension chunk is all numbers
+        let sub_ext = &sub_str[new_idx + 1..];
+        log::error!("Thing: {}", sub_ext);
+        if sub_ext.parse::<u32>().is_ok() {
+            log::info!("get_extension_greedy: all numbers");
+            return Some(&filename[begin_idx + 1..]);
+        }
+        begin_idx = new_idx;
+    }
+}
+
 impl S3Bucket {
     pub fn new(region: Region, bucket_name: &str) -> S3Bucket {
         log::info!("New S3Bucket");

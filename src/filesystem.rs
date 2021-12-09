@@ -1,12 +1,14 @@
-use crate::s3::S3Bucket;
+use crate::s3::{get_extension_greedy, S3Bucket};
 use actix_multipart::Multipart;
 use actix_web::{post, web, Error, HttpResponse, Responder};
 use futures::{StreamExt, TryStreamExt};
+use mime::Mime;
 
 struct UploadPayload {
     data: Vec<u8>,
     filename: String,
     hash: blake3::Hash,
+    mime: Mime,
 }
 
 #[post("/fs/upload-file")]
@@ -42,6 +44,7 @@ pub async fn put_file(
             data: buf,
             filename,
             hash: hasher.finalize(),
+            mime: field.content_type().to_owned(),
         };
 
         payloads.push(parsed);
@@ -49,12 +52,18 @@ pub async fn put_file(
 
     for payload in payloads {
         log::error!("Filename: {}", payload.filename);
-        log::error!("Content: {}", std::str::from_utf8(&payload.data).unwrap());
+        log::error!("Content: {:#?}", std::str::from_utf8(&payload.data));
         log::error!("BLAKE3: {}", payload.hash);
+        log::error!("MIME: {}", payload.mime);
+        log::error!("Suffix: {:#?}", payload.mime.suffix());
+
+        let s3_filename = match get_extension_greedy(&payload.filename) {
+            Some(v) => format!("{}.{}", payload.hash, v),
+            None => payload.hash.to_string(),
+        };
 
         // TODO probably check DB instead of the S3 bucket, or both
-        let hash = payload.hash.to_string();
-        let list = s3.list_objects_v2(&hash).await.map_err(|e| {
+        let list = s3.list_objects_v2(&s3_filename).await.map_err(|e| {
             log::error!("put_file: failed to list_objects_v2: {}", e);
             actix_web::error::ErrorInternalServerError("put_file: failed to check if file exists")
         })?;
@@ -68,10 +77,12 @@ pub async fn put_file(
 
         // count should only ever be 0 or 1, otherwise there's something wrong with the prefix
         if count == 0 {
-            s3.put_object(payload.data, &hash).await.map_err(|e| {
-                log::error!("put_file: failed to put_object: {}", e);
-                actix_web::error::ErrorInternalServerError("put_file: failed to store file")
-            })?;
+            s3.put_object(payload.data, &s3_filename)
+                .await
+                .map_err(|e| {
+                    log::error!("put_file: failed to put_object: {}", e);
+                    actix_web::error::ErrorInternalServerError("put_file: failed to store file")
+                })?;
         } else {
             log::info!("put_file: duplicate upload, skipping S3 put_object");
         }
