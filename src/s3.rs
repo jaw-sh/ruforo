@@ -11,10 +11,21 @@ pub struct S3Bucket {
 }
 
 /// this is my fancy intelligent extension extractor
-pub fn get_extension_greedy(filename: &str) -> Option<&str> {
+pub fn get_extension_greedy(filename: &str) -> Option<String> {
+    fn get_extension_greedy_return(filename: &str, idx: usize) -> Option<String> {
+        Some(filename[idx + 1..].to_ascii_lowercase())
+    }
+    const MAX_EXT_LEN: usize = 9; // longest extensions I can think of: sha256sum/gitignore
+
+    // get and specially check the top-level extension, we intentionally skip some rules
     let mut begin_idx = match filename.rfind('.') {
         Some(idx) => {
-            if idx == 0 || idx == filename.len() {
+            log::error!("WTF: {:?}", filename.len() - idx);
+            if idx == 0
+                || idx == filename.len()
+                || filename.len() - idx > MAX_EXT_LEN + 1 // +1 because we count the '.' here
+                || filename[idx + 1..].is_ascii() == false
+            {
                 return None;
             }
             idx
@@ -29,22 +40,36 @@ pub fn get_extension_greedy(filename: &str) -> Option<&str> {
         // find beginning of next possible extension
         let new_idx = match sub_str.rfind('.') {
             Some(idx) => idx,
-            None => return Some(&filename[begin_idx + 1..]),
+            None => return get_extension_greedy_return(&filename, begin_idx),
         };
 
         // check if double period
         if new_idx == begin_idx - 1 {
             log::info!("get_extension_greedy: found double");
-            return Some(&filename[begin_idx + 1..]);
+            return get_extension_greedy_return(&filename, begin_idx);
         }
 
-        // check if the extension chunk is all numbers
+        // new sub-extension
         let sub_ext = &sub_str[new_idx + 1..];
-        log::error!("Thing: {}", sub_ext);
+
+        // check if too long
+        if sub_ext.len() > MAX_EXT_LEN {
+            log::info!("get_extension_greedy: too long");
+            return get_extension_greedy_return(&filename, begin_idx);
+        }
+
+        // check if all numbers
         if sub_ext.parse::<u32>().is_ok() {
             log::info!("get_extension_greedy: all numbers");
-            return Some(&filename[begin_idx + 1..]);
+            return get_extension_greedy_return(&filename, begin_idx);
         }
+
+        // check if isn't ASCII
+        if sub_ext.is_ascii() == false {
+            log::info!("get_extension_greedy: not ASCII");
+            return get_extension_greedy_return(&filename, begin_idx);
+        }
+
         begin_idx = new_idx;
     }
 }
