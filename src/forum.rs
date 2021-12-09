@@ -1,6 +1,7 @@
 use crate::frontend::TemplateToPubResponse;
 use crate::orm::{posts, threads};
 use crate::thread::{validate_thread_form, NewThreadFormData};
+use crate::user::Client;
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
@@ -15,6 +16,7 @@ pub struct ForumTemplate {
 
 #[post("/forums/post-thread")]
 pub async fn create_thread(
+    client: Client,
     data: web::Data<MainData<'_>>,
     form: web::Form<NewThreadFormData>,
 ) -> Result<impl Responder, Error> {
@@ -44,7 +46,7 @@ pub async fn create_thread(
 
     // Step 2. Create a thread.
     let thread = threads::ActiveModel {
-        //user_id
+        user_id: Set(client.get_id()),
         created_at: revision.created_at.to_owned(),
         title: Set(form.title.trim().to_owned()),
         subtitle: Set(form
@@ -63,6 +65,7 @@ pub async fn create_thread(
 
     // Step 3. Create a post with the correct associations.
     let new_post = posts::ActiveModel {
+        user_id: Set(client.get_id()),
         thread_id: Set(thread_res.last_insert_id),
         ugc_id: revision.ugc_id,
         created_at: revision.created_at.clone(),

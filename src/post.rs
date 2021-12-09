@@ -2,9 +2,10 @@ use crate::orm::{posts, ugc_revisions, users};
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse};
 use askama_actix::Template;
-use sea_orm::{entity::*, query::*, sea_query::Expr, FromQueryResult, QueryFilter};
+use sea_orm::{entity::*, query::*, FromQueryResult};
 use serde::Deserialize;
 
+/// A fully joined struct representing the post model and its relational data.
 #[derive(Debug, FromQueryResult)]
 pub struct PostForTemplate {
     pub id: i32,
