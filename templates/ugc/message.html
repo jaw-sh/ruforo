@@ -1,6 +1,6 @@
 <div class="message">
     <div class="message-cell message-cell--author">
-        <div class="username">Guest</div>
+        <div class="username">{% match post.username %}{% when Some with (username) %}{{ username }}{% when None %}Guest{% endmatch %}</div>
     </div>
     <div class="message-cell message-cell--main">
         <div class="message-header">
