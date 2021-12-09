@@ -1,4 +1,5 @@
 -- ************************************** users
+DROP TYPE IF EXISTS PASSWORD_CIPHER;
 CREATE TYPE PASSWORD_CIPHER AS ENUM ('argon2id', 'bcrypt');
 
 CREATE TABLE users
