@@ -13,13 +13,12 @@ pub struct Model {
     pub first_seen_at: DateTime,
     pub last_seen_at: DateTime,
     pub banned_at: Option<DateTime>,
-    pub filesize: i32,
+    pub filesize: i64,
     pub file_height: Option<i32>,
     pub file_width: Option<i32>,
     #[sea_orm(column_type = "Text")]
     pub mime: String,
-    #[sea_orm(column_type = "Custom(\"jsonb\".to_owned())")]
-    pub meta: String,
+    pub meta: Json,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

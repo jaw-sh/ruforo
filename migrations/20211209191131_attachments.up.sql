@@ -8,7 +8,7 @@ CREATE TABLE attachments
    first_seen_at timestamp NOT NULL,
    last_seen_at  timestamp NOT NULL,
    banned_at     timestamp NULL,
-   filesize      int NOT NULL,
+   filesize      bigint NOT NULL,
    file_height   int NULL,
    file_width    int NULL,
    mime          text NOT NULL,
