@@ -1,9 +1,15 @@
 use crate::ffmpeg::get_extension_ffmpeg;
+use crate::orm::attachments;
 use crate::s3::S3Bucket;
+use crate::session::MainData;
 use actix_multipart::Multipart;
 use actix_web::{post, web, Error, HttpResponse, Responder};
+use chrono::Utc;
 use futures::{StreamExt, TryStreamExt};
 use mime::Mime;
+use sea_orm::{
+    entity::*, query::*, DatabaseConnection, DbErr, FromQueryResult, JsonValue, QueryFilter,
+};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
@@ -21,6 +27,7 @@ struct UploadPayload {
 #[post("/fs/upload-file")]
 pub async fn put_file(
     mut mutipart: Multipart,
+    my: web::Data<MainData<'_>>,
     s3: web::Data<S3Bucket>,
 ) -> Result<impl Responder, Error> {
     // see: https://users.rust-lang.org/t/file-upload-in-actix-web/64871/3
@@ -137,26 +144,51 @@ pub async fn put_file(
             actix_web::error::ErrorInternalServerError("put_file: failed to check if file exists")
         })?;
 
-        // TODO check and insert DB entry here
-
-        let count = list.key_count.ok_or_else(|| {
-            log::error!("put_file: key_count, I don't think this should ever happen");
-            actix_web::error::ErrorInternalServerError("put_file: failed to check if file exists")
+        let filesize: i64 = payload.data.len().try_into().map_err(|e| {
+            log::error!(
+                "put_file: failed convert filesize from usize to i64, too big?: {}",
+                e
+            );
+            actix_web::error::ErrorInternalServerError("put_file: file too large")
         })?;
 
-        // count should only ever be 0 or 1, otherwise there's something wrong with the prefix
-        if count == 0 {
-            s3.put_object(payload.data, &s3_filename)
-                .await
-                .map_err(|e| {
-                    log::error!("put_file: failed to put_object: {}", e);
-                    actix_web::error::ErrorInternalServerError("put_file: failed to store file")
-                })?;
+        let (_file_id, duplicate) = select_attachment_by_filename_hash(
+            &my.pool,
+            &s3_filename,
+            &payload.hash.to_string(),
+            filesize,
+            &payload.mime.to_string(),
+        )
+        .await
+        .map_err(|e| {
+            log::error!("put_file: failed select_attachment_by_filename_hash: {}", e);
+            actix_web::error::ErrorInternalServerError("put_file: DB error")
+        })?;
+
+        if duplicate == false {
+            let count = list.key_count.ok_or_else(|| {
+                log::error!("put_file: key_count, I don't think this should ever happen");
+                actix_web::error::ErrorInternalServerError(
+                    "put_file: failed to check if file exists",
+                )
+            })?;
+
+            // count should only ever be 0 or 1, otherwise there's something wrong with the prefix
+            if count == 0 {
+                s3.put_object(payload.data, &s3_filename)
+                    .await
+                    .map_err(|e| {
+                        log::error!("put_file: failed to put_object: {}", e);
+                        actix_web::error::ErrorInternalServerError("put_file: failed to store file")
+                    })?;
+            } else {
+                log::info!("put_file: duplicate upload, skipping S3 put_object");
+            }
         } else {
-            log::info!("put_file: duplicate upload, skipping S3 put_object");
+            log::info!("put_file: duplicate found in DB, skipping S3 put_object");
         }
 
-        // WARNING we delete a file, be mindful and don't fucking delete my porn folder
+        // !!! WARNING !!! we delete a file, be mindful and don't fucking delete my porn folder
         log::warn!("Deleting Tmp File: {:#?}", payload.tmp_path);
         std::fs::remove_file(payload.tmp_path).map_err(|e| {
             log::error!("put_file: delete tmp file error: {}", e);
@@ -277,6 +309,50 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
 
         begin_idx = new_idx;
     }
+}
+
+async fn select_attachment_by_filename_hash(
+    db: &DatabaseConnection,
+    filename: &str,
+    hash: &str,
+    filesize: i64,
+    mime: &str,
+) -> Result<(i32, bool), DbErr> {
+    #[derive(Debug, FromQueryResult)]
+    struct SelectResult {
+        id: i32,
+    }
+    let txn = db.begin().await?;
+
+    let select = attachments::Entity::find()
+        .select_only()
+        .column(attachments::Column::Id)
+        .filter(attachments::Column::Hash.eq(hash));
+
+    let result = select.into_model::<SelectResult>().one(&txn).await?;
+    if let Some(result) = result {
+        log::error!("Duplicate File Hash: {:#?} - {}", result, filename);
+        return Ok((result.id, false));
+    }
+
+    // Insert attachment
+    let now = Utc::now().naive_utc();
+    let new_attachment = attachments::ActiveModel {
+        filename: Set(filename.to_owned()),
+        hash: Set(hash.to_owned()),
+        first_seen_at: Set(now),
+        last_seen_at: Set(now),
+        filesize: Set(filesize),
+        mime: Set(mime.to_owned()),
+        meta: Set(JsonValue::Null),
+        ..Default::default()
+    };
+    let res = attachments::Entity::insert(new_attachment)
+        .exec(&txn)
+        .await?;
+
+    txn.commit().await?;
+    Ok((res.last_insert_id, true))
 }
 
 pub fn get_extension(filename: &str, mime: &Mime) -> Option<String> {

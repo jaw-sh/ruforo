@@ -44,9 +44,13 @@ impl S3Bucket {
     ) -> Result<PutObjectOutput, RusotoError<PutObjectError>> {
         log::info!("S3Bucket: put_object: {}", filename);
 
+        // we could ensure minimum filename length to be safe, but we'll just panic instead
+        let prefix1 = &filename[0..2];
+        let prefix2 = &filename[2..4];
+        let key = format!("{}/{}/{}", prefix1, prefix2, filename);
         let put_request = PutObjectRequest {
             bucket: self.bucket_name.to_owned(),
-            key: filename.to_owned(),
+            key,
             body: Some(data.into()),
             ..Default::default()
         };
