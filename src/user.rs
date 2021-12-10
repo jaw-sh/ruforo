@@ -1,12 +1,12 @@
-use crate::orm::users::Model as User;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::{dev, Error, FromRequest, HttpRequest};
 use futures_util::future::{err, ok, Ready};
+use sea_orm::FromQueryResult;
 
 /// Represents information about this request's client.
 #[derive(Debug, Default)]
 pub struct Client {
-    pub user: Option<User>,
+    pub user: Option<ClientUser>,
 }
 
 impl Client {
@@ -48,4 +48,11 @@ impl FromRequest for Client {
             )),
         }
     }
+}
+
+/// A mini struct for holding only what information we need about a client.
+#[derive(Clone, Debug, FromQueryResult)]
+pub struct ClientUser {
+    pub id: i32,
+    pub name: String,
 }

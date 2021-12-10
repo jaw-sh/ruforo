@@ -55,13 +55,10 @@ where
 
         // log in using cookies
         let client = match Identity::extract(&httpreq).into_inner() {
-            Ok(id) => {
-                dbg!(id.identity());
-                match httpreq.app_data::<Data<MainData>>() {
-                    Some(data) => data.client_from_identity(&id),
-                    None => Client::default(),
-                }
-            }
+            Ok(id) => match httpreq.app_data::<Data<MainData>>() {
+                Some(data) => data.client_from_identity(&id),
+                None => Client::default(),
+            },
             Err(_) => Client::default(),
         };
 

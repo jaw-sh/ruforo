@@ -1,6 +1,6 @@
 use crate::frontend::TemplateToPubResponse;
-use crate::orm::{posts, threads};
-use crate::thread::{validate_thread_form, NewThreadFormData};
+use crate::orm::{posts, threads, users};
+use crate::thread::{validate_thread_form, NewThreadFormData, ThreadForTemplate};
 use crate::user::Client;
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
@@ -10,8 +10,8 @@ use sea_orm::{entity::*, query::*, Set};
 
 #[derive(Template)]
 #[template(path = "forum.html")]
-pub struct ForumTemplate {
-    pub threads: Vec<threads::Model>,
+pub struct ForumTemplate<'a> {
+    pub threads: &'a Vec<ThreadForTemplate>,
 }
 
 #[post("/forums/post-thread")]
@@ -106,12 +106,20 @@ pub async fn create_thread(
 
 #[get("/forums")]
 pub async fn view_forum(data: web::Data<MainData<'_>>) -> Result<impl Responder, Error> {
-    Ok(ForumTemplate {
-        threads: threads::Entity::find()
-            .order_by_desc(threads::Column::LastPostAt)
-            .all(&data.pool)
-            .await
-            .map_err(|err| error::ErrorNotFound(err))?,
-    }
-    .to_pub_response())
+    let threads: Vec<ThreadForTemplate> = threads::Entity::find()
+        // Authoring User
+        .left_join(users::Entity)
+        .column_as(users::Column::Name, "username")
+        // Last Post
+        // TODO: This is an actual nightmare.
+        //.join_join(JoinType::LeftJoin, threads::Relations::::to(), threads::Relation::LastPost<posts::Entity>::via())
+        //.column_as(users::Column::Name, "username")
+        // Execute
+        .order_by_desc(threads::Column::LastPostAt)
+        .into_model::<ThreadForTemplate>()
+        .all(&data.pool)
+        .await
+        .map_err(|err| error::ErrorNotFound(err))?;
+
+    Ok(ForumTemplate { threads: &threads }.to_pub_response())
 }

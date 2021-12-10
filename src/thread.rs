@@ -8,11 +8,27 @@ use crate::user::Client;
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
-use sea_orm::{entity::*, query::*, sea_query::Expr, QueryFilter};
+use sea_orm::{entity::*, query::*, sea_query::Expr, FromQueryResult, QueryFilter};
 use serde::Deserialize;
 
 // TODO: Dynamic page sizing.
 const POSTS_PER_PAGE: i32 = 20;
+
+#[derive(Debug, FromQueryResult)]
+pub struct ThreadForTemplate {
+    pub id: i32,
+    pub user_id: Option<i32>,
+    pub created_at: chrono::naive::NaiveDateTime,
+    pub title: String,
+    pub subtitle: Option<String>,
+    pub view_count: i32,
+    pub post_count: i32,
+    pub first_post_id: i32,
+    pub last_post_id: i32,
+    pub last_post_at: chrono::naive::NaiveDateTime,
+    // join user
+    pub username: Option<String>,
+}
 
 #[derive(Deserialize)]
 pub struct NewThreadFormData {
