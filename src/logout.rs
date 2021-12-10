@@ -1,6 +1,6 @@
 use crate::frontend::TemplateToPubResponse;
 use crate::session::{remove_session, MainData};
-use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
+use actix_web::{get, web, Error, Responder};
 use askama_actix::Template;
 use uuid::Uuid;
 
