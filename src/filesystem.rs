@@ -1,4 +1,5 @@
-use crate::s3::{get_extension, get_extension_ffmpeg, S3Bucket};
+use crate::ffmpeg::get_extension_ffmpeg;
+use crate::s3::{get_extension, S3Bucket};
 use actix_multipart::Multipart;
 use actix_web::{post, web, Error, HttpResponse, Responder};
 use futures::{StreamExt, TryStreamExt};

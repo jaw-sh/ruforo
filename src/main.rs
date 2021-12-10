@@ -1,5 +1,5 @@
 extern crate dotenv;
-extern crate ffmpeg_next as ffmpeg;
+extern crate ffmpeg_next;
 #[macro_use]
 extern crate lazy_static;
 
@@ -15,6 +15,7 @@ use std::path::Path;
 
 pub mod chat;
 mod create_user;
+pub mod ffmpeg;
 pub mod filesystem;
 mod forum;
 pub mod frontend;
@@ -70,7 +71,7 @@ async fn init_data<'key>(salt: &'key SaltString) -> MainData<'key> {
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
-    ffmpeg::init().expect("!!! ffmpeg Init Failure !!!");
+    ffmpeg_next::init().expect("!!! ffmpeg Init Failure !!!");
 
     // Check Cache Dir
     let cache_dir = std::env::var("DIR_TMP")
