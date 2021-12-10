@@ -3,6 +3,7 @@
 CREATE TABLE attachments
 (
    id serial NOT NULL PRIMARY KEY,
+   filename      text NOT NULL,
    hash          char(32) NOT NULL,
    first_seen_at timestamp NOT NULL,
    last_seen_at  timestamp NOT NULL,
