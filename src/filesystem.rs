@@ -196,9 +196,7 @@ pub async fn put_file(
         })?;
     }
 
-    Ok(HttpResponse::Ok()
-        .content_type("text/css")
-        .body("put_file: ok"))
+    Ok(HttpResponse::Ok().body("put_file: ok"))
 }
 
 /// this is my fancy intelligent extension extractor
@@ -435,4 +433,20 @@ pub fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
     //     },
     //     _ => get_extension_guess(filename),
     // }
+}
+
+#[derive(Debug, FromQueryResult)]
+pub struct SelectFilename {
+    pub filename: String,
+}
+pub async fn get_filename_by_id(
+    db: &DatabaseConnection,
+    id: i32,
+) -> Result<Option<SelectFilename>, DbErr> {
+    Ok(attachments::Entity::find_by_id(id)
+        .select_only()
+        .column(attachments::Column::Filename)
+        .into_model::<SelectFilename>()
+        .one(db)
+        .await?)
 }
