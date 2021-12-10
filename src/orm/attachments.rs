@@ -3,28 +3,27 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-#[sea_orm(table_name = "ip")]
+#[sea_orm(table_name = "attachments")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    #[sea_orm(column_type = "Custom(\"inet\".to_owned())", unique)]
-    pub address: String,
+    pub hash: String,
     pub first_seen_at: DateTime,
     pub last_seen_at: DateTime,
+    pub banned_at: Option<DateTime>,
+    pub filesize: i32,
+    pub file_height: Option<i32>,
+    pub file_width: Option<i32>,
+    #[sea_orm(column_type = "Text")]
+    pub mime: String,
+    #[sea_orm(column_type = "Custom(\"jsonb\".to_owned())")]
+    pub meta: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::ugc_revisions::Entity")]
-    UgcRevisions,
     #[sea_orm(has_many = "super::ugc_attachments::Entity")]
     UgcAttachments,
-}
-
-impl Related<super::ugc_revisions::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::UgcRevisions.def()
-    }
 }
 
 impl Related<super::ugc_attachments::Entity> for Entity {

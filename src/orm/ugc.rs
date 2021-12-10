@@ -19,9 +19,12 @@ pub enum Relation {
         on_update = "NoAction",
         on_delete = "NoAction"
     )]
+    #[sea_orm(has_many = "super::ugc_revisions::Entity")]
     UgcRevisions,
     #[sea_orm(has_many = "super::posts::Entity")]
     Posts,
+    #[sea_orm(has_many = "super::ugc_attachments::Entity")]
+    UgcAttachments,
 }
 
 impl Related<super::ugc_revisions::Entity> for Entity {
@@ -33,6 +36,12 @@ impl Related<super::ugc_revisions::Entity> for Entity {
 impl Related<super::posts::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Posts.def()
+    }
+}
+
+impl Related<super::ugc_attachments::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UgcAttachments.def()
     }
 }
 

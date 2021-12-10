@@ -15,23 +15,13 @@ pub struct Model {
     pub subtitle: Option<String>,
     pub view_count: i32,
     pub post_count: i32,
-    pub first_post_id: i32,
-    pub last_post_id: i32,
-    pub last_post_at: DateTime,
+    pub first_post_id: Option<i32>,
+    pub last_post_id: Option<i32>,
+    pub last_post_at: Option<DateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(
-        belongs_to = "super::users::Entity",
-        from = "Column::UserId",
-        to = "super::users::Column::Id",
-        on_update = "NoAction",
-        on_delete = "NoAction"
-    )]
-    Users,
-    #[sea_orm(has_many = "super::posts::Entity")]
-    Posts,
     #[sea_orm(
         belongs_to = "super::posts::Entity",
         from = "Column::FirstPostId",
@@ -48,6 +38,16 @@ pub enum Relation {
         on_delete = "NoAction"
     )]
     LastPost,
+    #[sea_orm(
+        belongs_to = "super::users::Entity",
+        from = "Column::UserId",
+        to = "super::users::Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    Users,
+    #[sea_orm(has_many = "super::posts::Entity")]
+    Posts,
 }
 
 impl Related<super::users::Entity> for Entity {

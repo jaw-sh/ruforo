@@ -34,6 +34,8 @@ pub enum Relation {
     Posts,
     #[sea_orm(has_many = "super::sessions::Entity")]
     Sessions,
+    #[sea_orm(has_many = "super::ugc_attachments::Entity")]
+    UgcAttachments,
 }
 
 impl Related<super::threads::Entity> for Entity {
@@ -57,6 +59,12 @@ impl Related<super::posts::Entity> for Entity {
 impl Related<super::sessions::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Sessions.def()
+    }
+}
+
+impl Related<super::ugc_attachments::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UgcAttachments.def()
     }
 }
 

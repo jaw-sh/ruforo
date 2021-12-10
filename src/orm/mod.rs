@@ -2,10 +2,13 @@
 
 pub mod prelude;
 
+pub mod attachment_thumbnails;
+pub mod attachments;
 pub mod ip;
 pub mod posts;
 pub mod sessions;
 pub mod threads;
 pub mod ugc;
+pub mod ugc_attachments;
 pub mod ugc_revisions;
 pub mod users;
