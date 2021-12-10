@@ -1,10 +1,10 @@
 use crate::orm;
 use crate::orm::sessions::Entity as Sessions;
-use crate::user::Client;
+use crate::user::{Client, ClientUser};
 use actix_identity::Identity;
 use argon2::{password_hash::SaltString, Argon2};
 use chrono::{NaiveDateTime, Utc};
-use sea_orm::{entity::*, ConnectOptions, Database, DatabaseConnection, DbErr};
+use sea_orm::{entity::*, query::*, ConnectOptions, Database, DatabaseConnection, DbErr};
 use std::collections::HashMap;
 use std::sync::RwLock;
 use std::time::Duration;
@@ -61,29 +61,24 @@ impl<'key> MainData<'key> {
     }
 
     pub fn client_from_identity(&self, id: &Identity) -> Client {
-        use crate::orm::users::Entity as User;
+        use crate::orm::users;
+
         Client {
             user: match id.identity() {
                 Some(id) => match authenticate_by_uuid_string(&self.cache.sessions, id) {
                     Some(session) => futures::executor::block_on(async move {
-                        println!("External authed as user #{}", session.session.user_id);
-                        User::find_by_id(session.session.user_id)
+                        users::Entity::find_by_id(session.session.user_id)
+                            .select_only()
+                            .column(users::Column::Id)
+                            .column(users::Column::Name)
+                            .into_model::<ClientUser>()
                             .one(&self.pool)
                             .await
-                            .unwrap_or({
-                                println!("2a. Unwrapped nothing!");
-                                None
-                            })
+                            .unwrap_or(None)
                     }),
-                    None => {
-                        println!("2a. No session given.");
-                        None
-                    }
+                    None => None,
                 },
-                None => {
-                    println!("2a. No identity given.");
-                    None
-                }
+                None => None,
             },
         }
     }
@@ -199,4 +194,24 @@ pub async fn reload_session_cache(
         );
     }
     Ok(())
+}
+
+pub async fn remove_session(ses_map: &SessionMap, uuid: Uuid) -> Option<Session> {
+    use crate::orm::sessions;
+
+    let ses_map = &mut *ses_map.write().unwrap();
+    if ses_map.contains_key(&uuid) == true {
+        // Delete session from the database
+        // We don't actually care about the result.
+        actix_web::rt::spawn(async move {
+            let pool = crate::session::new_db_pool().await.unwrap();
+            sessions::Entity::delete_many()
+                .filter(sessions::Column::Id.eq(uuid))
+                .exec(&pool)
+                .await
+        });
+        ses_map.remove(&uuid)
+    } else {
+        None
+    }
 }

@@ -22,6 +22,7 @@ pub mod frontend;
 mod hub;
 mod index;
 mod login;
+mod logout;
 mod member;
 mod middleware;
 pub mod orm;
@@ -113,6 +114,7 @@ async fn main() -> std::io::Result<()> {
             .service(create_user::create_user_post)
             .service(login::view_login)
             .service(login::post_login)
+            .service(logout::view_logout)
             .service(member::view_members)
             .service(filesystem::put_file)
             .service(post::edit_post)
