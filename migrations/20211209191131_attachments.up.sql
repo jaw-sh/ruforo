@@ -2,7 +2,7 @@
 
 CREATE TABLE attachments
 (
-   id serial NOT NULL PRIMARY KEY,
+   id            serial NOT NULL PRIMARY KEY,
    filename      text NOT NULL,
    hash          char(64) NOT NULL,
    first_seen_at timestamp NOT NULL,
@@ -31,11 +31,13 @@ CREATE INDEX ON attachment_thumbnails ( thumbnail_id );
 
 CREATE TABLE ugc_attachments
 (
+    id            serial NOT NULL PRIMARY KEY,
     attachment_id int NOT NULL REFERENCES attachments ( id ),
     ugc_id        int NOT NULL REFERENCES ugc ( id ),
     user_id       int NULL REFERENCES users ( id ),
     ip_id         int NULL REFERENCES ip (id ),
     created_at    timestamp NOT NULL,
+    filename      text NOT NULL,
     PRIMARY KEY (attachment_id, ugc_id)
 );
 
