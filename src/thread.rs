@@ -40,6 +40,7 @@ pub struct NewThreadFormData {
 #[derive(Template)]
 #[template(path = "thread.html")]
 pub struct ThreadTemplate<'a> {
+    pub client: &'a Client,
     pub thread: super::orm::threads::Model,
     pub posts: &'a Vec<PostForTemplate>,
     pub paginator: Paginator,
@@ -70,6 +71,7 @@ pub fn get_url_for_pos(thread_id: i32, pos: i32) -> String {
 
 /// Returns a Responder for a thread at a specific page.
 async fn get_thread_and_replies_for_page(
+    client: &Client,
     data: &MainData<'_>,
     thread_id: i32,
     page: i32,
@@ -121,6 +123,7 @@ async fn get_thread_and_replies_for_page(
     };
 
     ThreadTemplate {
+        client: &client,
         thread,
         posts: &posts,
         paginator,
@@ -209,23 +212,25 @@ pub async fn create_reply(
 
 #[get("/threads/{thread_id}/")]
 pub async fn view_thread(
+    client: Client,
     path: web::Path<(i32,)>,
     data: web::Data<MainData<'_>>,
 ) -> Result<impl Responder, Error> {
-    get_thread_and_replies_for_page(&data, path.into_inner().0, 1).await
+    get_thread_and_replies_for_page(&client, &data, path.into_inner().0, 1).await
 }
 
 #[get("/threads/{thread_id}/page-{page}")]
 pub async fn view_thread_page(
+    client: Client,
     path: web::Path<(i32, i32)>,
     data: web::Data<MainData<'_>>,
 ) -> Result<impl Responder, Error> {
     let params = path.into_inner();
 
     if params.1 > 1 {
-        get_thread_and_replies_for_page(&data, params.0, params.1).await
+        get_thread_and_replies_for_page(&client, &data, params.0, params.1).await
     } else {
-        get_thread_and_replies_for_page(&data, params.0, 1).await
+        get_thread_and_replies_for_page(&client, &data, params.0, 1).await
         //Ok(HttpResponse::Found()
         //    .append_header(("Location", format!("/threads/{}/", params.0)))
         //    .finish())

@@ -28,6 +28,21 @@ impl Client {
     }
 }
 
+// TODO: Move this implementation to a macro or something?
+impl Client {
+    pub fn can_delete_post(&self) -> bool {
+        false
+    }
+
+    pub fn can_update_post(&self, post: &crate::post::PostForTemplate) -> bool {
+        self.is_user() && self.get_id() == post.user_id
+    }
+
+    pub fn can_read_post(&self) -> bool {
+        true
+    }
+}
+
 impl FromRequest for Client {
     /// The associated error which can be returned.
     type Error = Error;
