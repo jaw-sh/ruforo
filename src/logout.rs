@@ -17,12 +17,9 @@ pub async fn view_logout(
 
     // TODO: Needs mechanism to alter the HttpRequest.extensions stored Context and Client during this request cycle.
     match cookies.get::<String>("token") {
-        Ok(token) => match token {
-            Some(uuid) => match Uuid::parse_str(&uuid) {
-                Ok(uuid) => remove_session(&data.cache.sessions, uuid).await,
-                Err(_) => None,
-            },
-            None => None,
+        Ok(Some(uuid)) => match Uuid::parse_str(&uuid) {
+            Ok(uuid) => remove_session(&data.cache.sessions, uuid).await,
+            _ => None,
         },
         _ => None,
     };

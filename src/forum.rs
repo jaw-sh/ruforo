@@ -5,8 +5,7 @@ use crate::user::Client;
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
-use sea_orm::sea_query::Expr;
-use sea_orm::{entity::*, query::*, Set};
+use sea_orm::{entity::*, query::*, sea_query::Expr};
 
 #[derive(Template)]
 #[template(path = "forum.html")]
@@ -30,7 +29,7 @@ pub async fn create_thread(
         .pool
         .begin()
         .await
-        .map_err(|err| error::ErrorInternalServerError(err))?;
+        .map_err(error::ErrorInternalServerError)?;
 
     // Step 1. Create the UGC.
     let revision = create_ugc(
@@ -42,7 +41,7 @@ pub async fn create_thread(
         },
     )
     .await
-    .map_err(|err| error::ErrorInternalServerError(err))?;
+    .map_err(error::ErrorInternalServerError)?;
 
     // Step 2. Create a thread.
     let thread = threads::ActiveModel {
@@ -53,7 +52,7 @@ pub async fn create_thread(
             .subtitle
             .to_owned()
             .map(|s| s.trim().to_owned())
-            .filter(|s| s.len() != 0)),
+            .filter(|s| s.is_empty())),
         view_count: Set(0),
         post_count: Set(1),
         ..Default::default()
@@ -61,7 +60,7 @@ pub async fn create_thread(
     let thread_res = threads::Entity::insert(thread)
         .exec(&txn)
         .await
-        .map_err(|_| error::ErrorInternalServerError("Failed to insert new thread."))?;
+        .map_err(error::ErrorInternalServerError)?;
 
     // Step 3. Create a post with the correct associations.
     let new_post = posts::ActiveModel {
@@ -74,7 +73,7 @@ pub async fn create_thread(
     }
     .insert(&txn)
     .await
-    .map_err(|err| error::ErrorInternalServerError(err))?;
+    .map_err(error::ErrorInternalServerError)?;
 
     // Step 4. Update the thread to include last, first post id info.
     let post_id = new_post.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
@@ -89,12 +88,12 @@ pub async fn create_thread(
         .filter(threads::Column::Id.eq(thread_res.last_insert_id))
         .exec(&txn)
         .await
-        .map_err(|_| error::ErrorInternalServerError("Failed to update UGC to living revision."))?;
+        .map_err(error::ErrorInternalServerError)?;
 
     // Close transaction
     txn.commit()
         .await
-        .map_err(|err| error::ErrorInternalServerError(err))?;
+        .map_err(error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Found()
         .append_header((
@@ -119,7 +118,7 @@ pub async fn view_forum(data: web::Data<MainData<'_>>) -> Result<impl Responder,
         .into_model::<ThreadForTemplate>()
         .all(&data.pool)
         .await
-        .map_err(|err| error::ErrorNotFound(err))?;
+        .map_err(error::ErrorNotFound)?;
 
     Ok(ForumTemplate { threads: &threads }.to_pub_response())
 }

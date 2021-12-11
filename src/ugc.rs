@@ -27,7 +27,7 @@ where
     }
     .insert(pool)
     .await
-    .map_err(|err| error::ErrorInternalServerError(err))?;
+    .map_err(error::ErrorInternalServerError)?;
 
     let ugc_id = new_ugc.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
 
@@ -57,7 +57,7 @@ where
     }
     .insert(conn)
     .await
-    .map_err(|err| error::ErrorInternalServerError(err))?;
+    .map_err(error::ErrorInternalServerError)?;
 
     let ugc_revision_id = new_revision.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
     ugc::Entity::update_many()
@@ -65,7 +65,7 @@ where
         .filter(ugc::Column::Id.eq(ugc_id))
         .exec(conn)
         .await
-        .map_err(|err| error::ErrorInternalServerError(err))?;
+        .map_err(error::ErrorInternalServerError)?;
 
     Ok(new_revision)
 }
@@ -74,7 +74,7 @@ fn validate_ugc(revision: NewUgcPartial) -> Result<NewUgcPartial, Error> {
     let content = revision.content;
     let clean_content = content.trim();
 
-    if clean_content.len() == 0 {
+    if clean_content.is_empty() {
         return Err(error::ErrorUnprocessableEntity(
             "Input must contain content or attachments.",
         ));

@@ -14,12 +14,10 @@ pub struct MembersTemplate {
 #[get("/members")]
 pub async fn view_members(data: web::Data<MainData<'static>>) -> impl Responder {
     match users::Entity::find().all(&data.pool).await {
-        Ok(users) => {
-            return Ok(MembersTemplate { users }.to_pub_response());
-        }
+        Ok(users) => Ok(MembersTemplate { users }.to_pub_response()),
         Err(e) => {
             log::error!("error {:?}", e);
-            return Err(error::ErrorInternalServerError("Couldn't load users"));
+            Err(error::ErrorInternalServerError("Couldn't load users"))
         }
     }
 }

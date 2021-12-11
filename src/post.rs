@@ -1,6 +1,7 @@
+use crate::frontend::TemplateToPubResponse;
 use crate::orm::{posts, ugc_revisions, users};
 use crate::MainData;
-use actix_web::{error, get, post, web, Error, HttpResponse};
+use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
 use sea_orm::{entity::*, query::*, FromQueryResult};
 use serde::Deserialize;
@@ -37,21 +38,21 @@ pub struct NewPostFormData {
 pub async fn edit_post(
     data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
-) -> Result<HttpResponse, Error> {
+) -> Result<impl Responder, Error> {
     let post: PostForTemplate = posts::Entity::find_by_id(path.into_inner().0)
         .left_join(users::Entity)
         .column_as(users::Column::Name, "username")
         .left_join(ugc_revisions::Entity)
         .column_as(ugc_revisions::Column::Content, "content")
         .column_as(ugc_revisions::Column::IpId, "ip_id")
-        .column_as(ugc_revisions::Column::CreatedAt, "updated_id")
+        .column_as(ugc_revisions::Column::CreatedAt, "updated_at")
         .into_model::<PostForTemplate>()
         .one(&data.pool)
         .await
-        .map_err(|err| error::ErrorInternalServerError(err))?
+        .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
 
-    Ok(HttpResponse::Ok().body(PostEditTemplate { post: &post }.render().unwrap()))
+    PostEditTemplate { post: &post }.to_pub_response()
 }
 
 #[post("/posts/{post_id}/edit")]
@@ -64,9 +65,16 @@ pub async fn update_post(
     use crate::ugc::{create_ugc_revision, NewUgcPartial};
 
     let post = posts::Entity::find_by_id(path.into_inner().0)
+        .left_join(users::Entity)
+        .column_as(users::Column::Name, "username")
+        .left_join(ugc_revisions::Entity)
+        .column_as(ugc_revisions::Column::Content, "content")
+        .column_as(ugc_revisions::Column::IpId, "ip_id")
+        .column_as(ugc_revisions::Column::CreatedAt, "updated_at")
+        .into_model::<PostForTemplate>()
         .one(&data.pool)
         .await
-        .map_err(|err| error::ErrorInternalServerError(err))?
+        .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
 
     create_ugc_revision(
@@ -79,7 +87,7 @@ pub async fn update_post(
         },
     )
     .await
-    .map_err(|err| error::ErrorInternalServerError(err))?;
+    .map_err(error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Found()
         .append_header(("Location", format!("/threads/{}/", post.thread_id)))
@@ -92,7 +100,7 @@ async fn view_post(data: web::Data<MainData<'_>>, id: i32) -> Result<HttpRespons
     let post = posts::Entity::find_by_id(id)
         .one(&data.pool)
         .await
-        .map_err(|e| error::ErrorInternalServerError(e))?
+        .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
 
     Ok(HttpResponse::Found()

@@ -44,8 +44,8 @@ impl actix_web::Responder for PublicResponse {
 
         PublicTemplate {
             content: &self.content,
-            context: &req.extensions().get::<Context>().unwrap(),
-            client: &req.extensions().get::<Client>().unwrap(),
+            context: req.extensions().get::<Context>().unwrap(),
+            client: req.extensions().get::<Client>().unwrap(),
         }
         .to_response()
     }

@@ -1,20 +1,18 @@
 #primary-nav {
     background-color: #333;
-    
+
     ul {
         list-style-type: none;
         margin: 0;
-        padding: 0;
+        padding: 12px 0;
         overflow: hidden;
     }
     li {
         float: left;
     }
     a {
-        display: block;
         color: white;
         text-align: center;
-        padding: 14px 16px;
         text-decoration: none;
     }
 
@@ -27,7 +25,15 @@
 
 .nav-main {
     float: left;
+
+    li {
+        margin-right: 12px;
+    }
 }
 .nav-side {
     float: right;
+
+    li {
+        margin-left: 12px;
+    }
 }

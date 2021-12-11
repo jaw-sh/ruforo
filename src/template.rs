@@ -53,11 +53,11 @@ impl PaginatorToHtml for Paginator {
     }
 
     fn get_inner_pages(&self) -> Option<Range<i32>> {
-        if 1 + PAGINATOR_LOOK_AHEAD >= self.this_page - PAGINATOR_LOOK_AHEAD {
+        // if our lookahead is gt/eq the lookbehind of the last page, we merge our cursor to the last pages
+        if (1 + PAGINATOR_LOOK_AHEAD >= self.this_page - PAGINATOR_LOOK_AHEAD) ||
             // if 1+lookahead is less than page-lookahead, we only have first pages
-            None
-        } else if self.this_page + PAGINATOR_LOOK_AHEAD >= self.page_count - PAGINATOR_LOOK_AHEAD {
-            // if our lookahead is gt/eq the lookbehind of the last page, we merge our cursor to the last pages
+            (self.this_page + PAGINATOR_LOOK_AHEAD >= self.page_count - PAGINATOR_LOOK_AHEAD)
+        {
             None
         } else {
             // otherwise, show the lookahead and look behind
@@ -82,7 +82,7 @@ impl PaginatorToHtml for Paginator {
     fn as_html(&self) -> String {
         if self.has_pages() {
             let mut buffer = String::new();
-            let template = PaginatorTemplate { paginator: &self };
+            let template = PaginatorTemplate { paginator: self };
             if template.render_into(&mut buffer).is_err() {
                 "[Paginator Util Error]".to_owned()
             } else {

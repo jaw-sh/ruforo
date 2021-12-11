@@ -112,7 +112,7 @@ async fn get_thread_and_replies_for_page(
         .into_model::<PostForTemplate>()
         .all(&data.pool)
         .await
-        .map_err(|err| error::ErrorInternalServerError(err))?;
+        .map_err(error::ErrorInternalServerError)?;
 
     let paginator = Paginator {
         base_url: format!("/threads/{}/", thread_id),
@@ -143,7 +143,7 @@ pub async fn create_reply(
         .pool
         .begin()
         .await
-        .map_err(|err| error::ErrorInternalServerError(err))?;
+        .map_err(error::ErrorInternalServerError)?;
 
     let thread_id = path.into_inner().0;
     let our_thread = Thread::find_by_id(thread_id)
@@ -162,7 +162,7 @@ pub async fn create_reply(
         },
     )
     .await
-    .map_err(|err| error::ErrorInternalServerError(err))?;
+    .map_err(error::ErrorInternalServerError)?;
 
     // Insert post
     let new_post = posts::ActiveModel {
@@ -175,12 +175,12 @@ pub async fn create_reply(
     }
     .insert(&txn)
     .await
-    .map_err(|err| error::ErrorInternalServerError(err))?;
+    .map_err(error::ErrorInternalServerError)?;
 
     // Commit transaction
     txn.commit()
         .await
-        .map_err(|err| error::ErrorInternalServerError(err))?;
+        .map_err(error::ErrorInternalServerError)?;
 
     // Update thread
     let post_id = new_post.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
@@ -197,7 +197,7 @@ pub async fn create_reply(
         .filter(threads::Column::Id.eq(thread_id))
         .exec(&data.pool)
         .await
-        .map_err(|err| error::ErrorInternalServerError(err))?;
+        .map_err(error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Found()
         .append_header((

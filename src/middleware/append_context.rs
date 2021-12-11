@@ -54,7 +54,7 @@ where
         });
 
         // log in using cookies
-        let client = match Identity::extract(&httpreq).into_inner() {
+        let client = match Identity::extract(httpreq).into_inner() {
             Ok(id) => match httpreq.app_data::<Data<MainData>>() {
                 Some(data) => data.client_from_identity(&id),
                 None => Client::default(),
