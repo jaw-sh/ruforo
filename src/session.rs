@@ -207,6 +207,7 @@ pub async fn remove_session(ses_map: &SessionMap, uuid: Uuid) -> Option<Session>
 
     let ses_map = &mut *ses_map.write().unwrap();
     if ses_map.contains_key(&uuid) {
+        println!("Deleting UUID found in ses map.");
         // Delete session from the database
         // We don't actually care about the result.
         actix_web::rt::spawn(async move {
@@ -218,6 +219,7 @@ pub async fn remove_session(ses_map: &SessionMap, uuid: Uuid) -> Option<Session>
         });
         ses_map.remove(&uuid)
     } else {
+        println!("UUID not found in ses map.");
         None
     }
 }

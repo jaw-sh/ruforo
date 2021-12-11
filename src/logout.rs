@@ -24,5 +24,7 @@ pub async fn view_logout(
         _ => None,
     };
 
+    cookies.purge();
+
     Ok(tmpl.to_pub_response())
 }
