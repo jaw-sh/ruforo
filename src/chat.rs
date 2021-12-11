@@ -76,9 +76,7 @@ impl ChatServer {
             // visitor_count,
         }
     }
-}
 
-impl ChatServer {
     /// Send message to all users in the room
     fn send_message(&self, room: &str, message: &str, skip_id: usize) {
         if let Some(sessions) = self.rooms.get(room) {
@@ -90,6 +88,12 @@ impl ChatServer {
                 }
             }
         }
+    }
+}
+
+impl Default for ChatServer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

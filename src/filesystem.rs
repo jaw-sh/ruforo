@@ -165,7 +165,7 @@ pub async fn put_file(
             actix_web::error::ErrorInternalServerError("put_file: DB error")
         })?;
 
-        if duplicate == false {
+        if !duplicate {
             let count = list.key_count.ok_or_else(|| {
                 log::error!("put_file: key_count, I don't think this should ever happen");
                 actix_web::error::ErrorInternalServerError(
@@ -250,7 +250,7 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
             if idx == 0
                 || idx == filename.len()
                 || filename.len() - idx > MAX_EXT_LEN + 1 // +1 because we count the '.' here
-                || filename[idx + 1..].chars().all(|x| x.is_ascii_alphanumeric()) == false
+                || !filename[idx + 1..].chars().all(|x| x.is_ascii_alphanumeric())
             {
                 return None;
             }
@@ -274,13 +274,13 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
         // find beginning of next possible extension
         let new_idx = match sub_str.rfind('.') {
             Some(idx) => idx,
-            None => return get_extension_guess_return(&filename, begin_idx),
+            None => return get_extension_guess_return(filename, begin_idx),
         };
 
         // check if double period
         if new_idx == begin_idx - 1 {
             log::info!("get_extension_greedy: found double");
-            return get_extension_guess_return(&filename, begin_idx);
+            return get_extension_guess_return(filename, begin_idx);
         }
 
         // new sub-extension
@@ -289,20 +289,20 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
         // check if too long
         if sub_ext.len() > MAX_EXT_LEN {
             log::info!("get_extension_greedy: too long");
-            return get_extension_guess_return(&filename, begin_idx);
+            return get_extension_guess_return(filename, begin_idx);
         }
 
         // check if all numbers
 
         if sub_ext.parse::<u32>().is_ok() {
             log::info!("get_extension_greedy: all numbers");
-            return get_extension_guess_return(&filename, begin_idx);
+            return get_extension_guess_return(filename, begin_idx);
         }
 
         // check if isn't ASCII
-        if sub_ext.chars().all(|x| x.is_ascii_alphanumeric()) == false {
+        if !sub_ext.chars().all(|x| x.is_ascii_alphanumeric()) {
             log::info!("get_extension_greedy: not ASCII");
-            return get_extension_guess_return(&filename, begin_idx);
+            return get_extension_guess_return(filename, begin_idx);
         }
 
         begin_idx = new_idx;
