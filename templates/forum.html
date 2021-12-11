@@ -21,6 +21,7 @@
     {% endfor %}
 </div>
 
+{% if client.can_post_in_forum() %}
 <form action="/forums/post-thread" method="post">
     <h2>New Thread</h2>
     <input type="text" name="title" placeholder="Title" />
@@ -28,3 +29,4 @@
     <textarea name="content" rows="8" cols="80"></textarea>
     <button>Sneed</button>
 </form>
+{% endif %}

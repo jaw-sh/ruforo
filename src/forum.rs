@@ -10,6 +10,7 @@ use sea_orm::{entity::*, query::*, sea_query::Expr};
 #[derive(Template)]
 #[template(path = "forum.html")]
 pub struct ForumTemplate<'a> {
+    pub client: &'a Client,
     pub threads: &'a Vec<ThreadForTemplate>,
 }
 
@@ -104,7 +105,10 @@ pub async fn create_thread(
 }
 
 #[get("/forums")]
-pub async fn view_forum(data: web::Data<MainData<'_>>) -> Result<impl Responder, Error> {
+pub async fn view_forum(
+    client: Client,
+    data: web::Data<MainData<'_>>,
+) -> Result<impl Responder, Error> {
     let threads: Vec<ThreadForTemplate> = threads::Entity::find()
         // Authoring User
         .left_join(users::Entity)
@@ -120,5 +124,9 @@ pub async fn view_forum(data: web::Data<MainData<'_>>) -> Result<impl Responder,
         .await
         .map_err(error::ErrorNotFound)?;
 
-    Ok(ForumTemplate { threads: &threads }.to_pub_response())
+    Ok(ForumTemplate {
+        client: &client,
+        threads: &threads,
+    }
+    .to_pub_response())
 }

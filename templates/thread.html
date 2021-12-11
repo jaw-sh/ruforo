@@ -7,6 +7,7 @@
     {{ paginator.as_html()|safe }}
 </div>
 
+{% if client.can_post_in_thread(thread) %}
 <form action="/threads/{{ thread.id }}/post-reply" method="post">
     <h2>Post Reply</h2>
     <textarea name="content" rows="8" cols="80"></textarea>
@@ -29,3 +30,4 @@
         return false; // prevent default
     });
 </script>
+{% endif %}

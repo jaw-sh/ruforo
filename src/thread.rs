@@ -41,7 +41,7 @@ pub struct NewThreadFormData {
 #[template(path = "thread.html")]
 pub struct ThreadTemplate<'a> {
     pub client: &'a Client,
-    pub thread: super::orm::threads::Model,
+    pub thread: crate::orm::threads::Model,
     pub posts: &'a Vec<PostForTemplate>,
     pub paginator: Paginator,
 }

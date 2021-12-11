@@ -30,7 +30,15 @@ impl Client {
 
 // TODO: Move this implementation to a macro or something?
 impl Client {
-    pub fn can_delete_post(&self) -> bool {
+    pub fn can_post_in_thread(&self, _thread: &crate::orm::threads::Model) -> bool {
+        self.can_post_in_forum()
+    }
+
+    pub fn can_post_in_forum(&self) -> bool {
+        true
+    }
+
+    pub fn can_delete_post(&self, _post: &crate::post::PostForTemplate) -> bool {
         false
     }
 
@@ -38,7 +46,7 @@ impl Client {
         self.is_user() && self.get_id() == post.user_id
     }
 
-    pub fn can_read_post(&self) -> bool {
+    pub fn can_read_post(&self, _post: &crate::post::PostForTemplate) -> bool {
         true
     }
 }
