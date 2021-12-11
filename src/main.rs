@@ -59,7 +59,7 @@ fn get_salt() -> SaltString {
     SaltString::new(&salt).unwrap()
 }
 
-async fn init_data<'key>(salt: &'key SaltString) -> MainData<'key> {
+async fn init_data<'key>(salt: &'_ SaltString) -> MainData<'_> {
     let pool = new_db_pool().await.expect("Failed to create pool");
     let mut data = MainData::new(pool, salt);
     reload_session_cache(&data.pool, &mut data.cache.sessions)
@@ -78,7 +78,7 @@ async fn main() -> std::io::Result<()> {
     let cache_dir = std::env::var("DIR_TMP")
         .expect("missing DIR_TMP environment variable (hint: 'DIR_TMP=./tmp')");
     let cache_path = Path::new(&cache_dir);
-    if cache_path.exists() == false {
+    if !cache_path.exists() {
         std::fs::DirBuilder::new()
             .recursive(true)
             .create(cache_path)

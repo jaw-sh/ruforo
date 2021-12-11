@@ -5,6 +5,7 @@ use actix_identity::Identity;
 use argon2::{password_hash::SaltString, Argon2};
 use chrono::{NaiveDateTime, Utc};
 use sea_orm::{entity::*, query::*, ConnectOptions, Database, DatabaseConnection, DbErr};
+use std::collections::hash_map;
 use std::collections::HashMap;
 use std::sync::RwLock;
 use std::time::Duration;
@@ -36,6 +37,11 @@ impl BigChungus {
             start_time: chrono::Utc::now().naive_utc(),
             sessions: RwLock::new(HashMap::new()),
         }
+    }
+}
+impl Default for BigChungus {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -90,10 +96,7 @@ pub fn authenticate_by_cookie(
     cookies: &actix_session::Session,
 ) -> Option<SessionWithUuid> {
     match cookies.get::<String>("token") {
-        Ok(token) => match token {
-            Some(uuid) => authenticate_by_uuid_string(ses_map, uuid),
-            None => None,
-        },
+        Ok(Some(token)) => authenticate_by_uuid_string(ses_map, token),
         _ => None,
     }
 }
@@ -108,13 +111,14 @@ pub fn authenticate_by_uuid_string(ses_map: &SessionMap, uuid: String) -> Option
 
 /// Accepts a uuid::Uuid type and returns a session if the token can authenticate.
 pub fn authenticate_by_uuid(ses_map: &SessionMap, uuid: Uuid) -> Option<SessionWithUuid> {
-    match ses_map.read().unwrap().get(&uuid) {
-        Some(session) => Some(SessionWithUuid {
+    ses_map
+        .read()
+        .unwrap()
+        .get(&uuid)
+        .map(|session| SessionWithUuid {
             uuid,
             session: session.to_owned(),
-        }),
-        None => None,
-    }
+        })
 }
 
 pub async fn new_db_pool() -> Result<DatabaseConnection, DbErr> {
@@ -143,14 +147,14 @@ pub async fn new_session(
     loop {
         uuid = Uuid::new_v4();
         let ses_map = &mut *ses_map.write().unwrap();
-        if ses_map.contains_key(&uuid) == false {
-            ses_map.insert(uuid, ses);
+        if let hash_map::Entry::Vacant(e) = ses_map.entry(uuid) {
+            e.insert(ses);
             break;
         }
     }
 
     let session = orm::sessions::ActiveModel {
-        id: Set(uuid.to_string().to_owned()),
+        id: Set(uuid.to_string()),
         user_id: Set(user_id),
         expires_at: Set(Utc::now().naive_utc()),
     };
@@ -161,10 +165,12 @@ pub async fn new_session(
 
 /// copies a session out of the mutex protected hashmap
 pub fn get_session(ses_map: &SessionMap, uuid: &Uuid) -> Option<Session> {
-    match ses_map.read().unwrap().get(uuid) {
-        Some(uuid) => Some(uuid.to_owned()), // TODO add expiration checking
-        None => None,
-    }
+    // TODO add expiration checking
+    ses_map
+        .read()
+        .unwrap()
+        .get(uuid)
+        .map(|uuid| uuid.to_owned())
 }
 
 /// use get_session instead unless you have a really good reason to talk to the DB
@@ -200,7 +206,7 @@ pub async fn remove_session(ses_map: &SessionMap, uuid: Uuid) -> Option<Session>
     use crate::orm::sessions;
 
     let ses_map = &mut *ses_map.write().unwrap();
-    if ses_map.contains_key(&uuid) == true {
+    if ses_map.contains_key(&uuid) {
         // Delete session from the database
         // We don't actually care about the result.
         actix_web::rt::spawn(async move {
