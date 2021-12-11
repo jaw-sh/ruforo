@@ -1,10 +1,11 @@
 use crate::frontend::TemplateToPubResponse;
 use crate::orm::{posts, ugc_revisions, users};
+use crate::thread::get_url_for_pos;
 use crate::user::Client;
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
-use sea_orm::{entity::*, query::*, FromQueryResult};
+use sea_orm::{entity::*, query::*, DatabaseConnection, DbErr, FromQueryResult};
 use serde::Deserialize;
 
 /// A fully joined struct representing the post model and its relational data.
@@ -25,8 +26,14 @@ pub struct PostForTemplate {
 }
 
 #[derive(Template)]
-#[template(path = "post.html")]
-pub struct PostEditTemplate<'a> {
+#[template(path = "post_delete.html")]
+pub struct PostDeleteTemplate<'a> {
+    pub post: &'a PostForTemplate,
+}
+
+#[derive(Template)]
+#[template(path = "post_update.html")]
+pub struct PostUpdateTemplate<'a> {
     pub post: &'a PostForTemplate,
 }
 
@@ -35,21 +42,55 @@ pub struct NewPostFormData {
     pub content: String,
 }
 
+#[get("/posts/{post_id}/delete")]
+pub async fn delete_post(
+    client: Client,
+    data: web::Data<MainData<'_>>,
+    path: web::Path<(i32,)>,
+) -> Result<impl Responder, Error> {
+    let post = get_post_for_template(&data.pool, path.into_inner().0)
+        .await
+        .map_err(error::ErrorInternalServerError)?
+        .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
+
+    if !client.can_delete_post(&post) {
+        return Err(error::ErrorForbidden(
+            "You do not have permission to delete this post.",
+        ));
+    }
+
+    PostDeleteTemplate { post: &post }.to_pub_response()
+}
+
+#[post("/posts/{post_id}/delete")]
+pub async fn destroy_post(
+    client: Client,
+    data: web::Data<MainData<'_>>,
+    path: web::Path<(i32,)>,
+) -> Result<impl Responder, Error> {
+    let post = get_post_for_template(&data.pool, path.into_inner().0)
+        .await
+        .map_err(error::ErrorInternalServerError)?
+        .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
+
+    if !client.can_delete_post(&post) {
+        return Err(error::ErrorForbidden(
+            "You do not have permission to delete this post.",
+        ));
+    }
+
+    Ok(HttpResponse::Found()
+        .append_header(("Location", get_url_for_pos(post.thread_id, post.position)))
+        .finish())
+}
+
 #[get("/posts/{post_id}/edit")]
 pub async fn edit_post(
     client: Client,
     data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
 ) -> Result<impl Responder, Error> {
-    let post: PostForTemplate = posts::Entity::find_by_id(path.into_inner().0)
-        .left_join(users::Entity)
-        .column_as(users::Column::Name, "username")
-        .left_join(ugc_revisions::Entity)
-        .column_as(ugc_revisions::Column::Content, "content")
-        .column_as(ugc_revisions::Column::IpId, "ip_id")
-        .column_as(ugc_revisions::Column::CreatedAt, "updated_at")
-        .into_model::<PostForTemplate>()
-        .one(&data.pool)
+    let post: PostForTemplate = get_post_for_template(&data.pool, path.into_inner().0)
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
@@ -60,7 +101,7 @@ pub async fn edit_post(
         ));
     }
 
-    PostEditTemplate { post: &post }.to_pub_response()
+    PostUpdateTemplate { post: &post }.to_pub_response()
 }
 
 #[post("/posts/{post_id}/edit")]
@@ -69,19 +110,10 @@ pub async fn update_post(
     data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
     form: web::Form<NewPostFormData>,
-) -> Result<HttpResponse, Error> {
-    use crate::orm::posts;
+) -> Result<impl Responder, Error> {
     use crate::ugc::{create_ugc_revision, NewUgcPartial};
 
-    let post = posts::Entity::find_by_id(path.into_inner().0)
-        .left_join(users::Entity)
-        .column_as(users::Column::Name, "username")
-        .left_join(ugc_revisions::Entity)
-        .column_as(ugc_revisions::Column::Content, "content")
-        .column_as(ugc_revisions::Column::IpId, "ip_id")
-        .column_as(ugc_revisions::Column::CreatedAt, "updated_at")
-        .into_model::<PostForTemplate>()
-        .one(&data.pool)
+    let post: PostForTemplate = get_post_for_template(&data.pool, path.into_inner().0)
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
@@ -105,20 +137,6 @@ pub async fn update_post(
     .map_err(error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Found()
-        .append_header(("Location", format!("/threads/{}/", post.thread_id)))
-        .finish())
-}
-
-async fn view_post(data: web::Data<MainData<'_>>, id: i32) -> Result<HttpResponse, Error> {
-    use crate::thread::get_url_for_pos;
-
-    let post = posts::Entity::find_by_id(id)
-        .one(&data.pool)
-        .await
-        .map_err(error::ErrorInternalServerError)?
-        .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
-
-    Ok(HttpResponse::Found()
         .append_header(("Location", get_url_for_pos(post.thread_id, post.position)))
         .finish())
 }
@@ -138,4 +156,34 @@ pub async fn view_post_in_thread(
     path: web::Path<(i32, i32)>,
 ) -> Result<HttpResponse, Error> {
     view_post(data, path.into_inner().1).await
+}
+
+/// Returns the result of a query selecting for a post by id with adjoined templating data.
+/// TODO: It would be nice if this returned just the selector.
+pub async fn get_post_for_template(
+    db: &DatabaseConnection,
+    id: i32,
+) -> Result<Option<PostForTemplate>, DbErr> {
+    posts::Entity::find_by_id(id)
+        .left_join(users::Entity)
+        .column_as(users::Column::Name, "username")
+        .left_join(ugc_revisions::Entity)
+        .column_as(ugc_revisions::Column::Content, "content")
+        .column_as(ugc_revisions::Column::IpId, "ip_id")
+        .column_as(ugc_revisions::Column::CreatedAt, "updated_at")
+        .into_model::<PostForTemplate>()
+        .one(db)
+        .await
+}
+
+async fn view_post(data: web::Data<MainData<'_>>, id: i32) -> Result<HttpResponse, Error> {
+    let post = posts::Entity::find_by_id(id)
+        .one(&data.pool)
+        .await
+        .map_err(error::ErrorInternalServerError)?
+        .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
+
+    Ok(HttpResponse::Found()
+        .append_header(("Location", get_url_for_pos(post.thread_id, post.position)))
+        .finish())
 }

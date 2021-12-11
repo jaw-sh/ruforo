@@ -123,7 +123,7 @@ async fn get_thread_and_replies_for_page(
     };
 
     ThreadTemplate {
-        client: &client,
+        client: client,
         thread,
         posts: &posts,
         paginator,
