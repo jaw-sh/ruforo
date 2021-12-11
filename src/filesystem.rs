@@ -3,7 +3,8 @@ use crate::orm::attachments;
 use crate::s3::S3Bucket;
 use crate::session::MainData;
 use actix_multipart::Multipart;
-use actix_web::{post, web, Error, HttpResponse, Responder};
+use actix_web::http::header::ContentType;
+use actix_web::{get, post, web, Error, HttpResponse, Responder};
 use chrono::Utc;
 use futures::{StreamExt, TryStreamExt};
 use mime::Mime;
@@ -22,6 +23,29 @@ struct UploadPayload {
     tmp_path: PathBuf,
     hash: blake3::Hash,
     mime: Mime,
+}
+
+#[get("/fs/{file_id}")]
+pub async fn view_file(
+    file_id: web::Path<i32>,
+    my: web::Data<MainData<'_>>,
+    s3: web::Data<S3Bucket>,
+) -> Result<impl Responder, Error> {
+    let result = get_file_url(&my.pool, &s3, *file_id).await.map_err(|e| {
+        log::error!("view_file: get_filename_by_id: {}", e);
+        actix_web::error::ErrorInternalServerError("view_file: bad ID")
+    })?;
+    let content = match result {
+        Some(result) => result,
+        None => "None".to_owned(),
+    };
+    let body = format!(
+        "<html><body><div>{:?} - {}</div><div><img src=\"{}\"></div></body></html>",
+        file_id, content, content
+    );
+    Ok(HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(body))
 }
 
 #[post("/fs/upload-file")]
@@ -309,6 +333,7 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
     }
 }
 
+/// returns (file_id, true) if duplicate found, (file_id, false) if new
 async fn select_attachment_by_filename_hash(
     db: &DatabaseConnection,
     filename: &str,
@@ -330,7 +355,7 @@ async fn select_attachment_by_filename_hash(
     let result = select.into_model::<SelectResult>().one(&txn).await?;
     if let Some(result) = result {
         log::error!("Duplicate File Hash: {:#?} - {}", result, filename);
-        return Ok((result.id, false));
+        return Ok((result.id, true));
     }
 
     // Insert attachment
@@ -350,7 +375,7 @@ async fn select_attachment_by_filename_hash(
         .await?;
 
     txn.commit().await?;
-    Ok((res.last_insert_id, true))
+    Ok((res.last_insert_id, false))
 }
 
 pub fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
@@ -449,4 +474,21 @@ pub async fn get_filename_by_id(
         .into_model::<SelectFilename>()
         .one(db)
         .await?)
+}
+
+pub async fn get_file_url(
+    db: &DatabaseConnection,
+    s3: &S3Bucket,
+    id: i32,
+) -> Result<Option<String>, DbErr> {
+    match get_filename_by_id(db, id).await? {
+        Some(result) => Ok(Some(format!(
+            "http://{}/{}/{}/{}", // TODO something
+            s3.pub_url,
+            &result.filename[0..2],
+            &result.filename[2..4],
+            result.filename
+        ))),
+        None => Ok(None),
+    }
 }

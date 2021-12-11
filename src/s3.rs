@@ -8,15 +8,17 @@ use rusoto_s3::{
 pub struct S3Bucket {
     s3: S3Client,
     bucket_name: String,
+    pub pub_url: String,
 }
 
 impl S3Bucket {
-    pub fn new(region: Region, bucket_name: &str) -> S3Bucket {
+    pub fn new(region: Region, bucket_name: String, pub_url: String) -> S3Bucket {
         log::info!("New S3Bucket");
 
         S3Bucket {
             s3: S3Client::new(region),
-            bucket_name: bucket_name.to_owned(),
+            bucket_name,
+            pub_url,
         }
     }
 
@@ -65,5 +67,9 @@ pub fn s3_test_client() -> S3Bucket {
         name: "localhost".to_owned(),
         endpoint: "http://localhost:9000".to_owned(),
     };
-    S3Bucket::new(my_region, "test0")
+    S3Bucket::new(
+        my_region,
+        "test0".to_owned(),
+        "localhost:9000/test0".to_owned(),
+    )
 }

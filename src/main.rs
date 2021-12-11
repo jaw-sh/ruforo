@@ -116,6 +116,7 @@ async fn main() -> std::io::Result<()> {
             .service(login::post_login)
             .service(logout::view_logout)
             .service(member::view_members)
+            .service(filesystem::view_file)
             .service(filesystem::put_file)
             .service(post::edit_post)
             .service(post::update_post)
