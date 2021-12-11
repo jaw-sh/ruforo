@@ -1,5 +1,6 @@
 use crate::frontend::TemplateToPubResponse;
 use crate::orm::{posts, ugc_revisions, users};
+use crate::user::Client;
 use crate::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
@@ -36,6 +37,7 @@ pub struct NewPostFormData {
 
 #[get("/posts/{post_id}/edit")]
 pub async fn edit_post(
+    client: Client,
     data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
 ) -> Result<impl Responder, Error> {
@@ -52,11 +54,18 @@ pub async fn edit_post(
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
 
+    if !client.can_update_post(&post) {
+        return Err(error::ErrorForbidden(
+            "You do not have permission to update this post.",
+        ));
+    }
+
     PostEditTemplate { post: &post }.to_pub_response()
 }
 
 #[post("/posts/{post_id}/edit")]
 pub async fn update_post(
+    client: Client,
     data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
     form: web::Form<NewPostFormData>,
@@ -76,6 +85,12 @@ pub async fn update_post(
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
+
+    if !client.can_update_post(&post) {
+        return Err(error::ErrorForbidden(
+            "You do not have permission to update this post.",
+        ));
+    }
 
     create_ugc_revision(
         &data.pool,
