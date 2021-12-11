@@ -266,14 +266,15 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
     fn get_extension_guess_return(filename: &str, idx: usize) -> Option<String> {
         Some(filename[idx + 1..].to_ascii_lowercase())
     }
-    const MAX_EXT_LEN: usize = 9; // longest extensions I can think of: sha256sum/gitignore
+    const MAX_EXT_LEN: usize = 24; // tar.zst.sha256sum.gpg rounded up to divisible by 8 for autism
+    const MAX_SUB_EXT_LEN: usize = 9; // longest extensions I can think of: sha256sum/gitignore
 
     // get and specially check the top-level extension, we intentionally skip some rules
     let mut begin_idx = match filename.rfind('.') {
         Some(idx) => {
             if idx == 0
                 || idx == filename.len()
-                || filename.len() - idx > MAX_EXT_LEN + 1 // +1 because we count the '.' here
+                || filename.len() - idx > MAX_SUB_EXT_LEN + 1 // +1 because we count the '.' here
                 || !filename[idx + 1..].chars().all(|x| x.is_ascii_alphanumeric())
             {
                 return None;
@@ -307,12 +308,17 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
             return get_extension_guess_return(filename, begin_idx);
         }
 
+        if filename.len() - new_idx > MAX_EXT_LEN {
+            log::info!("get_extension_greedy: more than MAX_EXT_LEN");
+            return get_extension_guess_return(filename, begin_idx);
+        }
+
         // new sub-extension
         let sub_ext = &sub_str[new_idx + 1..];
 
         // check if too long
-        if sub_ext.len() > MAX_EXT_LEN {
-            log::info!("get_extension_greedy: too long");
+        if sub_ext.len() > MAX_SUB_EXT_LEN {
+            log::info!("get_extension_greedy: more than MAX_SUB_EXT_LEN");
             return get_extension_guess_return(filename, begin_idx);
         }
 
