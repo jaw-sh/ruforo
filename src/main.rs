@@ -118,6 +118,8 @@ async fn main() -> std::io::Result<()> {
             .service(member::view_members)
             .service(filesystem::view_file)
             .service(filesystem::put_file)
+            .service(post::delete_post)
+            .service(post::destroy_post)
             .service(post::edit_post)
             .service(post::update_post)
             .service(post::view_post_by_id)

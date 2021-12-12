@@ -1,3 +1,4 @@
+{% if client.can_read_post(post) %}
 <div class="message">
     <div class="message-cell message-cell--author">
         <div class="username">{% match post.username %}{% when Some with (username) %}{{ username }}{% when None %}Guest{% endmatch %}</div>
@@ -29,3 +30,4 @@
         </div>
     </div>
 </div>
+{% endif %}
