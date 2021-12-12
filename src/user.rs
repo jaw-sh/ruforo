@@ -1,5 +1,5 @@
 use actix_web::error::ErrorInternalServerError;
-use actix_web::{dev, Error, FromRequest, HttpRequest};
+use actix_web::{dev, Error, FromRequest, HttpMessage, HttpRequest};
 use futures_util::future::{err, ok, Ready};
 use sea_orm::FromQueryResult;
 
@@ -60,7 +60,7 @@ impl FromRequest for Client {
 
     /// Create a Self from request parts asynchronously.
     fn from_request(req: &HttpRequest, _payload: &mut dev::Payload) -> Self::Future {
-        match req.extensions_mut().get::<Client>() {
+        match req.extensions().get::<Client>() {
             Some(client) => ok(Client {
                 // TODO: This is probably slow.
                 // We can't just use the request cycle's extension beacuse of lifetime constraints.

@@ -1,6 +1,6 @@
 use super::Context;
 use crate::user::Client;
-use actix_web::{error, Error, HttpRequest, HttpResponse};
+use actix_web::{body::BoxBody, error, Error, HttpMessage, HttpRequest, HttpResponse};
 use askama_actix::{Template, TemplateToResponse};
 
 /// Page container to wrap public views.
@@ -36,7 +36,9 @@ pub struct PublicResponse {
 }
 
 impl actix_web::Responder for PublicResponse {
-    fn respond_to(self, req: &HttpRequest) -> HttpResponse {
+    type Body = BoxBody;
+
+    fn respond_to(self, req: &HttpRequest) -> HttpResponse<Self::Body> {
         if !req.extensions().contains::<Context>() {
             return error::ErrorInternalServerError("Failed to pass context to container template")
                 .error_response();
