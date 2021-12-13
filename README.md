@@ -1,4 +1,4 @@
-# ruforo - The most user friendly 
+# ruforo - The most user friendly
 _Name pending._
 
 PROJECT_NAME is a traditional web forum built in Rust.
@@ -21,9 +21,6 @@ PROJECT_NAME is a traditional web forum built in Rust.
  - l10n / i18n
  - JavaScript framework, if any, or JavaScript deployment stack
 
-## Contributions
- - We use [rustfmt](https://github.com/rust-lang/rustfmt).
-
 ## Environment
  - Example `.env` file
 	 + NOTE: AWS variables will likely be migrated to DB
@@ -41,3 +38,13 @@ AWS_SECRET_ACCESS_KEY=testsecretkey
  - AV1
  - OPUS
  - VORBIS
+
+## Contributions
+### Code Guidelines
+ - We use [rustfmt](https://github.com/rust-lang/rustfmt).
+ - `cargo clippy` whenever possible.
+ - Try to eliminate warnings.
+
+### Database Guidelines
+ - Any data which would apply to two types of content (i.e. posts, chat messages, profile posts) should interact with the `ugc` tables, not individual content type tables.
+ - Usernames should be referenced by `user_id,created_at DESC` from `user_name`. User rows can be deleted, but a historical reference for their name will be added to this table. This complies with [GDPR software requirements](https://gdpr.eu/right-to-be-forgotten).

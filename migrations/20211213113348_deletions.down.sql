@@ -1,0 +1,4 @@
+-- Add down migration script here
+DROP TABLE IF EXISTS user_name CASCADE;
+DROP TABLE IF EXISTS ugc_deletions CASCADE;
+DROP TYPE IF EXISTS CONTENT_STATUS;
