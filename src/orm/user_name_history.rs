@@ -3,32 +3,30 @@
 use sea_orm::entity::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-#[sea_orm(table_name = "user_names")]
+#[sea_orm(table_name = "user_name_history")]
 pub struct Model {
-    #[sea_orm(primary_key)]
+    #[sea_orm(primary_key, auto_increment = false)]
     pub user_id: i32,
-    #[sea_orm(column_type = "Text", unique)]
+    pub created_at: DateTime,
+    pub approved_at: DateTime,
+    pub approved_by: Option<i32>,
+    #[sea_orm(column_type = "Text")]
     pub name: String,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub reason: Option<String>,
+    pub is_public: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
         belongs_to = "super::users::Entity",
-        from = "Column::UserId",
+        from = "Column::ApprovedBy",
         to = "super::users::Column::Id",
         on_update = "NoAction",
         on_delete = "NoAction"
     )]
     Users,
-    #[sea_orm(
-        belongs_to = "super::user_names::Entity",
-        from = "Column::UserId",
-        to = "super::user_names::Column::UserId",
-        on_update = "NoAction",
-        on_delete = "NoAction"
-    )]
-    UserName,
 }
 
 impl Related<super::users::Entity> for Entity {

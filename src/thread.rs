@@ -1,7 +1,7 @@
 use crate::frontend::TemplateToPubResponse;
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
-use crate::orm::{posts, threads, ugc_revisions, users};
+use crate::orm::{posts, threads, ugc_revisions};
 use crate::post::{NewPostFormData, PostForTemplate};
 use crate::template::{Paginator, PaginatorToHtml};
 use crate::user::Client;
@@ -105,8 +105,6 @@ async fn get_thread_and_replies_for_page(
         .column_as(ugc_revisions::Column::Content, "content")
         .column_as(ugc_revisions::Column::IpId, "ip_id")
         .column_as(ugc_revisions::Column::CreatedAt, "updated_at")
-        //.find_also_related(users::Entity)
-        //.find_also_linked(posts::PostToUgcRevision)
         .filter(posts::Column::ThreadId.eq(thread_id))
         .filter(
             posts::Column::Position.between((page - 1) * POSTS_PER_PAGE + 1, page * POSTS_PER_PAGE),
@@ -125,7 +123,7 @@ async fn get_thread_and_replies_for_page(
     };
 
     ThreadTemplate {
-        client: client,
+        client,
         thread,
         posts: &posts,
         paginator,

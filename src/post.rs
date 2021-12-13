@@ -1,5 +1,5 @@
 use crate::frontend::TemplateToPubResponse;
-use crate::orm::{posts, ugc_revisions, users};
+use crate::orm::{posts, ugc_revisions, user_names};
 use crate::thread::get_url_for_pos;
 use crate::user::Client;
 use crate::MainData;
@@ -165,8 +165,8 @@ pub async fn get_post_for_template(
     id: i32,
 ) -> Result<Option<PostForTemplate>, DbErr> {
     posts::Entity::find_by_id(id)
-        .left_join(users::Entity)
-        .column_as(users::Column::Name, "username")
+        .left_join(user_names::Entity)
+        .column_as(user_names::Column::Name, "username")
         .left_join(ugc_revisions::Entity)
         .column_as(ugc_revisions::Column::Content, "content")
         .column_as(ugc_revisions::Column::IpId, "ip_id")

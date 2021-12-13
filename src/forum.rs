@@ -1,5 +1,5 @@
 use crate::frontend::TemplateToPubResponse;
-use crate::orm::{posts, threads, users};
+use crate::orm::{posts, threads, user_names};
 use crate::thread::{validate_thread_form, NewThreadFormData, ThreadForTemplate};
 use crate::user::Client;
 use crate::MainData;
@@ -111,8 +111,8 @@ pub async fn view_forum(
 ) -> Result<impl Responder, Error> {
     let threads: Vec<ThreadForTemplate> = threads::Entity::find()
         // Authoring User
-        .left_join(users::Entity)
-        .column_as(users::Column::Name, "username")
+        .left_join(user_names::Entity)
+        .column_as(user_names::Column::Name, "username")
         // Last Post
         // TODO: This is an actual nightmare.
         //.join_join(JoinType::LeftJoin, threads::Relations::::to(), threads::Relation::LastPost<posts::Entity>::via())

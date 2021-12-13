@@ -1,14 +1,14 @@
 // use crate::session::new_session;
 use crate::frontend::TemplateToPubResponse;
 use crate::orm::users;
-use crate::orm::users::Entity as Users;
 use crate::session;
 use crate::session::{authenticate_by_cookie, MainData};
 use crate::template::LoginTemplate;
+use crate::user::get_user_id_from_name;
 use actix_identity::Identity;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
-use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult, QueryFilter};
+use sea_orm::{entity::*, DatabaseConnection, FromQueryResult};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -29,13 +29,11 @@ async fn login(
         password: String,
     }
 
-    let select = Users::find()
-        .select_only()
-        .column(users::Column::Id)
-        .column(users::Column::Password)
-        .filter(users::Column::Name.eq(name));
+    let user_id: i32 = get_user_id_from_name(&db, &name)
+        .await
+        .ok_or_else(|| error::ErrorBadRequest("User not found or password is incorrect."))?;
 
-    let user = select
+    let user = users::Entity::find_by_id(user_id)
         .into_model::<SelectResult>()
         .one(db)
         .await
@@ -43,12 +41,14 @@ async fn login(
             log::error!("Login: {}", e);
             error::ErrorInternalServerError("DB error")
         })?
-        .ok_or_else(|| error::ErrorInternalServerError("user not found or bad password"))?;
+        .ok_or_else(|| {
+            error::ErrorInternalServerError("User not found or password is incorrect.")
+        })?;
 
     let parsed_hash = PasswordHash::new(&user.password).unwrap();
     my.argon2
         .verify_password(pass.as_bytes(), &parsed_hash)
-        .map_err(|_| error::ErrorInternalServerError("user not found or bad password"))?;
+        .map_err(|_| error::ErrorInternalServerError("User not found or password is incorrect."))?;
     Ok(user.id)
 }
 

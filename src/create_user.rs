@@ -22,15 +22,49 @@ async fn insert_new_user(
     name: &str,
     pass: &str,
 ) -> Result<InsertResult<users::ActiveModel>, DbErr> {
+    use crate::orm::{user_name_history, user_names};
+    use futures::join;
+    use sea_orm::ConnectionTrait;
+
+    let txn = db.begin().await?;
+    let now = Utc::now().naive_utc();
+
+    // Insert user
     let user = users::ActiveModel {
-        created_at: Set(Utc::now().naive_utc()),
+        created_at: Set(now),
         password: Set(pass.to_owned()),
         password_cipher: Set(users::Cipher::Argon2id),
         ..Default::default() // all other attributes are `Unset`
     };
-
-    // let res = user.insert(conn).await.expect("Error inserting person");
     let res = users::Entity::insert(user).exec(db).await?;
+
+    let user_name_ins = user_names::ActiveModel {
+        user_id: Set(res.last_insert_id),
+        name: Set(name.to_owned()),
+    };
+
+    let user_name_history_ins = user_name_history::ActiveModel {
+        user_id: Set(res.last_insert_id),
+        created_at: Set(now),
+        approved_at: Set(now),
+        name: Set(name.to_owned()),
+        is_public: Set(true),
+        ..Default::default()
+    };
+
+    // exec secondary inserts
+    let (un_result, unh_result) = join!(
+        user_names::Entity::insert(user_name_ins).exec(db),
+        user_name_history::Entity::insert(user_name_history_ins).exec(db)
+    );
+
+    if un_result.is_err() {
+        return Err(un_result.unwrap_err());
+    }
+    if unh_result.is_err() {
+        return Err(unh_result.unwrap_err());
+    }
+    txn.commit().await?;
 
     Ok(res)
 }

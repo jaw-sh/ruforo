@@ -1,6 +1,6 @@
 use crate::frontend::Context;
 use crate::session::MainData;
-use crate::user::Client;
+use crate::user::{get_client_from_identity, Client};
 use actix_identity::Identity;
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
@@ -56,7 +56,7 @@ where
         // log in using cookies
         let client = match Identity::extract(httpreq).into_inner() {
             Ok(id) => match httpreq.app_data::<Data<MainData>>() {
-                Some(data) => data.client_from_identity(&id),
+                Some(data) => futures::executor::block_on(get_client_from_identity(&data, &id)),
                 None => Client::default(),
             },
             Err(_) => Client::default(),

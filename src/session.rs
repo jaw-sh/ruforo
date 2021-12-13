@@ -1,7 +1,5 @@
 use crate::orm;
 use crate::orm::sessions::Entity as Sessions;
-use crate::user::{Client, ClientUser};
-use actix_identity::Identity;
 use argon2::{password_hash::SaltString, Argon2};
 use chrono::{NaiveDateTime, Utc};
 use sea_orm::{entity::*, query::*, ConnectOptions, Database, DatabaseConnection, DbErr};
@@ -63,29 +61,6 @@ impl<'key> MainData<'key> {
             .expect("failed to create argon2"),
             pool,
             cache: BigChungus::new(),
-        }
-    }
-
-    pub fn client_from_identity(&self, id: &Identity) -> Client {
-        use crate::orm::users;
-
-        Client {
-            user: match id.identity() {
-                Some(id) => match authenticate_by_uuid_string(&self.cache.sessions, id) {
-                    Some(session) => futures::executor::block_on(async move {
-                        users::Entity::find_by_id(session.session.user_id)
-                            .select_only()
-                            .column(users::Column::Id)
-                            .column(users::Column::Name)
-                            .into_model::<ClientUser>()
-                            .one(&self.pool)
-                            .await
-                            .unwrap_or(None)
-                    }),
-                    None => None,
-                },
-                None => None,
-            },
         }
     }
 }

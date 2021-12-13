@@ -1,7 +1,10 @@
+use crate::orm::{user_names, users};
+use crate::session::{authenticate_by_uuid_string, MainData};
+use actix_identity::Identity;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::{dev, Error, FromRequest, HttpMessage, HttpRequest};
 use futures_util::future::{err, ok, Ready};
-use sea_orm::FromQueryResult;
+use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult};
 
 /// Represents information about this request's client.
 #[derive(Debug, Default)]
@@ -30,7 +33,7 @@ impl Client {
 
 // TODO: Move this implementation to a macro or something?
 impl Client {
-    pub fn can_post_in_thread(&self, thread: &crate::orm::threads::Model) -> bool {
+    pub fn can_post_in_thread(&self, _thread: &crate::orm::threads::Model) -> bool {
         self.can_post_in_forum()
     }
 
@@ -38,7 +41,7 @@ impl Client {
         true
     }
 
-    pub fn can_delete_post(&self, post: &crate::post::PostForTemplate) -> bool {
+    pub fn can_delete_post(&self, _post: &crate::post::PostForTemplate) -> bool {
         false
     }
 
@@ -46,7 +49,7 @@ impl Client {
         self.is_user() && self.get_id() == post.user_id
     }
 
-    pub fn can_read_post(&self, post: &crate::post::PostForTemplate) -> bool {
+    pub fn can_read_post(&self, _post: &crate::post::PostForTemplate) -> bool {
         true
     }
 }
@@ -78,4 +81,43 @@ impl FromRequest for Client {
 pub struct ClientUser {
     pub id: i32,
     pub name: String,
+}
+
+/// A struct to hold all information for a user, including relational information.
+#[derive(Clone, Debug, FromQueryResult)]
+pub struct UserProfile {
+    pub id: i32,
+    pub name: String,
+    pub created_at: chrono::NaiveDateTime,
+    pub password_cipher: crate::orm::users::Cipher,
+}
+
+/// Produces a client object for a specific identity.
+pub async fn get_client_from_identity(data: &MainData<'_>, id: &Identity) -> Client {
+    Client {
+        user: match id.identity() {
+            Some(id) => match authenticate_by_uuid_string(&data.cache.sessions, id) {
+                Some(session) => users::Entity::find_by_id(session.session.user_id)
+                    .select_only()
+                    .column(users::Column::Id)
+                    .left_join(user_names::Entity)
+                    .column(user_names::Column::Name)
+                    .into_model::<ClientUser>()
+                    .one(&data.pool)
+                    .await
+                    .unwrap_or(None),
+                None => None,
+            },
+            None => None,
+        },
+    }
+}
+
+pub async fn get_user_id_from_name(db: &DatabaseConnection, name: &str) -> Option<i32> {
+    user_names::Entity::find()
+        .filter(user_names::Column::Name.eq(name))
+        .one(db)
+        .await
+        .unwrap_or(None)
+        .map(|user_name| user_name.user_id)
 }
