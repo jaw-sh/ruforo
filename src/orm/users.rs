@@ -8,8 +8,6 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub created_at: DateTime,
-    #[sea_orm(column_type = "Text", unique)]
-    pub name: String,
     #[sea_orm(column_type = "Text")]
     pub password: String,
     pub password_cipher: Cipher,

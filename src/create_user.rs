@@ -24,11 +24,11 @@ async fn insert_new_user(
 ) -> Result<InsertResult<users::ActiveModel>, DbErr> {
     let user = users::ActiveModel {
         created_at: Set(Utc::now().naive_utc()),
-        name: Set(name.to_owned()),
         password: Set(pass.to_owned()),
         password_cipher: Set(users::Cipher::Argon2id),
         ..Default::default() // all other attributes are `Unset`
     };
+
     // let res = user.insert(conn).await.expect("Error inserting person");
     let res = users::Entity::insert(user).exec(db).await?;
 

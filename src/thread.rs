@@ -76,6 +76,8 @@ async fn get_thread_and_replies_for_page(
     thread_id: i32,
     page: i32,
 ) -> Result<impl Responder, Error> {
+    use crate::orm::user_names;
+
     let thread = Thread::find_by_id(thread_id)
         .one(&data.pool)
         .await
@@ -97,8 +99,8 @@ async fn get_thread_and_replies_for_page(
 
     // Load posts, their ugc associations, and their living revision.
     let posts: Vec<PostForTemplate> = Post::find()
-        .left_join(users::Entity)
-        .column_as(users::Column::Name, "username")
+        .left_join(user_names::Entity)
+        .column_as(user_names::Column::Name, "username")
         .left_join(ugc_revisions::Entity)
         .column_as(ugc_revisions::Column::Content, "content")
         .column_as(ugc_revisions::Column::IpId, "ip_id")
