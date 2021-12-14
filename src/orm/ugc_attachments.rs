@@ -5,9 +5,9 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "ugc_attachments")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    #[sea_orm(primary_key)]
+    pub id: i32,
     pub attachment_id: i32,
-    #[sea_orm(primary_key, auto_increment = false)]
     pub ugc_id: i32,
     pub user_id: Option<i32>,
     pub ip_id: Option<i32>,
