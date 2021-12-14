@@ -13,10 +13,10 @@ actix-session = { git = "https://github.com/actix/actix-extras" }
 actix-web = "4.0.0-beta.14"
 actix-web-actors = "4.0.0-beta.8"
 argon2 = "0.3.2"
-askama = { git = "https://git.kiwifarms.net/CrunkLord420/askama", branch = "crunk", default-features = false, features = ["with-actix-web", "mime", "mime_guess"] }
-askama_actix = { git = "https://git.kiwifarms.net/CrunkLord420/askama", branch = "crunk" }
-#askama = { git = "https://github.com/djc/askama", default-features = false, features = ["with-actix-web", "mime", "mime_guess"] }
-#askama_actix = { git = "https://github.com/djc/askama" }
+askama = { git = "https://github.com/djc/askama", default-features = false, features = ["with-actix-web", "mime", "mime_guess"] }
+askama_actix = { git = "https://github.com/djc/askama" }
+#askama = { git = "https://git.kiwifarms.net/CrunkLord420/askama", branch = "crunk", default-features = false, features = ["with-actix-web", "mime", "mime_guess"] }
+#askama_actix = { git = "https://git.kiwifarms.net/CrunkLord420/askama", branch = "crunk" }
 #askama = { path = "../askama/askama", default-features = false, features = ["with-actix-web", "mime", "mime_guess"] }
 #askama_actix = { path = "../askama/askama_actix" }
 blake3 = "1.2.0"

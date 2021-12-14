@@ -1,5 +1,7 @@
 use crate::ffmpeg::get_extension_ffmpeg;
 use crate::orm::attachments;
+use crate::orm::ugc;
+use crate::orm::ugc_attachments;
 use crate::s3::S3Bucket;
 use crate::session::MainData;
 use actix_multipart::Multipart;
@@ -26,7 +28,7 @@ struct UploadPayload {
 }
 
 #[get("/fs/{file_id}")]
-pub async fn view_file(
+pub async fn view_file_canonical(
     file_id: web::Path<i32>,
     my: web::Data<MainData<'_>>,
     s3: web::Data<S3Bucket>,
@@ -35,6 +37,31 @@ pub async fn view_file(
         log::error!("view_file: get_filename_by_id: {}", e);
         actix_web::error::ErrorInternalServerError("view_file: bad ID")
     })?;
+    let content = match result {
+        Some(result) => result,
+        None => "None".to_owned(),
+    };
+    let body = format!(
+        "<html><body><div>{:?} - {}</div><div><img src=\"{}\"></div></body></html>",
+        file_id, content, content
+    );
+    Ok(HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(body))
+}
+
+#[get("/fs/ugc/{file_id}")]
+pub async fn view_file_ugc(
+    file_id: web::Path<i32>,
+    my: web::Data<MainData<'_>>,
+    s3: web::Data<S3Bucket>,
+) -> Result<impl Responder, Error> {
+    let result = get_file_url_by_ugc(&my.pool, &s3, *file_id)
+        .await
+        .map_err(|e| {
+            log::error!("view_file: get_filename_by_id: {}", e);
+            actix_web::error::ErrorInternalServerError("view_file: bad ID")
+        })?;
     let content = match result {
         Some(result) => result,
         None => "None".to_owned(),
@@ -176,7 +203,7 @@ pub async fn put_file(
             actix_web::error::ErrorInternalServerError("put_file: file too large")
         })?;
 
-        let (_file_id, duplicate) = select_attachment_by_filename_hash(
+        let (_file_id, canon_filename) = insert_attachment(
             &my.pool,
             &s3_filename,
             &payload.hash.to_string(),
@@ -189,7 +216,7 @@ pub async fn put_file(
             actix_web::error::ErrorInternalServerError("put_file: DB error")
         })?;
 
-        if !duplicate {
+        if canon_filename.is_none() {
             let count = list.key_count.ok_or_else(|| {
                 log::error!("put_file: key_count, I don't think this should ever happen");
                 actix_web::error::ErrorInternalServerError(
@@ -340,48 +367,77 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
 }
 
 /// returns (file_id, true) if duplicate found, (file_id, false) if new
-async fn select_attachment_by_filename_hash(
+async fn insert_attachment(
     db: &DatabaseConnection,
     filename: &str,
     hash: &str,
     filesize: i64,
     mime: &str,
-) -> Result<(i32, bool), DbErr> {
+) -> Result<(i32, Option<String>), DbErr> {
     #[derive(Debug, FromQueryResult)]
     struct SelectResult {
         id: i32,
+        filename: String,
     }
     let txn = db.begin().await?;
 
     let select = attachments::Entity::find()
         .select_only()
         .column(attachments::Column::Id)
+        .column(attachments::Column::Filename)
         .filter(attachments::Column::Hash.eq(hash));
 
-    let result = select.into_model::<SelectResult>().one(&txn).await?;
-    if let Some(result) = result {
-        log::error!("Duplicate File Hash: {:#?} - {}", result, filename);
-        return Ok((result.id, true));
-    }
-
-    // Insert attachment
+    // Check for duplicate attachment and insert if new
     let now = Utc::now().naive_utc();
-    let new_attachment = attachments::ActiveModel {
+    let (attachment_id, canon_filename) =
+        match select.into_model::<SelectResult>().one(&txn).await? {
+            Some(res) => {
+                log::error!("Duplicate File Hash: {:#?} - {}", res, filename);
+                (res.id, Some(res.filename))
+            }
+            None => {
+                // Insert attachment
+                let new_attachment = attachments::ActiveModel {
+                    filename: Set(filename.to_owned()),
+                    hash: Set(hash.to_owned()),
+                    first_seen_at: Set(now),
+                    last_seen_at: Set(now),
+                    filesize: Set(filesize),
+                    mime: Set(mime.to_owned()),
+                    meta: Set(JsonValue::Null),
+                    ..Default::default()
+                };
+                let res = attachments::Entity::insert(new_attachment)
+                    .exec(&txn)
+                    .await?;
+                (res.last_insert_id, None)
+            }
+        };
+
+    // Insert UGC
+    let new_ugc = ugc::ActiveModel {
+        ugc_revision_id: Set(None),
+        ..Default::default()
+    }
+    .insert(&txn)
+    .await?;
+
+    // TODO add user ID stuff
+
+    // Insert UGC Attachment
+    let new_ugc_attachment = ugc_attachments::ActiveModel {
+        attachment_id: Set(attachment_id),
+        ugc_id: Set(new_ugc.id.unwrap()),
+        created_at: Set(now),
         filename: Set(filename.to_owned()),
-        hash: Set(hash.to_owned()),
-        first_seen_at: Set(now),
-        last_seen_at: Set(now),
-        filesize: Set(filesize),
-        mime: Set(mime.to_owned()),
-        meta: Set(JsonValue::Null),
         ..Default::default()
     };
-    let res = attachments::Entity::insert(new_attachment)
+    let res = ugc_attachments::Entity::insert(new_ugc_attachment)
         .exec(&txn)
         .await?;
-
     txn.commit().await?;
-    Ok((res.last_insert_id, false))
+
+    Ok((res.last_insert_id, canon_filename))
 }
 
 pub fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
@@ -482,12 +538,47 @@ pub async fn get_filename_by_id(
         .await?)
 }
 
+pub async fn get_filename_by_ugc(
+    db: &DatabaseConnection,
+    id: i32,
+) -> Result<Option<SelectFilename>, DbErr> {
+    #[derive(Debug, FromQueryResult)]
+    pub struct SelectAttachmentUgc {
+        pub filename: String,
+    }
+    Ok(ugc_attachments::Entity::find()
+        .select_only()
+        .column(attachments::Column::Filename)
+        .inner_join(attachments::Entity)
+        .filter(ugc_attachments::Column::Id.eq(id))
+        .into_model::<SelectFilename>()
+        .one(db)
+        .await?)
+}
+
 pub async fn get_file_url(
     db: &DatabaseConnection,
     s3: &S3Bucket,
     id: i32,
 ) -> Result<Option<String>, DbErr> {
     match get_filename_by_id(db, id).await? {
+        Some(result) => Ok(Some(format!(
+            "http://{}/{}/{}/{}", // TODO something
+            s3.pub_url,
+            &result.filename[0..2],
+            &result.filename[2..4],
+            result.filename
+        ))),
+        None => Ok(None),
+    }
+}
+
+pub async fn get_file_url_by_ugc(
+    db: &DatabaseConnection,
+    s3: &S3Bucket,
+    id: i32,
+) -> Result<Option<String>, DbErr> {
+    match get_filename_by_ugc(db, id).await? {
         Some(result) => Ok(Some(format!(
             "http://{}/{}/{}/{}", // TODO something
             s3.pub_url,

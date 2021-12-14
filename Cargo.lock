@@ -476,7 +476,7 @@ checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 [[package]]
 name = "askama"
 version = "0.11.0"
-source = "git+https://git.kiwifarms.net/CrunkLord420/askama?branch=crunk#ab4d3ec05bf23a9953d435177c02fb6e0ad3e7d5"
+source = "git+https://github.com/djc/askama#228f6b2b34913077259e2d54036154a6d6f5bd10"
 dependencies = [
  "askama_derive",
  "askama_escape",
@@ -488,7 +488,7 @@ dependencies = [
 [[package]]
 name = "askama_actix"
 version = "0.11.1"
-source = "git+https://git.kiwifarms.net/CrunkLord420/askama?branch=crunk#ab4d3ec05bf23a9953d435177c02fb6e0ad3e7d5"
+source = "git+https://github.com/djc/askama#228f6b2b34913077259e2d54036154a6d6f5bd10"
 dependencies = [
  "actix-web",
  "askama",
@@ -499,7 +499,7 @@ dependencies = [
 [[package]]
 name = "askama_derive"
 version = "0.11.0"
-source = "git+https://git.kiwifarms.net/CrunkLord420/askama?branch=crunk#ab4d3ec05bf23a9953d435177c02fb6e0ad3e7d5"
+source = "git+https://github.com/djc/askama#228f6b2b34913077259e2d54036154a6d6f5bd10"
 dependencies = [
  "askama_shared",
  "proc-macro2",
@@ -509,12 +509,12 @@ dependencies = [
 [[package]]
 name = "askama_escape"
 version = "0.10.2"
-source = "git+https://git.kiwifarms.net/CrunkLord420/askama?branch=crunk#ab4d3ec05bf23a9953d435177c02fb6e0ad3e7d5"
+source = "git+https://github.com/djc/askama#228f6b2b34913077259e2d54036154a6d6f5bd10"
 
 [[package]]
 name = "askama_shared"
 version = "0.12.0"
-source = "git+https://git.kiwifarms.net/CrunkLord420/askama?branch=crunk#ab4d3ec05bf23a9953d435177c02fb6e0ad3e7d5"
+source = "git+https://github.com/djc/askama#228f6b2b34913077259e2d54036154a6d6f5bd10"
 dependencies = [
  "askama_escape",
  "nom 7.1.0",
