@@ -1,7 +1,10 @@
 extern crate dotenv;
 extern crate ffmpeg_next;
 
-use crate::{middleware::AppendContext, post};
+use crate::{
+    chat, create_user, filesystem, forum, frontend, index, login, logout, member,
+    middleware::AppendContext, post, session, thread,
+};
 use actix::Actor;
 use actix_identity::{CookieIdentityPolicy, IdentityService};
 use actix_web::middleware::Logger;
@@ -28,8 +31,8 @@ pub fn init() {
 
 /// TODO break up into chunks
 pub async fn start() -> std::io::Result<()> {
-    let data = web::Data::new(crate::session::init_data().await);
-    let chat = web::Data::new(crate::chat::ChatServer::new().start());
+    let data = web::Data::new(session::init_data().await);
+    let chat = web::Data::new(chat::ChatServer::new().start());
 
     // Start HTTP server
     HttpServer::new(move || {
@@ -50,28 +53,28 @@ pub async fn start() -> std::io::Result<()> {
             // PATCH  update_ (apply edit)
             // GET    view_ (read/view/render entity)
             // Note: PUT and PATCH were added, removed, and re-added(?) to the HTML5 spec for <form method="">
-            .service(crate::index::view_index)
-            .service(crate::create_user::create_user_get)
-            .service(crate::create_user::create_user_post)
-            .service(crate::login::view_login)
-            .service(crate::login::post_login)
-            .service(crate::logout::view_logout)
-            .service(crate::member::view_members)
-            .service(crate::filesystem::view_file_ugc)
-            .service(crate::filesystem::view_file_canonical)
-            .service(crate::filesystem::put_file)
+            .service(index::view_index)
+            .service(create_user::create_user_get)
+            .service(create_user::create_user_post)
+            .service(login::view_login)
+            .service(login::post_login)
+            .service(logout::view_logout)
+            .service(member::view_members)
+            .service(filesystem::view_file_ugc)
+            .service(filesystem::view_file_canonical)
+            .service(filesystem::put_file)
             .service(post::delete_post)
             .service(post::destroy_post)
             .service(post::edit_post)
             .service(post::update_post)
             .service(post::view_post_by_id)
             .service(post::view_post_in_thread)
-            .service(crate::forum::create_thread)
-            .service(crate::forum::view_forum)
-            .service(crate::frontend::css::view_css)
-            .service(crate::thread::create_reply)
-            .service(crate::thread::view_thread)
-            .service(crate::thread::view_thread_page)
+            .service(forum::create_thread)
+            .service(forum::view_forum)
+            .service(frontend::css::view_css)
+            .service(thread::create_reply)
+            .service(thread::view_thread)
+            .service(thread::view_thread_page)
             .service(web::resource("/chat").to(crate::hub::chat_route))
     })
     .bind("127.0.0.1:8080")?
