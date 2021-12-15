@@ -9,6 +9,15 @@ use std::sync::RwLock;
 use std::time::Duration;
 use uuid::Uuid;
 
+pub async fn init_data<'key>(salt: &'_ SaltString) -> MainData<'_> {
+    let pool = new_db_pool().await.expect("Failed to create pool");
+    let mut data = MainData::new(pool, salt);
+    reload_session_cache(&data.pool, &mut data.cache.sessions)
+        .await
+        .expect("failed to reload_session_cache");
+    data
+}
+
 #[derive(Copy, Clone)]
 pub struct Session {
     pub user_id: i32,

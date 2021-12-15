@@ -10,7 +10,6 @@ use actix_web::{web, App, HttpServer};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use env_logger::Env;
 use middleware::AppendContext;
-use ruforo::session::{new_db_pool, reload_session_cache, MainData};
 use std::path::Path;
 
 mod create_user;
@@ -40,15 +39,6 @@ lazy_static! {
     };
 }
 
-async fn init_data<'key>(salt: &'_ SaltString) -> MainData<'_> {
-    let pool = new_db_pool().await.expect("Failed to create pool");
-    let mut data = MainData::new(pool, salt);
-    reload_session_cache(&data.pool, &mut data.cache.sessions)
-        .await
-        .expect("failed to reload_session_cache");
-    data
-}
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv::dotenv().ok();
@@ -66,7 +56,7 @@ async fn main() -> std::io::Result<()> {
             .expect("failed to create DIR_TMP");
     }
 
-    let data = web::Data::new(init_data(&SALT).await);
+    let data = web::Data::new(ruforo::session::init_data(&SALT).await);
     let chat = web::Data::new(ruforo::chat::ChatServer::new().start());
 
     // Start HTTP server
