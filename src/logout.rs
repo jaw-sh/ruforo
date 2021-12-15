@@ -37,6 +37,7 @@ pub async fn view_logout(
     }
 
     id.forget();
-    cookies.purge();
+    cookies.remove("logged_in");
+    cookies.remove("token");
     Ok(tmpl.to_pub_response())
 }
