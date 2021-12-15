@@ -10,8 +10,9 @@ pub struct LogoutTemplate {}
 
 #[get("/logout")]
 pub async fn view_logout(
-    data: web::Data<MainData<'_>>,
+    id: actix_identity::Identity,
     cookies: actix_session::Session,
+    data: web::Data<MainData<'_>>,
 ) -> Result<impl Responder, Error> {
     let tmpl = LogoutTemplate {};
 
@@ -35,6 +36,7 @@ pub async fn view_logout(
         }
     }
 
+    id.forget();
     cookies.purge();
     Ok(tmpl.to_pub_response())
 }
