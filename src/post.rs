@@ -2,7 +2,7 @@ use crate::frontend::TemplateToPubResponse;
 use crate::orm::{posts, ugc_revisions, user_names};
 use crate::thread::get_url_for_pos;
 use crate::user::Client;
-use crate::MainData;
+use crate::session::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
 use sea_orm::{entity::*, query::*, DatabaseConnection, DbErr, FromQueryResult};

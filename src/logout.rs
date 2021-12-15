@@ -1,7 +1,7 @@
-use crate::frontend::TemplateToPubResponse;
-use crate::session::{remove_session, MainData};
 use actix_web::{get, web, Error, Responder};
 use askama_actix::Template;
+use ruforo::frontend::TemplateToPubResponse;
+use ruforo::session::{remove_session, MainData};
 use uuid::Uuid;
 
 #[derive(Template)]

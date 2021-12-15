@@ -1,9 +1,8 @@
-extern crate dotenv;
-extern crate ffmpeg_next;
 #[macro_use]
 extern crate lazy_static;
+extern crate dotenv;
+extern crate ffmpeg_next;
 
-use crate::session::{new_db_pool, reload_session_cache, MainData};
 use actix::Actor;
 use actix_identity::{CookieIdentityPolicy, IdentityService};
 use actix_web::middleware::Logger;
@@ -11,36 +10,20 @@ use actix_web::{web, App, HttpServer};
 use argon2::password_hash::{rand_core::OsRng, SaltString};
 use env_logger::Env;
 use middleware::AppendContext;
+use ruforo::session::{new_db_pool, reload_session_cache, MainData};
 use std::path::Path;
 
-pub mod chat;
 mod create_user;
-pub mod ffmpeg;
-pub mod filesystem;
 mod forum;
-pub mod frontend;
 mod hub;
 mod index;
 mod login;
 mod logout;
 mod member;
 mod middleware;
-pub mod orm;
-mod post;
-pub mod s3;
-pub mod session;
-pub mod template;
-mod thread;
-pub mod ugc;
-pub mod user;
 
 lazy_static! {
     static ref SALT: SaltString = get_salt();
-    pub static ref DIR_TMP: String = {
-        dotenv::dotenv().ok();
-        std::env::var("DIR_TMP")
-            .expect("missing DIR_TMP environment variable (hint: 'DIR_TMP=./tmp')")
-    };
 }
 
 fn get_salt() -> SaltString {
@@ -86,8 +69,8 @@ async fn main() -> std::io::Result<()> {
     }
 
     let data = web::Data::new(init_data(&SALT).await);
-    let chat = web::Data::new(chat::ChatServer::new().start());
-    let s3 = web::Data::new(s3::s3_test_client());
+    let chat = web::Data::new(ruforo::chat::ChatServer::new().start());
+    let s3 = web::Data::new(ruforo::s3::s3_test_client());
 
     // Start HTTP server
     HttpServer::new(move || {
@@ -116,21 +99,21 @@ async fn main() -> std::io::Result<()> {
             .service(login::post_login)
             .service(logout::view_logout)
             .service(member::view_members)
-            .service(filesystem::view_file_ugc)
-            .service(filesystem::view_file_canonical)
-            .service(filesystem::put_file)
-            .service(post::delete_post)
-            .service(post::destroy_post)
-            .service(post::edit_post)
-            .service(post::update_post)
-            .service(post::view_post_by_id)
-            .service(post::view_post_in_thread)
+            .service(ruforo::filesystem::view_file_ugc)
+            .service(ruforo::filesystem::view_file_canonical)
+            .service(ruforo::filesystem::put_file)
+            .service(ruforo::post::delete_post)
+            .service(ruforo::post::destroy_post)
+            .service(ruforo::post::edit_post)
+            .service(ruforo::post::update_post)
+            .service(ruforo::post::view_post_by_id)
+            .service(ruforo::post::view_post_in_thread)
             .service(forum::create_thread)
             .service(forum::view_forum)
-            .service(frontend::css::view_css)
-            .service(thread::create_reply)
-            .service(thread::view_thread)
-            .service(thread::view_thread_page)
+            .service(ruforo::frontend::css::view_css)
+            .service(ruforo::thread::create_reply)
+            .service(ruforo::thread::view_thread)
+            .service(ruforo::thread::view_thread_page)
             .service(web::resource("/chat").to(hub::chat_route))
     })
     .bind("127.0.0.1:8080")?

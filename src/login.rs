@@ -1,13 +1,12 @@
-// use crate::session::new_session;
-use crate::frontend::TemplateToPubResponse;
-use crate::orm::users;
-use crate::session;
-use crate::session::{authenticate_by_cookie, MainData};
-use crate::template::LoginTemplate;
-use crate::user::get_user_id_from_name;
 use actix_identity::Identity;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
+use ruforo::frontend::TemplateToPubResponse;
+use ruforo::orm::users;
+use ruforo::session;
+use ruforo::session::{authenticate_by_cookie, MainData};
+use ruforo::template::LoginTemplate;
+use ruforo::user::get_user_id_from_name;
 use sea_orm::{entity::*, DatabaseConnection, FromQueryResult};
 use serde::Deserialize;
 

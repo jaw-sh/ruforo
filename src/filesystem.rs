@@ -20,6 +20,14 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
+lazy_static! {
+    pub static ref DIR_TMP: String = {
+        dotenv::dotenv().ok();
+        std::env::var("DIR_TMP")
+            .expect("missing DIR_TMP environment variable (hint: 'DIR_TMP=./tmp')")
+    };
+}
+
 struct UploadPayload {
     data: Vec<u8>,
     filename: String,
@@ -99,7 +107,7 @@ pub async fn put_file(
             let mut filepath;
             let mut uuid;
             loop {
-                uuid = format!("{}/{}", crate::DIR_TMP.as_str(), Uuid::new_v4());
+                uuid = format!("{}/{}", DIR_TMP.as_str(), Uuid::new_v4());
                 filepath = Path::new(&uuid);
                 match filepath.metadata() {
                     Ok(metadata) => {

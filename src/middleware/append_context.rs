@@ -1,12 +1,12 @@
-use crate::frontend::Context;
-use crate::session::MainData;
-use crate::user::{get_client_from_identity, Client};
 use actix_identity::Identity;
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     web::Data,
     Error, FromRequest, HttpMessage,
 };
+use ruforo::frontend::Context;
+use ruforo::session::MainData;
+use ruforo::user::{get_client_from_identity, Client};
 use std::future::{ready, Ready};
 use std::time::Instant;
 

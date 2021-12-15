@@ -5,7 +5,7 @@ use crate::orm::{posts, threads, ugc_revisions};
 use crate::post::{NewPostFormData, PostForTemplate};
 use crate::template::{Paginator, PaginatorToHtml};
 use crate::user::Client;
-use crate::MainData;
+use crate::session::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
 use sea_orm::{entity::*, query::*, sea_query::Expr, FromQueryResult, QueryFilter};

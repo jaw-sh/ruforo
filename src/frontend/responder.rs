@@ -1,4 +1,4 @@
-use super::Context;
+use super::context::Context;
 use crate::user::Client;
 use actix_web::{body::BoxBody, error, Error, HttpMessage, HttpRequest, HttpResponse};
 use askama_actix::{Template, TemplateToResponse};
