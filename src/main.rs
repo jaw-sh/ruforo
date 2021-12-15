@@ -1,4 +1,5 @@
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    ruforo::init::init().await
+    ruforo::init::init();
+    ruforo::init::start().await
 }

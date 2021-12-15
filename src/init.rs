@@ -9,8 +9,7 @@ use actix_web::{web, App, HttpServer};
 use env_logger::Env;
 use std::path::Path;
 
-/// TODO break up into chunks
-pub async fn init() -> std::io::Result<()> {
+pub fn init() {
     dotenv::dotenv().ok();
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
     ffmpeg_next::init().expect("!!! ffmpeg Init Failure !!!");
@@ -25,7 +24,10 @@ pub async fn init() -> std::io::Result<()> {
             .create(cache_path)
             .expect("failed to create DIR_TMP");
     }
+}
 
+/// TODO break up into chunks
+pub async fn start() -> std::io::Result<()> {
     let data = web::Data::new(crate::session::init_data().await);
     let chat = web::Data::new(crate::chat::ChatServer::new().start());
 
