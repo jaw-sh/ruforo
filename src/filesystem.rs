@@ -11,7 +11,8 @@ use chrono::Utc;
 use futures::{StreamExt, TryStreamExt};
 use mime::Mime;
 use sea_orm::{
-    entity::*, query::*, DatabaseConnection, DbErr, FromQueryResult, JsonValue, QueryFilter,
+    entity::*, query::*, sea_query::Expr, DatabaseConnection, DbErr, FromQueryResult, JsonValue,
+    QueryFilter,
 };
 use std::collections::HashMap;
 use std::fs::File;
@@ -209,6 +210,8 @@ pub async fn put_file(
             &payload.hash.to_string(),
             filesize,
             &payload.mime.to_string(),
+            None,
+            None,
         )
         .await
         .map_err(|e| {
@@ -373,6 +376,8 @@ async fn insert_attachment(
     hash: &str,
     filesize: i64,
     mime: &str,
+    user_id: Option<i32>,
+    user_ip: Option<i32>,
 ) -> Result<(i32, Option<String>), DbErr> {
     #[derive(Debug, FromQueryResult)]
     struct SelectResult {
@@ -389,30 +394,44 @@ async fn insert_attachment(
 
     // Check for duplicate attachment and insert if new
     let now = Utc::now().naive_utc();
-    let (attachment_id, canon_filename) =
-        match select.into_model::<SelectResult>().one(&txn).await? {
-            Some(res) => {
-                log::error!("Duplicate File Hash: {:#?} - {}", res, filename);
-                (res.id, Some(res.filename))
+    let (attachment_id, canon_filename) = match select
+        .into_model::<SelectResult>()
+        .one(&txn)
+        .await?
+    {
+        Some(res) => {
+            // Update last_seen_at
+            log::error!("Duplicate File Hash: {:#?} - {}", res, filename);
+            // I use update_many because it seems cleaner than using an actual ActiveModel
+            let rows_updated = attachments::Entity::update_many()
+                .col_expr(attachments::Column::LastSeenAt, Expr::value(now))
+                .filter(attachments::Column::Id.eq(res.id))
+                .exec(db)
+                .await?;
+            if rows_updated.rows_affected != 1 {
+                log::error!("insert_attachment: SANITY ERROR: more than 1 row updated on last_seen_at update: {:?}", rows_updated.rows_affected);
             }
-            None => {
-                // Insert attachment
-                let new_attachment = attachments::ActiveModel {
-                    filename: Set(filename.to_owned()),
-                    hash: Set(hash.to_owned()),
-                    first_seen_at: Set(now),
-                    last_seen_at: Set(now),
-                    filesize: Set(filesize),
-                    mime: Set(mime.to_owned()),
-                    meta: Set(JsonValue::Null),
-                    ..Default::default()
-                };
-                let res = attachments::Entity::insert(new_attachment)
-                    .exec(&txn)
-                    .await?;
-                (res.last_insert_id, None)
-            }
-        };
+
+            (res.id, Some(res.filename))
+        }
+        None => {
+            // Insert attachment
+            let new_attachment = attachments::ActiveModel {
+                filename: Set(filename.to_owned()),
+                hash: Set(hash.to_owned()),
+                first_seen_at: Set(now),
+                last_seen_at: Set(now),
+                filesize: Set(filesize),
+                mime: Set(mime.to_owned()),
+                meta: Set(JsonValue::Null),
+                ..Default::default()
+            };
+            let res = attachments::Entity::insert(new_attachment)
+                .exec(&txn)
+                .await?;
+            (res.last_insert_id, None)
+        }
+    };
 
     // Insert UGC
     let new_ugc = ugc::ActiveModel {
@@ -428,6 +447,8 @@ async fn insert_attachment(
     let new_ugc_attachment = ugc_attachments::ActiveModel {
         attachment_id: Set(attachment_id),
         ugc_id: Set(new_ugc.id.unwrap()),
+        user_id: Set(user_id),
+        ip_id: Set(user_ip),
         created_at: Set(now),
         filename: Set(filename.to_owned()),
         ..Default::default()
