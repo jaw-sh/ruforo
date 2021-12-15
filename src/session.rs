@@ -216,14 +216,14 @@ pub async fn remove_session(
 
     let ses_map = &mut *ses_map.write().unwrap();
     if ses_map.contains_key(&uuid) {
-        println!("Deleting UUID found in ses map.");
+        log::error!("remove_session: Deleting UUID found in ses map.");
         sessions::Entity::delete_many()
-            .filter(sessions::Column::Id.eq(uuid))
+            .filter(sessions::Column::Id.eq(uuid.to_string()))
             .exec(db)
             .await?;
         Ok(ses_map.remove(&uuid))
     } else {
-        println!("UUID not found in ses map.");
+        log::error!("remove_session: UUID not found in ses map.");
         Ok(None)
     }
 }
