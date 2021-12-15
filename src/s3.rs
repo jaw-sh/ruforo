@@ -60,16 +60,3 @@ impl S3Bucket {
         self.s3.put_object(put_request).await
     }
 }
-
-/// my test bucket, TODO support multiple buckets with configuration stored in the DB
-pub fn s3_test_client() -> S3Bucket {
-    let my_region = Region::Custom {
-        name: "localhost".to_owned(),
-        endpoint: "http://localhost:9000".to_owned(),
-    };
-    S3Bucket::new(
-        my_region,
-        "test0".to_owned(),
-        "localhost:9000/test0".to_owned(),
-    )
-}

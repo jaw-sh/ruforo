@@ -26,6 +26,19 @@ lazy_static! {
         std::env::var("DIR_TMP")
             .expect("missing DIR_TMP environment variable (hint: 'DIR_TMP=./tmp')")
     };
+
+    // S3BUCKET is tmp until we support multiple DB-configurable buckets
+    static ref S3BUCKET: S3Bucket = {
+        let my_region = rusoto_core::Region::Custom {
+            name: "localhost".to_owned(),
+            endpoint: "http://localhost:9000".to_owned(),
+        };
+        S3Bucket::new(
+            my_region,
+            "test0".to_owned(),
+            "localhost:9000/test0".to_owned(),
+        )
+    };
 }
 
 struct UploadPayload {
@@ -40,12 +53,13 @@ struct UploadPayload {
 pub async fn view_file_canonical(
     file_id: web::Path<i32>,
     my: web::Data<MainData<'_>>,
-    s3: web::Data<S3Bucket>,
 ) -> Result<impl Responder, Error> {
-    let result = get_file_url(&my.pool, &s3, *file_id).await.map_err(|e| {
-        log::error!("view_file: get_filename_by_id: {}", e);
-        actix_web::error::ErrorInternalServerError("view_file: bad ID")
-    })?;
+    let result = get_file_url(&my.pool, &S3BUCKET, *file_id)
+        .await
+        .map_err(|e| {
+            log::error!("view_file: get_filename_by_id: {}", e);
+            actix_web::error::ErrorInternalServerError("view_file: bad ID")
+        })?;
     let content = match result {
         Some(result) => result,
         None => "None".to_owned(),
@@ -63,9 +77,8 @@ pub async fn view_file_canonical(
 pub async fn view_file_ugc(
     file_id: web::Path<i32>,
     my: web::Data<MainData<'_>>,
-    s3: web::Data<S3Bucket>,
 ) -> Result<impl Responder, Error> {
-    let result = get_file_url_by_ugc(&my.pool, &s3, *file_id)
+    let result = get_file_url_by_ugc(&my.pool, &S3BUCKET, *file_id)
         .await
         .map_err(|e| {
             log::error!("view_file: get_filename_by_id: {}", e);
@@ -88,7 +101,6 @@ pub async fn view_file_ugc(
 pub async fn put_file(
     mut mutipart: Multipart,
     my: web::Data<MainData<'_>>,
-    s3: web::Data<S3Bucket>,
 ) -> Result<impl Responder, Error> {
     // see: https://users.rust-lang.org/t/file-upload-in-actix-web/64871/3
     let mut payloads: Vec<UploadPayload> = Vec::new(); // TODO can we count files from the multipart to reserve?
@@ -199,7 +211,7 @@ pub async fn put_file(
         };
 
         // TODO probably check DB instead of the S3 bucket, or both
-        let list = s3.list_objects_v2(&s3_filename).await.map_err(|e| {
+        let list = S3BUCKET.list_objects_v2(&s3_filename).await.map_err(|e| {
             log::error!("put_file: failed to list_objects_v2: {}", e);
             actix_web::error::ErrorInternalServerError("put_file: failed to check if file exists")
         })?;
@@ -237,7 +249,8 @@ pub async fn put_file(
 
             // count should only ever be 0 or 1, otherwise there's something wrong with the prefix
             if count == 0 {
-                s3.put_object(payload.data, &s3_filename)
+                S3BUCKET
+                    .put_object(payload.data, &s3_filename)
                     .await
                     .map_err(|e| {
                         log::error!("put_file: failed to put_object: {}", e);

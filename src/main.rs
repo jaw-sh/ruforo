@@ -68,7 +68,6 @@ async fn main() -> std::io::Result<()> {
 
     let data = web::Data::new(init_data(&SALT).await);
     let chat = web::Data::new(ruforo::chat::ChatServer::new().start());
-    let s3 = web::Data::new(ruforo::s3::s3_test_client());
 
     // Start HTTP server
     HttpServer::new(move || {
@@ -80,7 +79,6 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(data.clone())
             .app_data(chat.clone())
-            .app_data(s3.clone())
             // Order of middleware IS IMPORTANT and is in REVERSE EXECUTION ORDER.
             .wrap(AppendContext::default())
             .wrap(IdentityService::new(policy))
