@@ -54,7 +54,7 @@ async fn login(
 #[post("/login")]
 pub async fn post_login(
     id: Identity,
-    session: actix_session::Session,
+    cookies: actix_session::Session,
     form: web::Form<FormData>,
     my: web::Data<MainData<'_>>,
 ) -> Result<HttpResponse, Error> {
@@ -68,11 +68,11 @@ pub async fn post_login(
             error::ErrorInternalServerError("DB error")
         })?;
 
-    session
+    cookies
         .insert("logged_in", true)
         .map_err(|_| error::ErrorInternalServerError("middleware error"))?;
 
-    session
+    cookies
         .insert("token", uuid)
         .map_err(|_| error::ErrorInternalServerError("middleware error"))?;
 

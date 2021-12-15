@@ -207,24 +207,23 @@ pub async fn reload_session_cache(
     Ok(())
 }
 
-pub async fn remove_session(ses_map: &SessionMap, uuid: Uuid) -> Option<Session> {
+pub async fn remove_session(
+    db: &DatabaseConnection,
+    ses_map: &SessionMap,
+    uuid: Uuid,
+) -> Result<Option<Session>, DbErr> {
     use crate::orm::sessions;
 
     let ses_map = &mut *ses_map.write().unwrap();
     if ses_map.contains_key(&uuid) {
         println!("Deleting UUID found in ses map.");
-        // Delete session from the database
-        // We don't actually care about the result.
-        actix_web::rt::spawn(async move {
-            let pool = crate::session::new_db_pool().await.unwrap();
-            sessions::Entity::delete_many()
-                .filter(sessions::Column::Id.eq(uuid))
-                .exec(&pool)
-                .await
-        });
-        ses_map.remove(&uuid)
+        sessions::Entity::delete_many()
+            .filter(sessions::Column::Id.eq(uuid))
+            .exec(db)
+            .await?;
+        Ok(ses_map.remove(&uuid))
     } else {
         println!("UUID not found in ses map.");
-        None
+        Ok(None)
     }
 }

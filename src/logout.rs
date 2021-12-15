@@ -18,13 +18,23 @@ pub async fn view_logout(
     // TODO: Needs mechanism to alter the HttpRequest.extensions stored Context and Client during this request cycle.
     match cookies.get::<String>("token") {
         Ok(Some(uuid)) => match Uuid::parse_str(&uuid) {
-            Ok(uuid) => remove_session(&data.cache.sessions, uuid).await,
-            _ => None,
+            Ok(uuid) => {
+                if let Err(e) = remove_session(&data.pool, &data.cache.sessions, uuid).await {
+                    log::error!("view_logout: remove_session() {}", e);
+                }
+            }
+            Err(e) => {
+                log::error!("view_logout: parse_str() {}", e);
+            }
         },
-        _ => None,
-    };
+        Ok(None) => {
+            log::error!("view_logout: missing token");
+        }
+        Err(e) => {
+            log::error!("view_logout: cookies.get() {}", e);
+        }
+    }
 
     cookies.purge();
-
     Ok(tmpl.to_pub_response())
 }

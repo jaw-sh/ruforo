@@ -7,6 +7,7 @@ use crate::{
 };
 use actix::Actor;
 use actix_identity::{CookieIdentityPolicy, IdentityService};
+use actix_session::CookieSession;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use env_logger::Env;
@@ -45,6 +46,7 @@ pub async fn start() -> std::io::Result<()> {
             .app_data(data.clone())
             .app_data(chat.clone())
             // Order of middleware IS IMPORTANT and is in REVERSE EXECUTION ORDER.
+            .wrap(CookieSession::signed(&[0; 32]).secure(false))
             .wrap(AppendContext::default())
             .wrap(IdentityService::new(policy))
             .wrap(Logger::new("%a %{User-Agent}i"))
