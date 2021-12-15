@@ -1,15 +1,24 @@
 #[macro_use]
 extern crate lazy_static;
 
-pub mod chat;
-pub mod ffmpeg;
-pub mod filesystem;
+mod chat;
+mod create_user;
+mod ffmpeg;
+mod filesystem;
+mod forum;
 pub mod frontend;
-pub mod orm;
-pub mod post;
-pub mod s3;
-pub mod session;
-pub mod template;
-pub mod thread;
-pub mod ugc;
-pub mod user;
+mod hub;
+mod index;
+pub mod init;
+mod login;
+mod logout;
+mod member;
+mod middleware;
+mod orm;
+mod post;
+mod s3;
+mod session;
+mod template;
+mod thread;
+mod ugc;
+mod user;

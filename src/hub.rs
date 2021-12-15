@@ -1,5 +1,5 @@
-use ruforo::chat;
-use ruforo::chat::ChatServer;
+use crate::chat;
+use crate::chat::ChatServer;
 use std::time::{Duration, Instant};
 
 use actix::*;

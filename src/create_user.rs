@@ -1,13 +1,13 @@
+use crate::frontend::TemplateToPubResponse;
+use crate::orm::users;
+use crate::session::MainData;
+use crate::template::CreateUserTemplate;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use argon2::{
     password_hash::{rand_core::OsRng, SaltString},
     PasswordHasher,
 };
 use chrono::Utc;
-use ruforo::frontend::TemplateToPubResponse;
-use ruforo::orm::users;
-use ruforo::session::MainData;
-use ruforo::template::CreateUserTemplate;
 use sea_orm::{entity::*, DatabaseConnection, DbErr, InsertResult};
 use serde::Deserialize;
 
@@ -22,8 +22,8 @@ async fn insert_new_user(
     name: &str,
     pass: &str,
 ) -> Result<InsertResult<users::ActiveModel>, DbErr> {
+    use crate::orm::{user_name_history, user_names};
     use futures::join;
-    use ruforo::orm::{user_name_history, user_names};
     use sea_orm::ConnectionTrait;
 
     let txn = db.begin().await?;

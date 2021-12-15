@@ -1,15 +1,15 @@
+use crate::frontend::TemplateToPubResponse;
+use crate::orm::{user_names, users};
+use crate::session::MainData;
+use crate::user::UserProfile;
 use actix_web::{error, get, web, Responder};
 use askama_actix::Template;
-use ruforo::frontend::TemplateToPubResponse;
-use ruforo::orm::{user_names, users};
-use ruforo::session::MainData;
-use ruforo::user::UserProfile;
 use sea_orm::{entity::*, query::*};
 
 #[derive(Template)]
 #[template(path = "members.html")]
 pub struct MembersTemplate {
-    pub users: Vec<ruforo::user::UserProfile>,
+    pub users: Vec<crate::user::UserProfile>,
 }
 
 #[get("/members")]

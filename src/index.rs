@@ -1,8 +1,8 @@
+use crate::frontend::TemplateToPubResponse;
+use crate::session::MainData;
+use crate::user::Client;
 use actix_web::{get, web, Responder};
 use askama_actix::Template;
-use ruforo::frontend::TemplateToPubResponse;
-use ruforo::session::MainData;
-use ruforo::user::Client;
 
 #[derive(Template)]
 #[template(path = "index.html")]

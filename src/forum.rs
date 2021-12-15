@@ -1,10 +1,10 @@
+use crate::frontend::TemplateToPubResponse;
+use crate::orm::{posts, threads, user_names};
+use crate::session::MainData;
+use crate::thread::{validate_thread_form, NewThreadFormData, ThreadForTemplate};
+use crate::user::Client;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
-use ruforo::frontend::TemplateToPubResponse;
-use ruforo::orm::{posts, threads, user_names};
-use ruforo::session::MainData;
-use ruforo::thread::{validate_thread_form, NewThreadFormData, ThreadForTemplate};
-use ruforo::user::Client;
 use sea_orm::{entity::*, query::*, sea_query::Expr};
 
 #[derive(Template)]
@@ -20,7 +20,7 @@ pub async fn create_thread(
     data: web::Data<MainData<'_>>,
     form: web::Form<NewThreadFormData>,
 ) -> Result<impl Responder, Error> {
-    use ruforo::ugc::{create_ugc, NewUgcPartial};
+    use crate::ugc::{create_ugc, NewUgcPartial};
 
     // Run form data through validator.
     let form = validate_thread_form(form).map_err(|err| err)?;
