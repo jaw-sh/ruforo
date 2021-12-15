@@ -23,23 +23,21 @@ mod member;
 mod middleware;
 
 lazy_static! {
-    static ref SALT: SaltString = get_salt();
-}
-
-fn get_salt() -> SaltString {
-    dotenv::dotenv().ok();
-    let salt = match std::env::var("SALT") {
-        Ok(v) => v,
-        Err(e) => {
-            let salt = SaltString::generate(&mut OsRng);
-            panic!(
-                "Missing SALT ({:?}) here's a freshly generated one: {}",
-                e,
-                salt.as_str()
-            );
-        }
+    static ref SALT: SaltString = {
+        dotenv::dotenv().ok();
+        let salt = match std::env::var("SALT") {
+            Ok(v) => v,
+            Err(e) => {
+                let salt = SaltString::generate(&mut OsRng);
+                panic!(
+                    "Missing SALT ({:?}) here's a freshly generated one: {}",
+                    e,
+                    salt.as_str()
+                );
+            }
+        };
+        SaltString::new(&salt).unwrap()
     };
-    SaltString::new(&salt).unwrap()
 }
 
 async fn init_data<'key>(salt: &'_ SaltString) -> MainData<'_> {
