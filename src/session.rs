@@ -105,7 +105,7 @@ pub fn authenticate_by_uuid(ses_map: &SessionMap, uuid: Uuid) -> Option<SessionW
         })
 }
 
-pub async fn new_db_pool() -> Result<DatabaseConnection, DbErr> {
+async fn new_db_pool() -> Result<DatabaseConnection, DbErr> {
     dotenv::dotenv().ok();
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let mut opt = ConnectOptions::new(database_url);

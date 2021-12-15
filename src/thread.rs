@@ -3,9 +3,9 @@ use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
 use crate::orm::{posts, threads, ugc_revisions};
 use crate::post::{NewPostFormData, PostForTemplate};
+use crate::session::MainData;
 use crate::template::{Paginator, PaginatorToHtml};
 use crate::user::Client;
-use crate::session::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
 use sea_orm::{entity::*, query::*, sea_query::Expr, FromQueryResult, QueryFilter};
@@ -85,15 +85,15 @@ async fn get_thread_and_replies_for_page(
         .ok_or_else(|| error::ErrorNotFound("Thread not found."))?;
 
     // Update thread to include views.
+    let new_pool = data.pool.to_owned();
     actix_web::rt::spawn(async move {
-        let pool = crate::session::new_db_pool().await.unwrap();
         Thread::update_many()
             .col_expr(
                 threads::Column::ViewCount,
                 Expr::value(thread.view_count + 1),
             )
             .filter(threads::Column::Id.eq(thread_id))
-            .exec(&pool)
+            .exec(&new_pool)
             .await
     });
 
