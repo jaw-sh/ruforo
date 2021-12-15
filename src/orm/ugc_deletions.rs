@@ -8,8 +8,6 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: i32,
     pub user_id: Option<i32>,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub name: Option<String>,
     pub deleted_at: DateTime,
     #[sea_orm(column_type = "Text", nullable)]
     pub reason: Option<String>,

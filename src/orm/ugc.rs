@@ -12,6 +12,18 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::posts::Entity")]
+    Posts,
+    #[sea_orm(has_many = "super::ugc_attachments::Entity")]
+    UgcAttachments,
+    #[sea_orm(
+        belongs_to = "super::ugc_deletions::Entity",
+        from = "Column::Id",
+        to = "super::ugc_deletions::Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    UgcDeletions,
     #[sea_orm(
         belongs_to = "super::ugc_revisions::Entity",
         from = "Column::UgcRevisionId",
@@ -19,18 +31,7 @@ pub enum Relation {
         on_update = "NoAction",
         on_delete = "NoAction"
     )]
-    #[sea_orm(has_many = "super::ugc_revisions::Entity")]
     UgcRevisions,
-    #[sea_orm(has_many = "super::posts::Entity")]
-    Posts,
-    #[sea_orm(has_many = "super::ugc_attachments::Entity")]
-    UgcAttachments,
-}
-
-impl Related<super::ugc_revisions::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::UgcRevisions.def()
-    }
 }
 
 impl Related<super::posts::Entity> for Entity {
@@ -42,6 +43,18 @@ impl Related<super::posts::Entity> for Entity {
 impl Related<super::ugc_attachments::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UgcAttachments.def()
+    }
+}
+
+impl Related<super::ugc_deletions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UgcDeletions.def()
+    }
+}
+
+impl Related<super::ugc_revisions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UgcRevisions.def()
     }
 }
 

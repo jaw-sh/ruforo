@@ -1,7 +1,7 @@
 use crate::frontend::TemplateToPubResponse;
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
-use crate::orm::{posts, threads, ugc_revisions};
+use crate::orm::{posts, threads, ugc_deletions, ugc_revisions};
 use crate::post::{NewPostFormData, PostForTemplate};
 use crate::session::MainData;
 use crate::template::{Paginator, PaginatorToHtml};
@@ -105,6 +105,10 @@ async fn get_thread_and_replies_for_page(
         .column_as(ugc_revisions::Column::Content, "content")
         .column_as(ugc_revisions::Column::IpId, "ip_id")
         .column_as(ugc_revisions::Column::CreatedAt, "updated_at")
+        .left_join(ugc_deletions::Entity)
+        .column_as(ugc_deletions::Column::UserId, "deleted_by")
+        .column_as(ugc_deletions::Column::DeletedAt, "deleted_at")
+        .column_as(ugc_deletions::Column::Reason, "deleted_reason")
         .filter(posts::Column::ThreadId.eq(thread_id))
         .filter(
             posts::Column::Position.between((page - 1) * POSTS_PER_PAGE + 1, page * POSTS_PER_PAGE),

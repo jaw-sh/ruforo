@@ -1,11 +1,12 @@
 use crate::frontend::TemplateToPubResponse;
-use crate::orm::{posts, ugc_revisions, user_names};
+use crate::orm::{posts, ugc_deletions, ugc_revisions, user_names};
+use crate::session::MainData;
 use crate::thread::get_url_for_pos;
 use crate::user::Client;
-use crate::session::MainData;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::Template;
-use sea_orm::{entity::*, query::*, DatabaseConnection, DbErr, FromQueryResult};
+use chrono::prelude::Utc;
+use sea_orm::{entity::*, query::*, sea_query::Expr, DatabaseConnection, DbErr, FromQueryResult};
 use serde::Deserialize;
 
 /// A fully joined struct representing the post model and its relational data.
@@ -21,6 +22,10 @@ pub struct PostForTemplate {
     // join ugc
     pub content: Option<String>,
     pub ip_id: Option<i32>,
+    // join ugc UgcDeletions
+    pub deleted_by: Option<i32>,
+    pub deleted_at: Option<chrono::NaiveDateTime>,
+    pub deleted_reason: Option<String>,
     // join user
     pub username: Option<String>,
 }
@@ -77,6 +82,27 @@ pub async fn destroy_post(
         return Err(error::ErrorForbidden(
             "You do not have permission to delete this post.",
         ));
+    }
+
+    // TODO: Decriment subsequent post positions!
+
+    if post.deleted_at.is_some() {
+        ugc_deletions::Entity::update_many()
+            .col_expr(ugc_deletions::Column::UserId, Expr::value(client.get_id()))
+            .filter(ugc_deletions::Column::Id.eq(post.id))
+            .exec(&data.pool)
+            .await
+            .map_err(error::ErrorInternalServerError)?;
+    } else {
+        ugc_deletions::Entity::insert(ugc_deletions::ActiveModel {
+            id: Set(post.ugc_id),
+            user_id: Set(client.get_id()),
+            deleted_at: Set(Utc::now().naive_utc()),
+            reason: Set(Some("Temporary reason holder".to_owned())),
+        })
+        .exec(&data.pool)
+        .await
+        .map_err(error::ErrorInternalServerError)?;
     }
 
     Ok(HttpResponse::Found()
@@ -171,6 +197,10 @@ pub async fn get_post_for_template(
         .column_as(ugc_revisions::Column::Content, "content")
         .column_as(ugc_revisions::Column::IpId, "ip_id")
         .column_as(ugc_revisions::Column::CreatedAt, "updated_at")
+        .left_join(ugc_deletions::Entity)
+        .column_as(ugc_deletions::Column::UserId, "deleted_by")
+        .column_as(ugc_deletions::Column::DeletedAt, "deleted_at")
+        .column_as(ugc_deletions::Column::Reason, "deleted_reason")
         .into_model::<PostForTemplate>()
         .one(db)
         .await

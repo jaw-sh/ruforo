@@ -4,6 +4,7 @@
         <div class="username">{% match post.username %}{% when Some with (username) %}{{ username }}{% when None %}Guest{% endmatch %}</div>
     </div>
     <div class="message-cell message-cell--main">
+        {% if post.deleted_at.is_none() %}
         <div class="message-header">
             <div class="message-header--left">
                 <time datetime="{{ post.created_at }}">{{ post.created_at.format("%v %r") }}</time>
@@ -28,6 +29,11 @@
                 {# Like, Quote, Reply #}
             </div>
         </div>
+        {% else %}
+        <div class="message-holder">
+            This message was deleted.
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endif %}

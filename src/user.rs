@@ -41,8 +41,8 @@ impl Client {
         true
     }
 
-    pub fn can_delete_post(&self, _post: &crate::post::PostForTemplate) -> bool {
-        false
+    pub fn can_delete_post(&self, post: &crate::post::PostForTemplate) -> bool {
+        self.is_user() && self.get_id() == post.user_id
     }
 
     pub fn can_update_post(&self, post: &crate::post::PostForTemplate) -> bool {
