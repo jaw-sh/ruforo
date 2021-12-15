@@ -28,7 +28,7 @@ async fn login(
         password: String,
     }
 
-    let user_id: i32 = get_user_id_from_name(&db, &name)
+    let user_id: i32 = get_user_id_from_name(db, name)
         .await
         .ok_or_else(|| error::ErrorBadRequest("User not found or password is incorrect."))?;
 

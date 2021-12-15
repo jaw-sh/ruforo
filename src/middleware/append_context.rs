@@ -56,7 +56,7 @@ where
         // log in using cookies
         let client = match Identity::extract(httpreq).into_inner() {
             Ok(id) => match httpreq.app_data::<Data<MainData>>() {
-                Some(data) => futures::executor::block_on(get_client_from_identity(&data, &id)),
+                Some(data) => futures::executor::block_on(get_client_from_identity(data, &id)),
                 None => Client::default(),
             },
             Err(_) => Client::default(),

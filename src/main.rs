@@ -1,5 +1,3 @@
-#[macro_use]
-extern crate lazy_static;
 extern crate dotenv;
 extern crate ffmpeg_next;
 
@@ -7,7 +5,6 @@ use actix::Actor;
 use actix_identity::{CookieIdentityPolicy, IdentityService};
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
-use argon2::password_hash::{rand_core::OsRng, SaltString};
 use env_logger::Env;
 use middleware::AppendContext;
 use std::path::Path;
@@ -20,24 +17,6 @@ mod login;
 mod logout;
 mod member;
 mod middleware;
-
-lazy_static! {
-    static ref SALT: SaltString = {
-        dotenv::dotenv().ok();
-        let salt = match std::env::var("SALT") {
-            Ok(v) => v,
-            Err(e) => {
-                let salt = SaltString::generate(&mut OsRng);
-                panic!(
-                    "Missing SALT ({:?}) here's a freshly generated one: {}",
-                    e,
-                    salt.as_str()
-                );
-            }
-        };
-        SaltString::new(&salt).unwrap()
-    };
-}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -56,7 +35,7 @@ async fn main() -> std::io::Result<()> {
             .expect("failed to create DIR_TMP");
     }
 
-    let data = web::Data::new(ruforo::session::init_data(&SALT).await);
+    let data = web::Data::new(ruforo::session::init_data().await);
     let chat = web::Data::new(ruforo::chat::ChatServer::new().start());
 
     // Start HTTP server

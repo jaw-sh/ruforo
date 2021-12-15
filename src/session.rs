@@ -1,6 +1,9 @@
 use crate::orm;
 use crate::orm::sessions::Entity as Sessions;
-use argon2::{password_hash::SaltString, Argon2};
+use argon2::{
+    password_hash::{rand_core::OsRng, SaltString},
+    Argon2,
+};
 use chrono::{NaiveDateTime, Utc};
 use sea_orm::{entity::*, query::*, ConnectOptions, Database, DatabaseConnection, DbErr};
 use std::collections::hash_map;
@@ -9,9 +12,27 @@ use std::sync::RwLock;
 use std::time::Duration;
 use uuid::Uuid;
 
-pub async fn init_data<'key>(salt: &'_ SaltString) -> MainData<'_> {
+lazy_static! {
+    static ref SALT: SaltString = {
+        dotenv::dotenv().ok();
+        let salt = match std::env::var("SALT") {
+            Ok(v) => v,
+            Err(e) => {
+                let salt = SaltString::generate(&mut OsRng);
+                panic!(
+                    "Missing SALT ({:?}) here's a freshly generated one: {}",
+                    e,
+                    salt.as_str()
+                );
+            }
+        };
+        SaltString::new(&salt).unwrap()
+    };
+}
+
+pub async fn init_data<'key>() -> MainData<'key> {
     let pool = new_db_pool().await.expect("Failed to create pool");
-    let mut data = MainData::new(pool, salt);
+    let mut data = MainData::new(pool, &SALT);
     reload_session_cache(&data.pool, &mut data.cache.sessions)
         .await
         .expect("failed to reload_session_cache");
