@@ -153,8 +153,7 @@ pub async fn new_session(
     let mut uuid;
     loop {
         uuid = Uuid::new_v4();
-        let ses_map = &mut *ses_map.write().unwrap();
-        if let hash_map::Entry::Vacant(e) = ses_map.entry(uuid) {
+        if let hash_map::Entry::Vacant(e) = ses_map.write().unwrap().entry(uuid) {
             e.insert(ses);
             break;
         }
@@ -214,19 +213,22 @@ pub async fn remove_session(
     ses_map: &SessionMap,
     uuid: Uuid,
 ) -> Result<Option<Session>, DbErr> {
-    use crate::orm::sessions;
-
-    let ses_map = &mut *ses_map.write().unwrap();
-    if ses_map.contains_key(&uuid) {
-        log::error!("remove_session: Deleting UUID found in ses map.");
-        sessions::Entity::delete_many()
-            .filter(sessions::Column::Id.eq(uuid.to_string()))
-            .exec(db)
-            .await?;
-        Ok(ses_map.remove(&uuid))
-    } else {
-        log::error!("remove_session: UUID not found in ses map.");
-        Ok(None)
+    // testing indicates if you match the function result directly it holds the mutex.
+    // using a let, this should unlock immediately.
+    let result = ses_map.write().unwrap().remove(&uuid);
+    match result {
+        Some(_) => {
+            log::info!("remove_session: deleting {}", uuid);
+            orm::sessions::Entity::delete_many()
+                .filter(orm::sessions::Column::Id.eq(uuid.to_string()))
+                .exec(db)
+                .await?;
+            Ok(result)
+        }
+        None => {
+            log::error!("remove_session: UUID not found: {}", uuid);
+            Ok(None)
+        }
     }
 }
 
@@ -242,14 +244,17 @@ pub async fn task_expire_sessions(
     let now = Utc::now().naive_utc();
 
     // Delete sessions from cache while generating a list for later use
-    let ses_map = &mut *ses_map.write().unwrap();
-    ses_map.retain(|k, v| {
-        let not_expired = v.expires_at.gt(&now);
-        if !not_expired {
-            deleted_sessions.push(*k);
-        }
-        not_expired
-    });
+    // scoped to ensure mutex gets dropped early
+    {
+        let ses_map = &mut *ses_map.write().unwrap();
+        ses_map.retain(|k, v| {
+            let not_expired = v.expires_at.gt(&now);
+            if !not_expired {
+                deleted_sessions.push(*k);
+            }
+            not_expired
+        });
+    }
 
     // Delete sessions from DB
     let result = sessions::Entity::delete_many()
