@@ -7,6 +7,7 @@ use actix_web::{get, http::header::ContentType, post, web, Error, HttpResponse, 
 use chrono::Utc;
 use futures::{StreamExt, TryStreamExt};
 use mime::Mime;
+use once_cell::unsync::Lazy;
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, DatabaseConnection, DbErr, FromQueryResult, JsonValue,
     QueryFilter,
@@ -262,44 +263,6 @@ pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> 
 
 /// this is my fancy intelligent extension extractor
 pub fn get_extension_guess(filename: &str) -> Option<String> {
-    lazy_static! {
-        static ref EXT_LOOKUP: HashMap<&'static str, &'static str> = HashMap::from([
-            ("aac", "aac"),
-            ("apng", "apng"),
-            ("avi", "avi"),
-            ("avif", "avif"),
-            ("bmp", "bmp"),
-            ("djvu", "djvu"),
-            ("flac", "flac"),
-            ("gif", "gif"),
-            ("htm", "html"),
-            ("html", "html"),
-            ("ico", "ico"),
-            ("jpeg", "jpeg"),
-            ("jpg", "jpeg"),
-            ("json", "json"),
-            ("ktx", "ktx"),
-            ("m4a", "m4a"),
-            ("mka", "mka"),
-            ("mkv", "mkv"),
-            ("mov", "mov"),
-            ("mp3", "mp3"),
-            ("mp4", "mp4"),
-            ("ogg", "ogg"),
-            ("ogv", "ogv"),
-            ("pdf", "pdf"),
-            ("png", "png"),
-            ("rm", "rm"),
-            ("sh", "sh"),
-            ("svg", "svg"),
-            ("txt", "txt"),
-            ("weba", "weba"),
-            ("webm", "webm"),
-            ("webp", "webp"),
-            ("xml", "xml"),
-            ("zip", "zip"),
-        ]);
-    };
     fn get_extension_guess_return(filename: &str, idx: usize) -> Option<String> {
         Some(filename[idx + 1..].to_ascii_lowercase())
     }
@@ -318,7 +281,46 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
             }
 
             // we have a list of extensions that we're okay with just accepting
-            match EXT_LOOKUP.get(&filename[idx + 1..]) {
+            let ext_lookup = Lazy::new(|| {
+                let map: HashMap<&'static str, &'static str> = HashMap::from([
+                    ("aac", "aac"),
+                    ("apng", "apng"),
+                    ("avi", "avi"),
+                    ("avif", "avif"),
+                    ("bmp", "bmp"),
+                    ("djvu", "djvu"),
+                    ("flac", "flac"),
+                    ("gif", "gif"),
+                    ("htm", "html"),
+                    ("html", "html"),
+                    ("ico", "ico"),
+                    ("jpeg", "jpeg"),
+                    ("jpg", "jpeg"),
+                    ("json", "json"),
+                    ("ktx", "ktx"),
+                    ("m4a", "m4a"),
+                    ("mka", "mka"),
+                    ("mkv", "mkv"),
+                    ("mov", "mov"),
+                    ("mp3", "mp3"),
+                    ("mp4", "mp4"),
+                    ("ogg", "ogg"),
+                    ("ogv", "ogv"),
+                    ("pdf", "pdf"),
+                    ("png", "png"),
+                    ("rm", "rm"),
+                    ("sh", "sh"),
+                    ("svg", "svg"),
+                    ("txt", "txt"),
+                    ("weba", "weba"),
+                    ("webm", "webm"),
+                    ("webp", "webp"),
+                    ("xml", "xml"),
+                    ("zip", "zip"),
+                ]);
+                map
+            });
+            match ext_lookup.get(&filename[idx + 1..]) {
                 Some(ext) => {
                     log::error!("EXT_LOOKUP: {}", ext);
                     return Some(ext.to_string());
