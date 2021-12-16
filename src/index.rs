@@ -1,5 +1,5 @@
 use crate::frontend::TemplateToPubResponse;
-use crate::session::{get_start_time, get_sess};
+use crate::session::{get_sess, get_start_time};
 use crate::user::Client;
 use actix_web::{get, Responder};
 use askama_actix::Template;

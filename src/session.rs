@@ -94,17 +94,16 @@ pub async fn authenticate_by_cookie(
         Ok(Some(token)) => token,
         _ => return None,
     };
-    let token = match Uuid::parse_str(&token) {
-        Ok(token) => token,
+    let uuid = match Uuid::parse_str(&token) {
+        Ok(uuid) => uuid,
         Err(e) => {
             log::error!("authenticate_by_cookie: parse_str(): {}", e);
             return None;
         }
     };
-    match authenticate_by_uuid(ses_map, &token).await {
-        Some(session) => Some((token, session)),
-        None => None,
-    }
+    authenticate_by_uuid(ses_map, &uuid)
+        .await
+        .map(|session| (uuid, session))
 }
 
 /// Accepts a UUID as a string and returns a session, if the UUID can parse and authenticate.
@@ -119,10 +118,9 @@ pub async fn authenticate_by_uuid_string(
             return None;
         }
     };
-    match authenticate_by_uuid(ses_map, &uuid).await {
-        Some(session) => Some((uuid, session)),
-        None => None,
-    }
+    authenticate_by_uuid(ses_map, &uuid)
+        .await
+        .map(|session| (uuid, session))
 }
 
 /// Accepts a uuid::Uuid type and returns a session if the token can authenticate.
