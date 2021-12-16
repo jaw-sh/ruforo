@@ -42,7 +42,7 @@ pub async fn init_data<'key>() -> MainData<'key> {
 #[derive(Copy, Clone)]
 pub struct Session {
     pub user_id: i32,
-    pub expire: NaiveDateTime,
+    pub expires_at: NaiveDateTime,
 }
 
 #[derive(Copy, Clone)]
@@ -144,9 +144,10 @@ pub async fn new_session(
     ses_map: &SessionMap,
     user_id: i32,
 ) -> Result<Uuid, DbErr> {
+    let expires_at = chrono::Utc::now().naive_utc();
     let ses = Session {
         user_id,
-        expire: chrono::Utc::now().naive_utc(),
+        expires_at,
     };
     let mut uuid;
     loop {
@@ -161,7 +162,7 @@ pub async fn new_session(
     let session = orm::sessions::ActiveModel {
         id: Set(uuid.to_string()),
         user_id: Set(user_id),
-        expires_at: Set(Utc::now().naive_utc()),
+        expires_at: Set(expires_at),
     };
     Sessions::insert(session).exec(db).await?;
 
@@ -200,7 +201,7 @@ pub async fn reload_session_cache(
             })?,
             Session {
                 user_id: result.user_id,
-                expire: result.expires_at,
+                expires_at: result.expires_at,
             },
         );
     }

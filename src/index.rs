@@ -17,7 +17,7 @@ async fn view_index(client: Client, data: web::Data<MainData<'_>>) -> impl Respo
         println!(
             "Session: {} / {:?}",
             key,
-            value.expire.format("%Y-%m-%d %H:%M:%S").to_string()
+            value.expires_at.format("%Y-%m-%d %H:%M:%S").to_string()
         );
     }
 

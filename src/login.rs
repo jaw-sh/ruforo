@@ -5,7 +5,7 @@ use crate::session::{authenticate_by_cookie, MainData};
 use crate::template::LoginTemplate;
 use crate::user::get_user_id_from_name;
 use actix_identity::Identity;
-use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
+use actix_web::{error, get, post, web, Error, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use sea_orm::{entity::*, DatabaseConnection, FromQueryResult};
 use serde::Deserialize;
@@ -57,7 +57,7 @@ pub async fn post_login(
     cookies: actix_session::Session,
     form: web::Form<FormData>,
     my: web::Data<MainData<'_>>,
-) -> Result<HttpResponse, Error> {
+) -> Result<impl Responder, Error> {
     // TODO: Sanitize input and check for errors.
     let user_id = login(&my.pool, &form.username, &form.password, &my).await?;
 
@@ -66,18 +66,27 @@ pub async fn post_login(
         .map_err(|e| {
             log::error!("error {:?}", e);
             error::ErrorInternalServerError("DB error")
-        })?;
+        })?
+        .to_string();
 
     cookies
         .insert("logged_in", true)
         .map_err(|_| error::ErrorInternalServerError("middleware error"))?;
 
     cookies
-        .insert("token", uuid)
+        .insert("token", uuid.to_owned())
         .map_err(|_| error::ErrorInternalServerError("middleware error"))?;
 
-    id.remember(uuid.to_string());
-    Ok(HttpResponse::Ok().finish())
+    id.remember(uuid.to_owned());
+
+    let tmpl = LoginTemplate {
+        user_id: Some(user_id),
+        logged_in: true,
+        username: Some(&form.username),
+        token: Some(&uuid),
+    };
+
+    Ok(tmpl.to_pub_response())
 }
 
 #[get("/login")]
