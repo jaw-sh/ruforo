@@ -19,7 +19,7 @@ pub trait TemplateToPubResponse {
 /// Produces an actix-web HttpResponse with a partial template that will be inset with the public container.
 impl<T: askama::Template> TemplateToPubResponse for T {
     fn to_pub_response(&self) -> Result<PublicResponse, Error> {
-        let mut buffer = String::new();
+        let mut buffer = String::with_capacity(4096); // allocate 4KB up front for performance
         if self.render_into(&mut buffer).is_err() {
             return Err(error::ErrorInternalServerError("Template parsing error"));
         }
