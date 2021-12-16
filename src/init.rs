@@ -59,6 +59,7 @@ pub fn init() {
 
     session::init();
     filesystem::init();
+    frontend::css::init();
 }
 
 /// This MUST NOT be called before init_db()

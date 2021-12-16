@@ -17,10 +17,15 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
+static MIME_LOOKUP: OnceCell<HashMap<&'static str, &'static str>> = OnceCell::new();
 static EXT_LOOKUP: OnceCell<HashMap<&'static str, &'static str>> = OnceCell::new();
 static DIR_TMP: OnceCell<String> = OnceCell::new();
 static S3BUCKET: OnceCell<S3Bucket> = OnceCell::new();
 
+#[inline(always)]
+fn get_mime_lookup() -> &'static HashMap<&'static str, &'static str> {
+    unsafe { MIME_LOOKUP.get_unchecked() }
+}
 #[inline(always)]
 fn get_ext_lookup() -> &'static HashMap<&'static str, &'static str> {
     unsafe { EXT_LOOKUP.get_unchecked() }
@@ -36,6 +41,27 @@ fn get_s3() -> &'static S3Bucket {
 
 /// MUST be called ONCE before using functions in this module
 pub fn init() {
+    DIR_TMP
+        .set(
+            std::env::var("DIR_TMP")
+                .expect("missing DIR_TMP environment variable (hint: 'DIR_TMP=./tmp')"),
+        )
+        .unwrap();
+
+    if S3BUCKET
+        .set(S3Bucket::new(
+            rusoto_core::Region::Custom {
+                name: "localhost".to_owned(),
+                endpoint: "http://localhost:9000".to_owned(),
+            },
+            "test0".to_owned(),
+            "localhost:9000/test0".to_owned(),
+        ))
+        .is_err()
+    {
+        panic!("S3BUCKET");
+    }
+
     let map: HashMap<&'static str, &'static str> = HashMap::from([
         ("aac", "aac"),
         ("apng", "apng"),
@@ -74,24 +100,42 @@ pub fn init() {
     ]);
     EXT_LOOKUP.set(map).unwrap();
 
-    DIR_TMP
-        .set(
-            std::env::var("DIR_TMP")
-                .expect("missing DIR_TMP environment variable (hint: 'DIR_TMP=./tmp')"),
-        )
-        .unwrap();
-
-    let bucket = S3Bucket::new(
-        rusoto_core::Region::Custom {
-            name: "localhost".to_owned(),
-            endpoint: "http://localhost:9000".to_owned(),
-        },
-        "test0".to_owned(),
-        "localhost:9000/test0".to_owned(),
-    );
-    if S3BUCKET.set(bucket).is_err() {
-        panic!("S3BUCKET");
-    }
+    let map: HashMap<&'static str, &'static str> = HashMap::from([
+        ("application/json", "json"),
+        ("application/pdf", "pdf"),
+        ("application/vnd.rn-realmedia", "rm"),
+        ("application/x-sh", "sh"),
+        ("application/zip", "zip"),
+        ("audio/aac", "aac"),
+        ("audio/flac", "flac"),
+        ("audio/m4a", "m4a"),
+        ("audio/mp4", "mp4"),
+        ("audio/mpeg", "mp3"),
+        ("audio/ogg", "ogg"),
+        ("audio/webm", "weba"),
+        ("audio/x-matroska", "mka"),
+        ("image/apng", "apng"),
+        ("image/avif", "avif"),
+        ("image/bmp", "bmp"),
+        ("image/gif", "gif"),
+        ("image/jpeg", "jpeg"),
+        ("image/ktx", "ktx"),
+        ("image/png", "png"),
+        ("image/svg+xml", "svg"),
+        ("image/vnd.djvu", "djvu"),
+        ("image/webp", "webp"),
+        ("image/x-icon", "ico"),
+        ("text/html", "html"),
+        ("text/plain", "txt"),
+        ("text/xml", "xml"),
+        ("video/mp4", "mp4"),
+        ("video/ogg", "ogv"),
+        ("video/quicktime", "mov"),
+        ("video/webm", "webm"),
+        ("video/x-matroska", "mkv"),
+        ("video/x-msvideo", "avi"),
+    ]);
+    MIME_LOOKUP.set(map).unwrap();
 }
 
 struct UploadPayload {
@@ -489,44 +533,7 @@ fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
     // We check the MIME manually because the mime and mime_guess crates are both inadequate. We
     // are only looking for formats where we can assume it is the only relevant extension.
     // For example we'd never want to add a format like .gz to the hashmaps, we'd rely on _guess for that.
-    lazy_static! {
-        static ref MIME_LOOKUP: HashMap<&'static str, &'static str> = HashMap::from([
-            ("application/json", "json"),
-            ("application/pdf", "pdf"),
-            ("application/vnd.rn-realmedia", "rm"),
-            ("application/x-sh", "sh"),
-            ("application/zip", "zip"),
-            ("audio/aac", "aac"),
-            ("audio/flac", "flac"),
-            ("audio/m4a", "m4a"),
-            ("audio/mp4", "mp4"),
-            ("audio/mpeg", "mp3"),
-            ("audio/ogg", "ogg"),
-            ("audio/webm", "weba"),
-            ("audio/x-matroska", "mka"),
-            ("image/apng", "apng"),
-            ("image/avif", "avif"),
-            ("image/bmp", "bmp"),
-            ("image/gif", "gif"),
-            ("image/jpeg", "jpeg"),
-            ("image/ktx", "ktx"),
-            ("image/png", "png"),
-            ("image/svg+xml", "svg"),
-            ("image/vnd.djvu", "djvu"),
-            ("image/webp", "webp"),
-            ("image/x-icon", "ico"),
-            ("text/html", "html"),
-            ("text/plain", "txt"),
-            ("text/xml", "xml"),
-            ("video/mp4", "mp4"),
-            ("video/ogg", "ogv"),
-            ("video/quicktime", "mov"),
-            ("video/webm", "webm"),
-            ("video/x-matroska", "mkv"),
-            ("video/x-msvideo", "avi"),
-        ]);
-    }
-    let result = MIME_LOOKUP.get(mime.as_ref().to_ascii_lowercase().as_str());
+    let result = get_mime_lookup().get(mime.as_ref().to_ascii_lowercase().as_str());
     match result {
         Some(v) => {
             log::info!("MIME_LOOKUP: Found {}", v);

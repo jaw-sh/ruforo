@@ -2458,7 +2458,6 @@ dependencies = [
  "ffmpeg-next",
  "futures",
  "futures-util",
- "lazy_static",
  "lettre",
  "log",
  "mime",
