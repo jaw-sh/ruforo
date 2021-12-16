@@ -7,7 +7,7 @@ use actix_web::{get, http::header::ContentType, post, web, Error, HttpResponse, 
 use chrono::Utc;
 use futures::{StreamExt, TryStreamExt};
 use mime::Mime;
-use once_cell::unsync::Lazy;
+use once_cell::sync::OnceCell;
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, DatabaseConnection, DbErr, FromQueryResult, JsonValue,
     QueryFilter,
@@ -18,25 +18,81 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
-lazy_static! {
-    pub static ref DIR_TMP: String = {
-        dotenv::dotenv().ok();
-        std::env::var("DIR_TMP")
-            .expect("missing DIR_TMP environment variable (hint: 'DIR_TMP=./tmp')")
-    };
+static EXT_LOOKUP: OnceCell<HashMap<&'static str, &'static str>> = OnceCell::new();
+static DIR_TMP: OnceCell<String> = OnceCell::new();
+static S3BUCKET: OnceCell<S3Bucket> = OnceCell::new();
 
-    // S3BUCKET is tmp until we support multiple DB-configurable buckets
-    static ref S3BUCKET: S3Bucket = {
-        let my_region = rusoto_core::Region::Custom {
+#[inline(always)]
+pub fn get_ext_lookup() -> &'static HashMap<&'static str, &'static str> {
+    unsafe { EXT_LOOKUP.get_unchecked() }
+}
+#[inline(always)]
+pub fn get_dir_tmp() -> &'static str {
+    unsafe { DIR_TMP.get_unchecked() }
+}
+#[inline(always)]
+pub fn get_s3() -> &'static S3Bucket {
+    unsafe { S3BUCKET.get_unchecked() }
+}
+
+/// MUST be called ONCE before using functions in this module
+pub fn init() {
+    let map: HashMap<&'static str, &'static str> = HashMap::from([
+        ("aac", "aac"),
+        ("apng", "apng"),
+        ("avi", "avi"),
+        ("avif", "avif"),
+        ("bmp", "bmp"),
+        ("djvu", "djvu"),
+        ("flac", "flac"),
+        ("gif", "gif"),
+        ("htm", "html"),
+        ("html", "html"),
+        ("ico", "ico"),
+        ("jpeg", "jpeg"),
+        ("jpg", "jpeg"),
+        ("json", "json"),
+        ("ktx", "ktx"),
+        ("m4a", "m4a"),
+        ("mka", "mka"),
+        ("mkv", "mkv"),
+        ("mov", "mov"),
+        ("mp3", "mp3"),
+        ("mp4", "mp4"),
+        ("ogg", "ogg"),
+        ("ogv", "ogv"),
+        ("pdf", "pdf"),
+        ("png", "png"),
+        ("rm", "rm"),
+        ("sh", "sh"),
+        ("svg", "svg"),
+        ("txt", "txt"),
+        ("weba", "weba"),
+        ("webm", "webm"),
+        ("webp", "webp"),
+        ("xml", "xml"),
+        ("zip", "zip"),
+    ]);
+    EXT_LOOKUP.set(map).unwrap();
+
+    DIR_TMP
+        .set(
+            std::env::var("DIR_TMP")
+                .expect("missing DIR_TMP environment variable (hint: 'DIR_TMP=./tmp')"),
+        )
+        .unwrap();
+
+    let bucket = S3Bucket::new(
+        rusoto_core::Region::Custom {
             name: "localhost".to_owned(),
             endpoint: "http://localhost:9000".to_owned(),
-        };
-        S3Bucket::new(
-            my_region,
-            "test0".to_owned(),
-            "localhost:9000/test0".to_owned(),
-        )
-    };
+        },
+        "test0".to_owned(),
+        "localhost:9000/test0".to_owned(),
+    );
+    if let Err(_) = S3BUCKET.set(bucket) {
+        panic!("S3BUCKET");
+    }
 }
 
 struct UploadPayload {
@@ -49,7 +105,7 @@ struct UploadPayload {
 
 #[get("/fs/{file_id}")]
 pub async fn view_file_canonical(file_id: web::Path<i32>) -> Result<impl Responder, Error> {
-    let result = get_file_url(&S3BUCKET, *file_id).await.map_err(|e| {
+    let result = get_file_url(get_s3(), *file_id).await.map_err(|e| {
         log::error!("view_file: get_filename_by_id: {}", e);
         actix_web::error::ErrorInternalServerError("view_file: bad ID")
     })?;
@@ -68,12 +124,10 @@ pub async fn view_file_canonical(file_id: web::Path<i32>) -> Result<impl Respond
 
 #[get("/fs/ugc/{file_id}")]
 pub async fn view_file_ugc(file_id: web::Path<i32>) -> Result<impl Responder, Error> {
-    let result = get_file_url_by_ugc(&S3BUCKET, *file_id)
-        .await
-        .map_err(|e| {
-            log::error!("view_file: get_filename_by_id: {}", e);
-            actix_web::error::ErrorInternalServerError("view_file: bad ID")
-        })?;
+    let result = get_file_url_by_ugc(get_s3(), *file_id).await.map_err(|e| {
+        log::error!("view_file: get_filename_by_id: {}", e);
+        actix_web::error::ErrorInternalServerError("view_file: bad ID")
+    })?;
     let content = match result {
         Some(result) => result,
         None => "None".to_owned(),
@@ -106,7 +160,7 @@ pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> 
             let mut filepath;
             let mut uuid;
             loop {
-                uuid = format!("{}/{}", DIR_TMP.as_str(), Uuid::new_v4());
+                uuid = format!("{}/{}", get_dir_tmp(), Uuid::new_v4());
                 filepath = Path::new(&uuid);
                 match filepath.metadata() {
                     Ok(metadata) => {
@@ -198,7 +252,8 @@ pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> 
         };
 
         // TODO probably check DB instead of the S3 bucket, or both
-        let list = S3BUCKET.list_objects_v2(&s3_filename).await.map_err(|e| {
+        let bucket = get_s3();
+        let list = bucket.list_objects_v2(&s3_filename).await.map_err(|e| {
             log::error!("put_file: failed to list_objects_v2: {}", e);
             actix_web::error::ErrorInternalServerError("put_file: failed to check if file exists")
         })?;
@@ -236,7 +291,7 @@ pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> 
 
             // count should only ever be 0 or 1, otherwise there's something wrong with the prefix
             if count == 0 {
-                S3BUCKET
+                bucket
                     .put_object(payload.data, &s3_filename)
                     .await
                     .map_err(|e| {
@@ -281,46 +336,7 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
             }
 
             // we have a list of extensions that we're okay with just accepting
-            let ext_lookup = Lazy::new(|| {
-                let map: HashMap<&'static str, &'static str> = HashMap::from([
-                    ("aac", "aac"),
-                    ("apng", "apng"),
-                    ("avi", "avi"),
-                    ("avif", "avif"),
-                    ("bmp", "bmp"),
-                    ("djvu", "djvu"),
-                    ("flac", "flac"),
-                    ("gif", "gif"),
-                    ("htm", "html"),
-                    ("html", "html"),
-                    ("ico", "ico"),
-                    ("jpeg", "jpeg"),
-                    ("jpg", "jpeg"),
-                    ("json", "json"),
-                    ("ktx", "ktx"),
-                    ("m4a", "m4a"),
-                    ("mka", "mka"),
-                    ("mkv", "mkv"),
-                    ("mov", "mov"),
-                    ("mp3", "mp3"),
-                    ("mp4", "mp4"),
-                    ("ogg", "ogg"),
-                    ("ogv", "ogv"),
-                    ("pdf", "pdf"),
-                    ("png", "png"),
-                    ("rm", "rm"),
-                    ("sh", "sh"),
-                    ("svg", "svg"),
-                    ("txt", "txt"),
-                    ("weba", "weba"),
-                    ("webm", "webm"),
-                    ("webp", "webp"),
-                    ("xml", "xml"),
-                    ("zip", "zip"),
-                ]);
-                map
-            });
-            match ext_lookup.get(&filename[idx + 1..]) {
+            match get_ext_lookup().get(&filename[idx + 1..]) {
                 Some(ext) => {
                     log::error!("EXT_LOOKUP: {}", ext);
                     return Some(ext.to_string());

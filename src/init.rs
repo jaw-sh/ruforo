@@ -18,7 +18,7 @@ use std::time::Duration;
 
 static DB_POOL: OnceCell<DatabaseConnection> = OnceCell::new();
 
-#[inline]
+#[inline(always)]
 pub fn get_db_pool() -> &'static DatabaseConnection {
     unsafe { DB_POOL.get_unchecked() }
 }
@@ -51,6 +51,8 @@ pub fn init() {
             .create(cache_path)
             .expect("failed to create DIR_TMP");
     }
+
+    filesystem::init();
 }
 
 /// This MUST NOT be called before init_db()
