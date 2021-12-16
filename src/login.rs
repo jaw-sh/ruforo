@@ -1,4 +1,5 @@
 use crate::frontend::TemplateToPubResponse;
+use crate::init::get_db_pool;
 use crate::orm::users;
 use crate::session;
 use crate::session::{authenticate_by_cookie, MainData};
@@ -59,9 +60,9 @@ pub async fn post_login(
     my: web::Data<MainData<'_>>,
 ) -> Result<impl Responder, Error> {
     // TODO: Sanitize input and check for errors.
-    let user_id = login(&my.pool, &form.username, &form.password, &my).await?;
-
-    let uuid = session::new_session(&my.pool, &my.cache.sessions, user_id)
+    let db = get_db_pool();
+    let user_id = login(db, &form.username, &form.password, &my).await?;
+    let uuid = session::new_session(&my.cache.sessions, user_id)
         .await
         .map_err(|e| {
             log::error!("error {:?}", e);
@@ -94,7 +95,6 @@ pub async fn view_login(
     my: web::Data<MainData<'_>>,
     cookies: actix_session::Session,
 ) -> Result<impl Responder, Error> {
-    let uuid;
     let mut tmpl = LoginTemplate {
         user_id: None,
         logged_in: false,
@@ -102,11 +102,12 @@ pub async fn view_login(
         token: None,
     };
 
-    if let Some(session) = authenticate_by_cookie(&my.cache.sessions, &cookies) {
-        tmpl.user_id = Some(session.session.user_id);
+    let uuid_str: String;
+    if let Some((uuid, session)) = authenticate_by_cookie(&my.cache.sessions, &cookies).await {
+        tmpl.user_id = Some(session.user_id);
         tmpl.logged_in = true;
-        uuid = session.uuid.to_string();
-        tmpl.token = Some(&uuid);
+        uuid_str = uuid.to_string();
+        tmpl.token = Some(&uuid_str);
     }
 
     Ok(tmpl.to_pub_response())

@@ -1,7 +1,7 @@
 use crate::ffmpeg::get_extension_ffmpeg;
+use crate::init::get_db_pool;
 use crate::orm::{attachments, ugc, ugc_attachments};
 use crate::s3::S3Bucket;
-use crate::session::MainData;
 use actix_multipart::Multipart;
 use actix_web::{get, http::header::ContentType, post, web, Error, HttpResponse, Responder};
 use chrono::Utc;
@@ -47,16 +47,11 @@ struct UploadPayload {
 }
 
 #[get("/fs/{file_id}")]
-pub async fn view_file_canonical(
-    file_id: web::Path<i32>,
-    my: web::Data<MainData<'_>>,
-) -> Result<impl Responder, Error> {
-    let result = get_file_url(&my.pool, &S3BUCKET, *file_id)
-        .await
-        .map_err(|e| {
-            log::error!("view_file: get_filename_by_id: {}", e);
-            actix_web::error::ErrorInternalServerError("view_file: bad ID")
-        })?;
+pub async fn view_file_canonical(file_id: web::Path<i32>) -> Result<impl Responder, Error> {
+    let result = get_file_url(&S3BUCKET, *file_id).await.map_err(|e| {
+        log::error!("view_file: get_filename_by_id: {}", e);
+        actix_web::error::ErrorInternalServerError("view_file: bad ID")
+    })?;
     let content = match result {
         Some(result) => result,
         None => "None".to_owned(),
@@ -71,11 +66,8 @@ pub async fn view_file_canonical(
 }
 
 #[get("/fs/ugc/{file_id}")]
-pub async fn view_file_ugc(
-    file_id: web::Path<i32>,
-    my: web::Data<MainData<'_>>,
-) -> Result<impl Responder, Error> {
-    let result = get_file_url_by_ugc(&my.pool, &S3BUCKET, *file_id)
+pub async fn view_file_ugc(file_id: web::Path<i32>) -> Result<impl Responder, Error> {
+    let result = get_file_url_by_ugc(&S3BUCKET, *file_id)
         .await
         .map_err(|e| {
             log::error!("view_file: get_filename_by_id: {}", e);
@@ -95,10 +87,7 @@ pub async fn view_file_ugc(
 }
 
 #[post("/fs/upload-file")]
-pub async fn put_file(
-    mut mutipart: Multipart,
-    my: web::Data<MainData<'_>>,
-) -> Result<impl Responder, Error> {
+pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> {
     // see: https://users.rust-lang.org/t/file-upload-in-actix-web/64871/3
     let mut payloads: Vec<UploadPayload> = Vec::new(); // TODO can we count files from the multipart to reserve?
 
@@ -222,7 +211,7 @@ pub async fn put_file(
         })?;
 
         let (_file_id, canon_filename) = insert_attachment(
-            &my.pool,
+            get_db_pool(),
             &s3_filename,
             &payload.hash.to_string(),
             filesize,
@@ -565,22 +554,16 @@ pub fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
 pub struct SelectFilename {
     pub filename: String,
 }
-pub async fn get_filename_by_id(
-    db: &DatabaseConnection,
-    id: i32,
-) -> Result<Option<SelectFilename>, DbErr> {
+pub async fn get_filename_by_id(id: i32) -> Result<Option<SelectFilename>, DbErr> {
     Ok(attachments::Entity::find_by_id(id)
         .select_only()
         .column(attachments::Column::Filename)
         .into_model::<SelectFilename>()
-        .one(db)
+        .one(get_db_pool())
         .await?)
 }
 
-pub async fn get_filename_by_ugc(
-    db: &DatabaseConnection,
-    id: i32,
-) -> Result<Option<SelectFilename>, DbErr> {
+pub async fn get_filename_by_ugc(id: i32) -> Result<Option<SelectFilename>, DbErr> {
     #[derive(Debug, FromQueryResult)]
     pub struct SelectAttachmentUgc {
         pub filename: String,
@@ -591,16 +574,12 @@ pub async fn get_filename_by_ugc(
         .inner_join(attachments::Entity)
         .filter(ugc_attachments::Column::Id.eq(id))
         .into_model::<SelectFilename>()
-        .one(db)
+        .one(get_db_pool())
         .await?)
 }
 
-pub async fn get_file_url(
-    db: &DatabaseConnection,
-    s3: &S3Bucket,
-    id: i32,
-) -> Result<Option<String>, DbErr> {
-    match get_filename_by_id(db, id).await? {
+pub async fn get_file_url(s3: &S3Bucket, id: i32) -> Result<Option<String>, DbErr> {
+    match get_filename_by_id(id).await? {
         Some(result) => Ok(Some(format!(
             "http://{}/{}/{}/{}", // TODO something
             s3.pub_url,
@@ -612,12 +591,8 @@ pub async fn get_file_url(
     }
 }
 
-pub async fn get_file_url_by_ugc(
-    db: &DatabaseConnection,
-    s3: &S3Bucket,
-    id: i32,
-) -> Result<Option<String>, DbErr> {
-    match get_filename_by_ugc(db, id).await? {
+pub async fn get_file_url_by_ugc(s3: &S3Bucket, id: i32) -> Result<Option<String>, DbErr> {
+    match get_filename_by_ugc(id).await? {
         Some(result) => Ok(Some(format!(
             "http://{}/{}/{}/{}", // TODO something
             s3.pub_url,

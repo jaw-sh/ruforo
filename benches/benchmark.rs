@@ -39,7 +39,10 @@ fn bench_view_thread(c: &mut Criterion) {
     init::init();
 
     let rt = actix_rt::System::new();
-    let data = rt.block_on(async { web::Data::new(session::init_data().await) });
+    let data = rt.block_on(async {
+        init::init_db().await;
+        web::Data::new(session::init_data().await)
+    });
     let srv = rt.block_on(async {
         actix_test::start(move || {
             let policy = CookieIdentityPolicy::new(&[0; 32]) // TODO: Set a 32B Salt

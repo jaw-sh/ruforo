@@ -1,4 +1,5 @@
 use crate::frontend::TemplateToPubResponse;
+use crate::init::get_db_pool;
 use crate::orm::users;
 use crate::session::MainData;
 use crate::template::CreateUserTemplate;
@@ -8,7 +9,7 @@ use argon2::{
     PasswordHasher,
 };
 use chrono::Utc;
-use sea_orm::{entity::*, DatabaseConnection, DbErr, InsertResult};
+use sea_orm::{entity::*, DbErr, InsertResult};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -18,7 +19,6 @@ pub struct FormData {
 }
 
 async fn insert_new_user(
-    db: &DatabaseConnection,
     name: &str,
     pass: &str,
 ) -> Result<InsertResult<users::ActiveModel>, DbErr> {
@@ -26,6 +26,7 @@ async fn insert_new_user(
     use futures::join;
     use sea_orm::ConnectionTrait;
 
+    let db = get_db_pool();
     let txn = db.begin().await?;
     let now = Utc::now().naive_utc();
 
@@ -88,7 +89,7 @@ pub async fn create_user_post(
         .hash_password(form.password.as_bytes(), &SaltString::generate(&mut OsRng))
         .unwrap()
         .to_string();
-    insert_new_user(&my.pool, &form.username, &password_hash)
+    insert_new_user(&form.username, &password_hash)
         .await
         .map_err(|e| {
             log::error!("{}", e);

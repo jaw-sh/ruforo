@@ -1,9 +1,9 @@
 use crate::frontend::TemplateToPubResponse;
+use crate::init::get_db_pool;
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
 use crate::orm::{posts, threads, ugc_deletions, ugc_revisions};
 use crate::post::{NewPostFormData, PostForTemplate};
-use crate::session::MainData;
 use crate::template::{Paginator, PaginatorToHtml};
 use crate::user::Client;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
@@ -72,20 +72,19 @@ pub fn get_url_for_pos(thread_id: i32, pos: i32) -> String {
 /// Returns a Responder for a thread at a specific page.
 async fn get_thread_and_replies_for_page(
     client: &Client,
-    data: &MainData<'_>,
     thread_id: i32,
     page: i32,
 ) -> Result<impl Responder, Error> {
     use crate::orm::user_names;
 
+    let db = get_db_pool();
     let thread = Thread::find_by_id(thread_id)
-        .one(&data.pool)
+        .one(db)
         .await
         .map_err(|_| error::ErrorInternalServerError("Could not look up thread."))?
         .ok_or_else(|| error::ErrorNotFound("Thread not found."))?;
 
     // Update thread to include views.
-    let new_pool = data.pool.to_owned();
     actix_web::rt::spawn(async move {
         Thread::update_many()
             .col_expr(
@@ -93,7 +92,7 @@ async fn get_thread_and_replies_for_page(
                 Expr::value(thread.view_count + 1),
             )
             .filter(threads::Column::Id.eq(thread_id))
-            .exec(&new_pool)
+            .exec(db)
             .await
     });
 
@@ -116,7 +115,7 @@ async fn get_thread_and_replies_for_page(
         .order_by_asc(posts::Column::Position)
         .order_by_asc(posts::Column::CreatedAt)
         .into_model::<PostForTemplate>()
-        .all(&data.pool)
+        .all(db)
         .await
         .map_err(error::ErrorInternalServerError)?;
 
@@ -138,19 +137,16 @@ async fn get_thread_and_replies_for_page(
 #[post("/threads/{thread_id}/post-reply")]
 pub async fn create_reply(
     client: Client,
-    data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
     form: web::Form<NewPostFormData>,
 ) -> Result<impl Responder, Error> {
     use crate::orm::{posts, threads};
     use crate::ugc::{create_ugc, NewUgcPartial};
 
+    let db = get_db_pool();
+
     // Begin Transaction
-    let txn = data
-        .pool
-        .begin()
-        .await
-        .map_err(error::ErrorInternalServerError)?;
+    let txn = db.begin().await.map_err(error::ErrorInternalServerError)?;
 
     let thread_id = path.into_inner().0;
     let our_thread = Thread::find_by_id(thread_id)
@@ -202,7 +198,7 @@ pub async fn create_reply(
             Expr::value(new_post.created_at.clone().unwrap()), // TODO: Change once SeaQL 0.5.0 is out
         )
         .filter(threads::Column::Id.eq(thread_id))
-        .exec(&data.pool)
+        .exec(db)
         .await
         .map_err(error::ErrorInternalServerError)?;
 
@@ -215,26 +211,21 @@ pub async fn create_reply(
 }
 
 #[get("/threads/{thread_id}/")]
-pub async fn view_thread(
-    client: Client,
-    path: web::Path<(i32,)>,
-    data: web::Data<MainData<'_>>,
-) -> Result<impl Responder, Error> {
-    get_thread_and_replies_for_page(&client, &data, path.into_inner().0, 1).await
+pub async fn view_thread(client: Client, path: web::Path<i32>) -> Result<impl Responder, Error> {
+    get_thread_and_replies_for_page(&client, path.into_inner(), 1).await
 }
 
 #[get("/threads/{thread_id}/page-{page}")]
 pub async fn view_thread_page(
     client: Client,
     path: web::Path<(i32, i32)>,
-    data: web::Data<MainData<'_>>,
 ) -> Result<impl Responder, Error> {
     let params = path.into_inner();
 
     if params.1 > 1 {
-        get_thread_and_replies_for_page(&client, &data, params.0, params.1).await
+        get_thread_and_replies_for_page(&client, params.0, params.1).await
     } else {
-        get_thread_and_replies_for_page(&client, &data, params.0, 1).await
+        get_thread_and_replies_for_page(&client, params.0, 1).await
         //Ok(HttpResponse::Found()
         //    .append_header(("Location", format!("/threads/{}/", params.0)))
         //    .finish())

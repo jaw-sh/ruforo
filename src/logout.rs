@@ -20,7 +20,7 @@ pub async fn view_logout(
     match cookies.get::<String>("token") {
         Ok(Some(uuid)) => match Uuid::parse_str(&uuid) {
             Ok(uuid) => {
-                if let Err(e) = remove_session(&data.pool, &data.cache.sessions, uuid).await {
+                if let Err(e) = remove_session(&data.cache.sessions, uuid).await {
                     log::error!("view_logout: remove_session() {}", e);
                 }
             }

@@ -1,6 +1,6 @@
 use crate::frontend::TemplateToPubResponse;
+use crate::init::get_db_pool;
 use crate::orm::{posts, threads, user_names};
-use crate::session::MainData;
 use crate::thread::{validate_thread_form, NewThreadFormData, ThreadForTemplate};
 use crate::user::Client;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
@@ -17,7 +17,6 @@ pub struct ForumTemplate<'a> {
 #[post("/forums/post-thread")]
 pub async fn create_thread(
     client: Client,
-    data: web::Data<MainData<'_>>,
     form: web::Form<NewThreadFormData>,
 ) -> Result<impl Responder, Error> {
     use crate::ugc::{create_ugc, NewUgcPartial};
@@ -26,8 +25,7 @@ pub async fn create_thread(
     let form = validate_thread_form(form).map_err(|err| err)?;
 
     // Begin Transaction
-    let txn = data
-        .pool
+    let txn = get_db_pool()
         .begin()
         .await
         .map_err(error::ErrorInternalServerError)?;
@@ -105,10 +103,7 @@ pub async fn create_thread(
 }
 
 #[get("/forums")]
-pub async fn view_forum(
-    client: Client,
-    data: web::Data<MainData<'_>>,
-) -> Result<impl Responder, Error> {
+pub async fn view_forum(client: Client) -> Result<impl Responder, Error> {
     let threads: Vec<ThreadForTemplate> = threads::Entity::find()
         // Authoring User
         .left_join(user_names::Entity)
@@ -120,7 +115,7 @@ pub async fn view_forum(
         // Execute
         .order_by_desc(threads::Column::LastPostAt)
         .into_model::<ThreadForTemplate>()
-        .all(&data.pool)
+        .all(get_db_pool())
         .await
         .map_err(error::ErrorNotFound)?;
 

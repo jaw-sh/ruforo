@@ -1,3 +1,4 @@
+use crate::init::get_db_pool;
 use crate::orm::{user_names, users};
 use crate::session::{authenticate_by_uuid_string, MainData};
 use actix_identity::Identity;
@@ -96,14 +97,14 @@ pub struct UserProfile {
 pub async fn get_client_from_identity(data: &MainData<'_>, id: &Identity) -> Client {
     Client {
         user: match id.identity() {
-            Some(id) => match authenticate_by_uuid_string(&data.cache.sessions, id) {
-                Some(session) => users::Entity::find_by_id(session.session.user_id)
+            Some(id) => match authenticate_by_uuid_string(&data.cache.sessions, id).await {
+                Some((_uuid, session)) => users::Entity::find_by_id(session.user_id)
                     .select_only()
                     .column(users::Column::Id)
                     .left_join(user_names::Entity)
                     .column(user_names::Column::Name)
                     .into_model::<ClientUser>()
-                    .one(&data.pool)
+                    .one(get_db_pool())
                     .await
                     .unwrap_or(None),
                 None => None,

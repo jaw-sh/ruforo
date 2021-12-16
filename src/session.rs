@@ -1,3 +1,4 @@
+use crate::init::get_db_pool;
 use crate::orm;
 use crate::orm::sessions::Entity as Sessions;
 use actix_web::{get, web, HttpResponse, Responder};
@@ -6,11 +7,10 @@ use argon2::{
     Argon2,
 };
 use chrono::{NaiveDateTime, Utc};
-use sea_orm::{entity::*, query::*, ConnectOptions, Database, DatabaseConnection, DbErr};
+use sea_orm::{entity::*, query::*, DatabaseConnection, DbErr};
 use std::collections::hash_map;
 use std::collections::HashMap;
 use std::sync::RwLock;
-use std::time::Duration;
 use uuid::Uuid;
 
 lazy_static! {
@@ -31,10 +31,10 @@ lazy_static! {
     };
 }
 
+/// This MUST NOT be called before init_db()
 pub async fn init_data<'key>() -> MainData<'key> {
-    let pool = new_db_pool().await.expect("Failed to create pool");
-    let mut data = MainData::new(pool, &SALT);
-    reload_session_cache(&data.pool, &mut data.cache.sessions)
+    let mut data = MainData::new(&SALT);
+    reload_session_cache(&mut data.cache.sessions)
         .await
         .expect("failed to reload_session_cache");
     data
@@ -76,12 +76,11 @@ impl Default for BigChungus {
 
 pub struct MainData<'key> {
     pub argon2: Argon2<'key>,
-    pub pool: DatabaseConnection,
     pub cache: BigChungus,
 }
 
 impl<'key> MainData<'key> {
-    pub fn new(pool: DatabaseConnection, salt: &'key SaltString) -> Self {
+    pub fn new(salt: &'key SaltString) -> Self {
         MainData {
             argon2: Argon2::new_with_secret(
                 salt.as_bytes(),
@@ -90,61 +89,78 @@ impl<'key> MainData<'key> {
                 argon2::Params::default(),
             )
             .expect("failed to create argon2"),
-            pool,
             cache: BigChungus::new(),
         }
     }
 }
 
 /// Accepts the actix_web Cookies jar and returns a session, if authentication can be found and made.
-pub fn authenticate_by_cookie(
+pub async fn authenticate_by_cookie(
     ses_map: &SessionMap,
     cookies: &actix_session::Session,
-) -> Option<SessionWithUuid> {
-    match cookies.get::<String>("token") {
-        Ok(Some(token)) => authenticate_by_uuid_string(ses_map, token),
-        _ => None,
+) -> Option<(Uuid, Session)> {
+    let token = match cookies.get::<String>("token") {
+        Ok(Some(token)) => token,
+        _ => return None,
+    };
+    let token = match Uuid::parse_str(&token) {
+        Ok(token) => token,
+        Err(e) => {
+            log::error!("authenticate_by_cookie: parse_str(): {}", e);
+            return None;
+        }
+    };
+    match authenticate_by_uuid(ses_map, &token).await {
+        Some(session) => Some((token, session)),
+        None => None,
     }
 }
 
 /// Accepts a UUID as a string and returns a session, if the UUID can parse and authenticate.
-pub fn authenticate_by_uuid_string(ses_map: &SessionMap, uuid: String) -> Option<SessionWithUuid> {
-    match Uuid::parse_str(&uuid) {
-        Ok(uuid) => authenticate_by_uuid(ses_map, uuid),
-        _ => None,
+pub async fn authenticate_by_uuid_string(
+    ses_map: &SessionMap,
+    uuid: String,
+) -> Option<(Uuid, Session)> {
+    let uuid = match Uuid::parse_str(&uuid) {
+        Ok(uuid) => uuid,
+        Err(e) => {
+            log::error!("authenticate_by_cookie: parse_str(): {}", e);
+            return None;
+        }
+    };
+    match authenticate_by_uuid(ses_map, &uuid).await {
+        Some(session) => Some((uuid, session)),
+        None => None,
     }
 }
 
 /// Accepts a uuid::Uuid type and returns a session if the token can authenticate.
-pub fn authenticate_by_uuid(ses_map: &SessionMap, uuid: Uuid) -> Option<SessionWithUuid> {
-    ses_map
+/// Use get_session() if you do not want to expire sessions.
+pub async fn authenticate_by_uuid(ses_map: &SessionMap, uuid: &Uuid) -> Option<Session> {
+    let session = ses_map
         .read()
         .unwrap()
-        .get(&uuid)
-        .map(|session| SessionWithUuid {
-            uuid,
-            session: session.to_owned(),
-        })
+        .get(uuid)
+        .map(|uuid| uuid.to_owned());
+
+    // check for expiration, removes and returns none if expired
+    let now = Utc::now().naive_utc();
+    match session {
+        Some(session) => match session.expires_at.lt(&now) {
+            true => match remove_session(ses_map, *uuid).await {
+                Ok(_) => None,
+                Err(e) => {
+                    log::error!("authenticate_by_uuid: remove_session(): {}", e);
+                    None
+                }
+            },
+            false => Some(session),
+        },
+        None => None,
+    }
 }
 
-async fn new_db_pool() -> Result<DatabaseConnection, DbErr> {
-    dotenv::dotenv().ok();
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let mut opt = ConnectOptions::new(database_url);
-    opt.max_connections(100)
-        .min_connections(5)
-        .connect_timeout(Duration::from_secs(8))
-        .idle_timeout(Duration::from_secs(8))
-        .sqlx_logging(true);
-
-    Database::connect(opt).await
-}
-
-pub async fn new_session(
-    db: &DatabaseConnection,
-    ses_map: &SessionMap,
-    user_id: i32,
-) -> Result<Uuid, DbErr> {
+pub async fn new_session(ses_map: &SessionMap, user_id: i32) -> Result<Uuid, DbErr> {
     // TODO make the expiration duration configurable
     // 20 seconds for testing purposes
     let expires_at = Utc::now().naive_utc() + chrono::Duration::seconds(20);
@@ -166,14 +182,13 @@ pub async fn new_session(
         user_id: Set(user_id),
         expires_at: Set(expires_at),
     };
-    Sessions::insert(session).exec(db).await?;
+    Sessions::insert(session).exec(get_db_pool()).await?;
 
     Ok(uuid)
 }
 
-/// copies a session out of the mutex protected hashmap
+/// use authenticate_by_uuid() instead unless you have a good reason.
 pub fn get_session(ses_map: &SessionMap, uuid: &Uuid) -> Option<Session> {
-    // TODO add expiration checking
     ses_map
         .read()
         .unwrap()
@@ -181,19 +196,15 @@ pub fn get_session(ses_map: &SessionMap, uuid: &Uuid) -> Option<Session> {
         .map(|uuid| uuid.to_owned())
 }
 
-/// use get_session instead unless you have a really good reason to talk to the DB
-pub async fn get_session_from_db(
-    db: &DatabaseConnection,
-    uuid: &Uuid,
-) -> Result<Option<orm::sessions::Model>, DbErr> {
-    Sessions::find_by_id(uuid.to_string()).one(db).await
+/// use get_session() instead unless you have a really good reason to talk to the DB
+pub async fn get_session_from_db(uuid: &Uuid) -> Result<Option<orm::sessions::Model>, DbErr> {
+    Sessions::find_by_id(uuid.to_string())
+        .one(get_db_pool())
+        .await
 }
 
-pub async fn reload_session_cache(
-    db: &DatabaseConnection,
-    ses_map: &mut SessionMap,
-) -> Result<(), DbErr> {
-    let results = Sessions::find().all(db).await?;
+pub async fn reload_session_cache(ses_map: &mut SessionMap) -> Result<(), DbErr> {
+    let results = Sessions::find().all(get_db_pool()).await?;
     let mut ses_map = ses_map.write().unwrap();
     for result in results {
         ses_map.insert(
@@ -210,11 +221,7 @@ pub async fn reload_session_cache(
     Ok(())
 }
 
-pub async fn remove_session(
-    db: &DatabaseConnection,
-    ses_map: &SessionMap,
-    uuid: Uuid,
-) -> Result<Option<Session>, DbErr> {
+pub async fn remove_session(ses_map: &SessionMap, uuid: Uuid) -> Result<Option<Session>, DbErr> {
     // testing indicates if you match the function result directly it holds the mutex.
     // using a let, this should unlock immediately.
     let result = ses_map.write().unwrap().remove(&uuid);
@@ -223,7 +230,7 @@ pub async fn remove_session(
             log::info!("remove_session: deleting {}", uuid);
             orm::sessions::Entity::delete_many()
                 .filter(orm::sessions::Column::Id.eq(uuid.to_string()))
-                .exec(db)
+                .exec(get_db_pool())
                 .await?;
             Ok(result)
         }
@@ -288,7 +295,7 @@ pub async fn task_expire_sessions(
 
 #[get("/task/expire_sessions")]
 pub async fn view_task_expire_sessions(my: web::Data<MainData<'_>>) -> impl Responder {
-    match task_expire_sessions(&my.pool, &my.cache.sessions).await {
+    match task_expire_sessions(get_db_pool(), &my.cache.sessions).await {
         Ok((rows_affected, deleted_sessions)) => {
             let body = format!(
                 "Sessions Deleted: {:?}\nDB Rows Updated: {:?}",

@@ -11,7 +11,30 @@ use actix_session::CookieSession;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use env_logger::Env;
+use once_cell::sync::OnceCell;
+use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use std::path::Path;
+use std::time::Duration;
+
+static DB_POOL: OnceCell<DatabaseConnection> = OnceCell::new();
+
+#[inline]
+pub fn get_db_pool() -> &'static DatabaseConnection {
+    unsafe { DB_POOL.get_unchecked() }
+}
+
+/// This MUST be called before calling get_db_pool, which is unsafe code
+pub async fn init_db() {
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let mut opt = ConnectOptions::new(database_url);
+    opt.max_connections(100)
+        .min_connections(5)
+        .connect_timeout(Duration::from_secs(8))
+        .idle_timeout(Duration::from_secs(8))
+        .sqlx_logging(true);
+    let pool = Database::connect(opt).await.expect("Failed to create pool");
+    DB_POOL.set(pool).unwrap();
+}
 
 pub fn init() {
     dotenv::dotenv().ok();
@@ -30,6 +53,8 @@ pub fn init() {
     }
 }
 
+/// This MUST NOT be called before init_db()
+///
 /// TODO break up into chunks
 pub async fn start() -> std::io::Result<()> {
     let data = web::Data::new(session::init_data().await);

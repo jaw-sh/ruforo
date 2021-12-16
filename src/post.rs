@@ -1,6 +1,6 @@
 use crate::frontend::TemplateToPubResponse;
+use crate::init::get_db_pool;
 use crate::orm::{posts, ugc_deletions, ugc_revisions, user_names};
-use crate::session::MainData;
 use crate::thread::get_url_for_pos;
 use crate::user::Client;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
@@ -48,12 +48,8 @@ pub struct NewPostFormData {
 }
 
 #[get("/posts/{post_id}/delete")]
-pub async fn delete_post(
-    client: Client,
-    data: web::Data<MainData<'_>>,
-    path: web::Path<(i32,)>,
-) -> Result<impl Responder, Error> {
-    let post = get_post_for_template(&data.pool, path.into_inner().0)
+pub async fn delete_post(client: Client, path: web::Path<(i32,)>) -> Result<impl Responder, Error> {
+    let post = get_post_for_template(get_db_pool(), path.into_inner().0)
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
@@ -70,10 +66,10 @@ pub async fn delete_post(
 #[post("/posts/{post_id}/delete")]
 pub async fn destroy_post(
     client: Client,
-    data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
 ) -> Result<impl Responder, Error> {
-    let post = get_post_for_template(&data.pool, path.into_inner().0)
+    let db = get_db_pool();
+    let post = get_post_for_template(db, path.into_inner().0)
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
@@ -90,7 +86,7 @@ pub async fn destroy_post(
         ugc_deletions::Entity::update_many()
             .col_expr(ugc_deletions::Column::UserId, Expr::value(client.get_id()))
             .filter(ugc_deletions::Column::Id.eq(post.id))
-            .exec(&data.pool)
+            .exec(db)
             .await
             .map_err(error::ErrorInternalServerError)?;
     } else {
@@ -100,7 +96,7 @@ pub async fn destroy_post(
             deleted_at: Set(Utc::now().naive_utc()),
             reason: Set(Some("Temporary reason holder".to_owned())),
         })
-        .exec(&data.pool)
+        .exec(db)
         .await
         .map_err(error::ErrorInternalServerError)?;
     }
@@ -111,12 +107,8 @@ pub async fn destroy_post(
 }
 
 #[get("/posts/{post_id}/edit")]
-pub async fn edit_post(
-    client: Client,
-    data: web::Data<MainData<'_>>,
-    path: web::Path<(i32,)>,
-) -> Result<impl Responder, Error> {
-    let post: PostForTemplate = get_post_for_template(&data.pool, path.into_inner().0)
+pub async fn edit_post(client: Client, path: web::Path<(i32,)>) -> Result<impl Responder, Error> {
+    let post: PostForTemplate = get_post_for_template(get_db_pool(), path.into_inner().0)
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
@@ -133,13 +125,14 @@ pub async fn edit_post(
 #[post("/posts/{post_id}/edit")]
 pub async fn update_post(
     client: Client,
-    data: web::Data<MainData<'_>>,
     path: web::Path<(i32,)>,
     form: web::Form<NewPostFormData>,
 ) -> Result<impl Responder, Error> {
     use crate::ugc::{create_ugc_revision, NewUgcPartial};
 
-    let post: PostForTemplate = get_post_for_template(&data.pool, path.into_inner().0)
+    let db = get_db_pool();
+
+    let post: PostForTemplate = get_post_for_template(db, path.into_inner().0)
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
@@ -151,7 +144,7 @@ pub async fn update_post(
     }
 
     create_ugc_revision(
-        &data.pool,
+        db,
         post.ugc_id,
         NewUgcPartial {
             ip_id: None,
@@ -168,20 +161,14 @@ pub async fn update_post(
 }
 
 #[get("/posts/{post_id}")]
-pub async fn view_post_by_id(
-    data: web::Data<MainData<'_>>,
-    path: web::Path<(i32,)>,
-) -> Result<HttpResponse, Error> {
-    view_post(data, path.into_inner().0).await
+pub async fn view_post_by_id(path: web::Path<i32>) -> Result<HttpResponse, Error> {
+    view_post(path.into_inner()).await
 }
 
 // Permalink for a specific post.
 #[get("/threads/{thread_id}/post-{post_id}")]
-pub async fn view_post_in_thread(
-    data: web::Data<MainData<'_>>,
-    path: web::Path<(i32, i32)>,
-) -> Result<HttpResponse, Error> {
-    view_post(data, path.into_inner().1).await
+pub async fn view_post_in_thread(path: web::Path<(i32, i32)>) -> Result<HttpResponse, Error> {
+    view_post(path.into_inner().1).await
 }
 
 /// Returns the result of a query selecting for a post by id with adjoined templating data.
@@ -206,9 +193,9 @@ pub async fn get_post_for_template(
         .await
 }
 
-async fn view_post(data: web::Data<MainData<'_>>, id: i32) -> Result<HttpResponse, Error> {
+async fn view_post(id: i32) -> Result<HttpResponse, Error> {
     let post = posts::Entity::find_by_id(id)
-        .one(&data.pool)
+        .one(get_db_pool())
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
