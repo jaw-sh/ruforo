@@ -26,26 +26,26 @@ chrono = { version = "0.4.19", features = ["serde"] }
 dotenv = "0.15.0"
 env_logger = "0.9.0"
 ffmpeg-next = "4.4.0"
-futures = "0.3.18"
-futures-util = "0.3.18"
+futures = "0.3.17"
+futures-util = "0.3.17"
 lazy_static = "1.4.0"
 lettre = { version = "0.10.0-rc.4", default-features = false, features = [ "rustls", "smtp-transport", "pool", "hostname", "builder" ] }
 log = "0.4.14"
-mime = "0.3"
+mime = "0.3.16"
 rand = "0.8.4"
-rsass = "0.23"
+rsass = "0.23.0"
 rusoto_core = "0.47.0"
 rusoto_s3 = "0.47.0"
 sea-orm = { version = "0.4.2", features = [ "sqlx-postgres", "runtime-actix-rustls", "macros" ], default-features = false }
-serde = "1.0"
-serde_json = "1.0"
+serde = "1.0.131"
+serde_json = "1.0.73"
 uuid = { version = "0.8.2", default-features = false, features = ["v4"] }
 
 [dev-dependencies]
-actix-rt = "2.1"
+actix-rt = "2.5.0"
 actix-test = "0.1.0-beta.8"
-awc = { version = "3.0.0-beta.13" }
-criterion = { version = "0.3", features = ["html_reports"] }
+awc = "3.0.0-beta.13"
+criterion = { version = "0.3.5", features = ["html_reports"] }
 
 [profile.debugo]
 inherits = "release"
