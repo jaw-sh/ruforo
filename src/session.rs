@@ -1,7 +1,7 @@
 use crate::init::get_db_pool;
 use crate::orm;
 use crate::orm::sessions::Entity as Sessions;
-use actix_web::{get, web, HttpResponse, Responder};
+use actix_web::{get, HttpResponse, Responder};
 use argon2::{
     password_hash::{rand_core::OsRng, SaltString},
     Argon2,
@@ -14,6 +14,10 @@ use std::collections::HashMap;
 use std::sync::RwLock;
 use uuid::Uuid;
 
+pub type SessionMap = RwLock<HashMap<Uuid, Session>>;
+
+static START_TIME: OnceCell<NaiveDateTime> = OnceCell::new();
+static SESSIONS: OnceCell<SessionMap> = OnceCell::new();
 static SALT: OnceCell<SaltString> = OnceCell::new();
 static ARGON2: OnceCell<Argon2> = OnceCell::new();
 
@@ -21,9 +25,18 @@ static ARGON2: OnceCell<Argon2> = OnceCell::new();
 pub fn get_argon2() -> &'static Argon2<'static> {
     unsafe { ARGON2.get_unchecked() }
 }
+#[inline(always)]
+pub fn get_sess() -> &'static SessionMap {
+    unsafe { SESSIONS.get_unchecked() }
+}
+#[inline(always)]
+pub fn get_start_time() -> &'static NaiveDateTime {
+    unsafe { START_TIME.get_unchecked() }
+}
 
 /// MUST be called ONCE before using functions in this module
 pub fn init() {
+    // Init SALT
     let salt = match std::env::var("SALT") {
         Ok(v) => v,
         Err(e) => {
@@ -38,6 +51,7 @@ pub fn init() {
     let salt = SaltString::new(&salt).unwrap();
     SALT.set(salt).expect("failed to set SALT");
 
+    // Init ARGON2
     let salt = SALT.get().unwrap();
     let argon2 = Argon2::new_with_secret(
         salt.as_bytes(),
@@ -49,15 +63,14 @@ pub fn init() {
     if ARGON2.set(argon2).is_err() {
         panic!("failed to set ARGON2");
     }
-}
 
-/// This MUST NOT be called before init_db()
-pub async fn init_data() -> MainData {
-    let mut data = MainData::new();
-    reload_session_cache(&mut data.cache.sessions)
-        .await
-        .expect("failed to reload_session_cache");
-    data
+    if START_TIME.set(Utc::now().naive_utc()).is_err() {
+        panic!("failed to set START_TIME");
+    }
+
+    if SESSIONS.set(RwLock::new(HashMap::new())).is_err() {
+        panic!("failed to set SESSIONS");
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -70,40 +83,6 @@ pub struct Session {
 pub struct SessionWithUuid {
     pub uuid: Uuid,
     pub session: Session,
-}
-
-pub type SessionMap = RwLock<HashMap<Uuid, Session>>;
-pub struct BigChungus {
-    pub val: RwLock<i32>,
-    pub start_time: NaiveDateTime,
-    pub sessions: SessionMap,
-}
-
-impl BigChungus {
-    pub fn new() -> Self {
-        BigChungus {
-            val: RwLock::new(32),
-            start_time: Utc::now().naive_utc(),
-            sessions: RwLock::new(HashMap::new()),
-        }
-    }
-}
-impl Default for BigChungus {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-pub struct MainData {
-    pub cache: BigChungus,
-}
-
-impl MainData {
-    pub fn new() -> Self {
-        MainData {
-            cache: BigChungus::new(),
-        }
-    }
 }
 
 /// Accepts the actix_web Cookies jar and returns a session, if authentication can be found and made.
@@ -215,7 +194,7 @@ pub async fn get_session_from_db(uuid: &Uuid) -> Result<Option<orm::sessions::Mo
         .await
 }
 
-pub async fn reload_session_cache(ses_map: &mut SessionMap) -> Result<(), DbErr> {
+pub async fn reload_session_cache(ses_map: &SessionMap) -> Result<(), DbErr> {
     let results = Sessions::find().all(get_db_pool()).await?;
     let mut ses_map = ses_map.write().unwrap();
     for result in results {
@@ -306,8 +285,8 @@ pub async fn task_expire_sessions(
 }
 
 #[get("/task/expire_sessions")]
-pub async fn view_task_expire_sessions(my: web::Data<MainData>) -> impl Responder {
-    match task_expire_sessions(get_db_pool(), &my.cache.sessions).await {
+pub async fn view_task_expire_sessions() -> impl Responder {
+    match task_expire_sessions(get_db_pool(), get_sess()).await {
         Ok((rows_affected, deleted_sessions)) => {
             let body = format!(
                 "Sessions Deleted: {:?}\nDB Rows Updated: {:?}",

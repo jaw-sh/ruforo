@@ -1,6 +1,7 @@
 extern crate dotenv;
 extern crate ffmpeg_next;
 
+use crate::session::{get_sess, reload_session_cache};
 use crate::{
     chat, create_user, filesystem, forum, frontend, index, login, logout, member,
     middleware::AppendContext, post, session, thread,
@@ -34,6 +35,10 @@ pub async fn init_db() {
         .sqlx_logging(true);
     let pool = Database::connect(opt).await.expect("Failed to create pool");
     DB_POOL.set(pool).unwrap();
+
+    reload_session_cache(get_sess())
+        .await
+        .expect("failed to reload_session_cache");
 }
 
 pub fn init() {
@@ -60,7 +65,6 @@ pub fn init() {
 ///
 /// TODO break up into chunks
 pub async fn start() -> std::io::Result<()> {
-    let data = web::Data::new(session::init_data().await);
     let chat = web::Data::new(chat::ChatServer::new().start());
 
     // Start HTTP server
@@ -71,7 +75,6 @@ pub async fn start() -> std::io::Result<()> {
             .secure(true);
 
         App::new()
-            .app_data(data.clone())
             .app_data(chat.clone())
             // Order of middleware IS IMPORTANT and is in REVERSE EXECUTION ORDER.
             .wrap(CookieSession::signed(&[0; 32]).secure(false))

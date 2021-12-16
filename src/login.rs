@@ -2,7 +2,7 @@ use crate::frontend::TemplateToPubResponse;
 use crate::init::get_db_pool;
 use crate::orm::users;
 use crate::session;
-use crate::session::{authenticate_by_cookie, get_argon2, MainData};
+use crate::session::{authenticate_by_cookie, get_argon2, get_sess};
 use crate::template::LoginTemplate;
 use crate::user::get_user_id_from_name;
 use actix_identity::Identity;
@@ -53,11 +53,10 @@ pub async fn post_login(
     id: Identity,
     cookies: actix_session::Session,
     form: web::Form<FormData>,
-    my: web::Data<MainData>,
 ) -> Result<impl Responder, Error> {
     // TODO: Sanitize input and check for errors.
     let user_id = login(&form.username, &form.password).await?;
-    let uuid = session::new_session(&my.cache.sessions, user_id)
+    let uuid = session::new_session(get_sess(), user_id)
         .await
         .map_err(|e| {
             log::error!("error {:?}", e);
@@ -86,10 +85,7 @@ pub async fn post_login(
 }
 
 #[get("/login")]
-pub async fn view_login(
-    my: web::Data<MainData>,
-    cookies: actix_session::Session,
-) -> Result<impl Responder, Error> {
+pub async fn view_login(cookies: actix_session::Session) -> Result<impl Responder, Error> {
     let mut tmpl = LoginTemplate {
         user_id: None,
         logged_in: false,
@@ -98,7 +94,7 @@ pub async fn view_login(
     };
 
     let uuid_str: String;
-    if let Some((uuid, session)) = authenticate_by_cookie(&my.cache.sessions, &cookies).await {
+    if let Some((uuid, session)) = authenticate_by_cookie(get_sess(), &cookies).await {
         tmpl.user_id = Some(session.user_id);
         tmpl.logged_in = true;
         uuid_str = uuid.to_string();

@@ -1,6 +1,6 @@
 use crate::frontend::TemplateToPubResponse;
-use crate::session::{remove_session, MainData};
-use actix_web::{get, web, Error, Responder};
+use crate::session::{get_sess, remove_session};
+use actix_web::{get, Error, Responder};
 use askama_actix::Template;
 use uuid::Uuid;
 
@@ -12,7 +12,6 @@ pub struct LogoutTemplate {}
 pub async fn view_logout(
     id: actix_identity::Identity,
     cookies: actix_session::Session,
-    data: web::Data<MainData>,
 ) -> Result<impl Responder, Error> {
     let tmpl = LogoutTemplate {};
 
@@ -20,7 +19,7 @@ pub async fn view_logout(
     match cookies.get::<String>("token") {
         Ok(Some(uuid)) => match Uuid::parse_str(&uuid) {
             Ok(uuid) => {
-                if let Err(e) = remove_session(&data.cache.sessions, uuid).await {
+                if let Err(e) = remove_session(get_sess(), uuid).await {
                     log::error!("view_logout: remove_session() {}", e);
                 }
             }

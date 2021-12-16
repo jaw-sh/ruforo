@@ -1,11 +1,11 @@
 use actix_identity::{CookieIdentityPolicy, IdentityService};
-use actix_web::{middleware::Logger, web, App};
+use actix_web::{middleware::Logger, App};
 use awc::Client;
 use criterion::{criterion_group, criterion_main, Criterion};
 use futures_util::future::join_all;
 use ruforo::{
     create_user, filesystem, forum, frontend, index, init, login, logout, member,
-    middleware::AppendContext, post, session, thread,
+    middleware::AppendContext, post, thread,
 };
 
 // Shamelessly stolen from https://github.com/actix/actix-web/blob/master/benches/server.rs
@@ -37,11 +37,9 @@ fn bench_view_css(c: &mut Criterion) {
 
 fn bench_view_thread(c: &mut Criterion) {
     init::init();
-
     let rt = actix_rt::System::new();
-    let data = rt.block_on(async {
+    rt.block_on(async {
         init::init_db().await;
-        web::Data::new(session::init_data().await)
     });
     let srv = rt.block_on(async {
         actix_test::start(move || {
@@ -49,7 +47,6 @@ fn bench_view_thread(c: &mut Criterion) {
                 .name("auth")
                 .secure(true);
             App::new()
-                .app_data(data.clone())
                 // Order of middleware IS IMPORTANT and is in REVERSE EXECUTION ORDER.
                 .wrap(AppendContext::default())
                 .wrap(IdentityService::new(policy))

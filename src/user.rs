@@ -1,6 +1,6 @@
 use crate::init::get_db_pool;
 use crate::orm::{user_names, users};
-use crate::session::{authenticate_by_uuid_string, MainData};
+use crate::session::{authenticate_by_uuid_string, get_sess};
 use actix_identity::Identity;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::{dev, Error, FromRequest, HttpMessage, HttpRequest};
@@ -94,10 +94,10 @@ pub struct UserProfile {
 }
 
 /// Produces a client object for a specific identity.
-pub async fn get_client_from_identity(data: &MainData, id: &Identity) -> Client {
+pub async fn get_client_from_identity(id: &Identity) -> Client {
     Client {
         user: match id.identity() {
-            Some(id) => match authenticate_by_uuid_string(&data.cache.sessions, id).await {
+            Some(id) => match authenticate_by_uuid_string(get_sess(), id).await {
                 Some((_uuid, session)) => users::Entity::find_by_id(session.user_id)
                     .select_only()
                     .column(users::Column::Id)
