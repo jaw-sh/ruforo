@@ -2,13 +2,13 @@ use crate::frontend::TemplateToPubResponse;
 use crate::init::get_db_pool;
 use crate::orm::users;
 use crate::session;
-use crate::session::{authenticate_by_cookie, MainData};
+use crate::session::{authenticate_by_cookie, get_argon2, MainData};
 use crate::template::LoginTemplate;
 use crate::user::get_user_id_from_name;
 use actix_identity::Identity;
 use actix_web::{error, get, post, web, Error, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
-use sea_orm::{entity::*, DatabaseConnection, FromQueryResult};
+use sea_orm::{entity::*, FromQueryResult};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -17,18 +17,14 @@ pub struct FormData {
     password: String,
 }
 
-async fn login(
-    db: &DatabaseConnection,
-    name: &str,
-    pass: &str,
-    my: &web::Data<MainData<'_>>,
-) -> Result<i32, Error> {
+async fn login(name: &str, pass: &str) -> Result<i32, Error> {
     #[derive(Debug, FromQueryResult)]
     struct SelectResult {
         id: i32,
         password: String,
     }
 
+    let db = get_db_pool();
     let user_id: i32 = get_user_id_from_name(db, name)
         .await
         .ok_or_else(|| error::ErrorBadRequest("User not found or password is incorrect."))?;
@@ -46,7 +42,7 @@ async fn login(
         })?;
 
     let parsed_hash = PasswordHash::new(&user.password).unwrap();
-    my.argon2
+    get_argon2()
         .verify_password(pass.as_bytes(), &parsed_hash)
         .map_err(|_| error::ErrorInternalServerError("User not found or password is incorrect."))?;
     Ok(user.id)
@@ -57,11 +53,10 @@ pub async fn post_login(
     id: Identity,
     cookies: actix_session::Session,
     form: web::Form<FormData>,
-    my: web::Data<MainData<'_>>,
+    my: web::Data<MainData>,
 ) -> Result<impl Responder, Error> {
     // TODO: Sanitize input and check for errors.
-    let db = get_db_pool();
-    let user_id = login(db, &form.username, &form.password, &my).await?;
+    let user_id = login(&form.username, &form.password).await?;
     let uuid = session::new_session(&my.cache.sessions, user_id)
         .await
         .map_err(|e| {
@@ -92,7 +87,7 @@ pub async fn post_login(
 
 #[get("/login")]
 pub async fn view_login(
-    my: web::Data<MainData<'_>>,
+    my: web::Data<MainData>,
     cookies: actix_session::Session,
 ) -> Result<impl Responder, Error> {
     let mut tmpl = LoginTemplate {

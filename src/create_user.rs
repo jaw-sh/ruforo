@@ -1,7 +1,7 @@
 use crate::frontend::TemplateToPubResponse;
 use crate::init::get_db_pool;
 use crate::orm::users;
-use crate::session::MainData;
+use crate::session::get_argon2;
 use crate::template::CreateUserTemplate;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use argon2::{
@@ -79,13 +79,9 @@ pub async fn create_user_get() -> impl Responder {
     .to_pub_response()
 }
 #[post("/create_user")]
-pub async fn create_user_post(
-    form: web::Form<FormData>,
-    my: web::Data<MainData<'_>>,
-) -> Result<HttpResponse, Error> {
+pub async fn create_user_post(form: web::Form<FormData>) -> Result<HttpResponse, Error> {
     // don't forget to sanitize kek and add error handling
-    let password_hash = my
-        .argon2
+    let password_hash = get_argon2()
         .hash_password(form.password.as_bytes(), &SaltString::generate(&mut OsRng))
         .unwrap()
         .to_string();

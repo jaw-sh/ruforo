@@ -12,7 +12,7 @@ pub struct IndexTemplate<'a> {
 }
 
 #[get("/")]
-async fn view_index(client: Client, data: web::Data<MainData<'_>>) -> impl Responder {
+async fn view_index(client: Client, data: web::Data<MainData>) -> impl Responder {
     for (key, value) in &*data.cache.sessions.read().unwrap() {
         println!(
             "Session: {} / {:?}",

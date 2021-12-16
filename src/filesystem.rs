@@ -89,7 +89,7 @@ pub fn init() {
         "test0".to_owned(),
         "localhost:9000/test0".to_owned(),
     );
-    if let Err(_) = S3BUCKET.set(bucket) {
+    if S3BUCKET.set(bucket).is_err() {
         panic!("S3BUCKET");
     }
 }

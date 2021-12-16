@@ -7,33 +7,53 @@ use argon2::{
     Argon2,
 };
 use chrono::{NaiveDateTime, Utc};
+use once_cell::sync::OnceCell;
 use sea_orm::{entity::*, query::*, DatabaseConnection, DbErr};
 use std::collections::hash_map;
 use std::collections::HashMap;
 use std::sync::RwLock;
 use uuid::Uuid;
 
-lazy_static! {
-    static ref SALT: SaltString = {
-        dotenv::dotenv().ok();
-        let salt = match std::env::var("SALT") {
-            Ok(v) => v,
-            Err(e) => {
-                let salt = SaltString::generate(&mut OsRng);
-                panic!(
-                    "Missing SALT ({:?}) here's a freshly generated one: {}",
-                    e,
-                    salt.as_str()
-                );
-            }
-        };
-        SaltString::new(&salt).unwrap()
+static SALT: OnceCell<SaltString> = OnceCell::new();
+static ARGON2: OnceCell<Argon2> = OnceCell::new();
+
+#[inline(always)]
+pub fn get_argon2() -> &'static Argon2<'static> {
+    unsafe { ARGON2.get_unchecked() }
+}
+
+/// MUST be called ONCE before using functions in this module
+pub fn init() {
+    let salt = match std::env::var("SALT") {
+        Ok(v) => v,
+        Err(e) => {
+            let salt = SaltString::generate(&mut OsRng);
+            panic!(
+                "Missing SALT ({:?}) here's a freshly generated one: {}",
+                e,
+                salt.as_str()
+            );
+        }
     };
+    let salt = SaltString::new(&salt).unwrap();
+    SALT.set(salt).expect("failed to set SALT");
+
+    let salt = SALT.get().unwrap();
+    let argon2 = Argon2::new_with_secret(
+        salt.as_bytes(),
+        argon2::Algorithm::default(),
+        argon2::Version::default(),
+        argon2::Params::default(),
+    )
+    .expect("failed to create argon2");
+    if ARGON2.set(argon2).is_err() {
+        panic!("failed to set ARGON2");
+    }
 }
 
 /// This MUST NOT be called before init_db()
-pub async fn init_data<'key>() -> MainData<'key> {
-    let mut data = MainData::new(&SALT);
+pub async fn init_data() -> MainData {
+    let mut data = MainData::new();
     reload_session_cache(&mut data.cache.sessions)
         .await
         .expect("failed to reload_session_cache");
@@ -74,21 +94,13 @@ impl Default for BigChungus {
     }
 }
 
-pub struct MainData<'key> {
-    pub argon2: Argon2<'key>,
+pub struct MainData {
     pub cache: BigChungus,
 }
 
-impl<'key> MainData<'key> {
-    pub fn new(salt: &'key SaltString) -> Self {
+impl MainData {
+    pub fn new() -> Self {
         MainData {
-            argon2: Argon2::new_with_secret(
-                salt.as_bytes(),
-                argon2::Algorithm::default(),
-                argon2::Version::default(),
-                argon2::Params::default(),
-            )
-            .expect("failed to create argon2"),
             cache: BigChungus::new(),
         }
     }
@@ -294,7 +306,7 @@ pub async fn task_expire_sessions(
 }
 
 #[get("/task/expire_sessions")]
-pub async fn view_task_expire_sessions(my: web::Data<MainData<'_>>) -> impl Responder {
+pub async fn view_task_expire_sessions(my: web::Data<MainData>) -> impl Responder {
     match task_expire_sessions(get_db_pool(), &my.cache.sessions).await {
         Ok((rows_affected, deleted_sessions)) => {
             let body = format!(

@@ -52,6 +52,7 @@ pub fn init() {
             .expect("failed to create DIR_TMP");
     }
 
+    session::init();
     filesystem::init();
 }
 

@@ -94,7 +94,7 @@ pub struct UserProfile {
 }
 
 /// Produces a client object for a specific identity.
-pub async fn get_client_from_identity(data: &MainData<'_>, id: &Identity) -> Client {
+pub async fn get_client_from_identity(data: &MainData, id: &Identity) -> Client {
     Client {
         user: match id.identity() {
             Some(id) => match authenticate_by_uuid_string(&data.cache.sessions, id).await {
