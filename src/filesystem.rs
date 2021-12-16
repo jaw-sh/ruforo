@@ -1,12 +1,9 @@
 use crate::ffmpeg::get_extension_ffmpeg;
-use crate::orm::attachments;
-use crate::orm::ugc;
-use crate::orm::ugc_attachments;
+use crate::orm::{attachments, ugc, ugc_attachments};
 use crate::s3::S3Bucket;
 use crate::session::MainData;
 use actix_multipart::Multipart;
-use actix_web::http::header::ContentType;
-use actix_web::{get, post, web, Error, HttpResponse, Responder};
+use actix_web::{get, http::header::ContentType, post, web, Error, HttpResponse, Responder};
 use chrono::Utc;
 use futures::{StreamExt, TryStreamExt};
 use mime::Mime;

@@ -1,5 +1,6 @@
 use crate::orm;
 use crate::orm::sessions::Entity as Sessions;
+use actix_web::{get, web, HttpResponse, Responder};
 use argon2::{
     password_hash::{rand_core::OsRng, SaltString},
     Argon2,
@@ -226,5 +227,72 @@ pub async fn remove_session(
     } else {
         log::error!("remove_session: UUID not found in ses map.");
         Ok(None)
+    }
+}
+
+pub async fn task_expire_sessions(
+    db: &DatabaseConnection,
+    ses_map: &SessionMap,
+) -> Result<(usize, Vec<Uuid>), DbErr> {
+    use crate::orm::sessions;
+
+    // allocate memory up front with a read lock to minimize write lock
+    // this can be reduced since expiring all sessions is unlikely case
+    let mut deleted_sessions: Vec<Uuid> = Vec::with_capacity(ses_map.read().unwrap().len());
+    let now = Utc::now().naive_utc();
+
+    // Delete sessions from cache while generating a list for later use
+    let ses_map = &mut *ses_map.write().unwrap();
+    ses_map.retain(|k, v| {
+        let not_expired = v.expires_at.gt(&now);
+        if !not_expired {
+            deleted_sessions.push(*k);
+        }
+        not_expired
+    });
+
+    // Delete sessions from DB
+    let result = sessions::Entity::delete_many()
+        .filter({
+            let mut cond = Condition::any();
+            for v in &deleted_sessions {
+                cond = cond.add(sessions::Column::Id.eq(v.to_string()))
+            }
+            cond
+        })
+        .exec(db)
+        .await?;
+
+    // Sanity Check
+    let rows_affected: usize = result.rows_affected.try_into().map_err(|_| {
+        DbErr::Custom("task_expire_sessions: result.rows_affected.try_into()".to_owned())
+    })?;
+    if rows_affected != deleted_sessions.len() {
+        log::error!("task_expire_sessions: rows_affected != deleted_sessions.len()");
+    }
+
+    Ok((rows_affected, deleted_sessions))
+}
+
+#[get("/task/expire_sessions")]
+pub async fn view_task_expire_sessions(my: web::Data<MainData<'_>>) -> impl Responder {
+    match task_expire_sessions(&my.pool, &my.cache.sessions).await {
+        Ok((rows_affected, deleted_sessions)) => {
+            let body = format!(
+                "Sessions Deleted: {:?}\nDB Rows Updated: {:?}",
+                deleted_sessions.len(),
+                rows_affected
+            );
+            HttpResponse::Ok()
+                .content_type(mime::TEXT_PLAIN_UTF_8)
+                .body(body)
+        }
+        Err(e) => {
+            log::error!("view_task_expire_sessions: {}", e);
+            let body = "ERROR: view_task_expire_sessions";
+            HttpResponse::InternalServerError()
+                .content_type(mime::TEXT_PLAIN_UTF_8)
+                .body(body)
+        }
     }
 }

@@ -77,6 +77,7 @@ pub async fn start() -> std::io::Result<()> {
             .service(thread::create_reply)
             .service(thread::view_thread)
             .service(thread::view_thread_page)
+            .service(session::view_task_expire_sessions)
             .service(web::resource("/chat").to(crate::hub::chat_route))
     })
     .bind("127.0.0.1:8080")?
