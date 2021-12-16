@@ -240,14 +240,14 @@ pub async fn task_expire_sessions(
 
     // allocate memory up front with a read lock to minimize write lock
     // this can be reduced since expiring all sessions is unlikely case
-    let mut deleted_sessions: Vec<Uuid> = Vec::with_capacity(ses_map.read().unwrap().len());
+    let ses_map_len = ses_map.read().unwrap().len();
+    let mut deleted_sessions: Vec<Uuid> = Vec::with_capacity(ses_map_len);
     let now = Utc::now().naive_utc();
 
     // Delete sessions from cache while generating a list for later use
     // scoped to ensure mutex gets dropped early
     {
-        let ses_map = &mut *ses_map.write().unwrap();
-        ses_map.retain(|k, v| {
+        ses_map.write().unwrap().retain(|k, v| {
             let not_expired = v.expires_at.gt(&now);
             if !not_expired {
                 deleted_sessions.push(*k);
