@@ -86,10 +86,7 @@ pub struct SessionWithUuid {
 }
 
 /// Accepts the actix_web Cookies jar and returns a session, if authentication can be found and made.
-pub async fn authenticate_by_cookie(
-    ses_map: &SessionMap,
-    cookies: &actix_session::Session,
-) -> Option<(Uuid, Session)> {
+pub async fn authenticate_by_cookie(cookies: &actix_session::Session) -> Option<(Uuid, Session)> {
     let token = match cookies.get::<String>("token") {
         Ok(Some(token)) => token,
         _ => return None,
@@ -101,16 +98,13 @@ pub async fn authenticate_by_cookie(
             return None;
         }
     };
-    authenticate_by_uuid(ses_map, &uuid)
+    authenticate_by_uuid(get_sess(), &uuid)
         .await
         .map(|session| (uuid, session))
 }
 
 /// Accepts a UUID as a string and returns a session, if the UUID can parse and authenticate.
-pub async fn authenticate_by_uuid_string(
-    ses_map: &SessionMap,
-    uuid: String,
-) -> Option<(Uuid, Session)> {
+pub async fn authenticate_by_uuid_string(uuid: String) -> Option<(Uuid, Session)> {
     let uuid = match Uuid::parse_str(&uuid) {
         Ok(uuid) => uuid,
         Err(e) => {
@@ -118,7 +112,7 @@ pub async fn authenticate_by_uuid_string(
             return None;
         }
     };
-    authenticate_by_uuid(ses_map, &uuid)
+    authenticate_by_uuid(get_sess(), &uuid)
         .await
         .map(|session| (uuid, session))
 }

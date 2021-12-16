@@ -94,7 +94,7 @@ pub async fn view_login(cookies: actix_session::Session) -> Result<impl Responde
     };
 
     let uuid_str: String;
-    if let Some((uuid, session)) = authenticate_by_cookie(get_sess(), &cookies).await {
+    if let Some((uuid, session)) = authenticate_by_cookie(&cookies).await {
         tmpl.user_id = Some(session.user_id);
         tmpl.logged_in = true;
         uuid_str = uuid.to_string();
