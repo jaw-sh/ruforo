@@ -63,7 +63,7 @@ impl BigChungus {
     pub fn new() -> Self {
         BigChungus {
             val: RwLock::new(32),
-            start_time: chrono::Utc::now().naive_utc(),
+            start_time: Utc::now().naive_utc(),
             sessions: RwLock::new(HashMap::new()),
         }
     }
@@ -145,7 +145,9 @@ pub async fn new_session(
     ses_map: &SessionMap,
     user_id: i32,
 ) -> Result<Uuid, DbErr> {
-    let expires_at = chrono::Utc::now().naive_utc();
+    // TODO make the expiration duration configurable
+    // 20 seconds for testing purposes
+    let expires_at = Utc::now().naive_utc() + chrono::Duration::seconds(20);
     let ses = Session {
         user_id,
         expires_at,
@@ -236,8 +238,6 @@ pub async fn task_expire_sessions(
     db: &DatabaseConnection,
     ses_map: &SessionMap,
 ) -> Result<(usize, Vec<Uuid>), DbErr> {
-    use crate::orm::sessions;
-
     // allocate memory up front with a read lock to minimize write lock
     // this can be reduced since expiring all sessions is unlikely case
     let ses_map_len = ses_map.read().unwrap().len();
@@ -256,22 +256,29 @@ pub async fn task_expire_sessions(
         });
     }
 
-    // Delete sessions from DB
-    let result = sessions::Entity::delete_many()
-        .filter({
-            let mut cond = Condition::any();
-            for v in &deleted_sessions {
-                cond = cond.add(sessions::Column::Id.eq(v.to_string()))
-            }
-            cond
-        })
-        .exec(db)
-        .await?;
+    let rows_affected = match deleted_sessions.len() {
+        0 => 0,
+        _ => {
+            // Delete sessions from DB
+            let result = orm::sessions::Entity::delete_many()
+                .filter({
+                    let mut cond = Condition::any();
+                    for v in &deleted_sessions {
+                        cond = cond.add(orm::sessions::Column::Id.eq(v.to_string()))
+                    }
+                    cond
+                })
+                .exec(db)
+                .await?;
 
-    // Sanity Check
-    let rows_affected: usize = result.rows_affected.try_into().map_err(|_| {
-        DbErr::Custom("task_expire_sessions: result.rows_affected.try_into()".to_owned())
-    })?;
+            // Sanity Check
+            let rows_affected: usize = result.rows_affected.try_into().map_err(|_| {
+                DbErr::Custom("task_expire_sessions: result.rows_affected.try_into()".to_owned())
+            })?;
+            rows_affected
+        }
+    };
+
     if rows_affected != deleted_sessions.len() {
         log::error!("task_expire_sessions: rows_affected != deleted_sessions.len()");
     }
