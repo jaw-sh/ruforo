@@ -9,8 +9,7 @@ use futures::{StreamExt, TryStreamExt};
 use mime::Mime;
 use once_cell::sync::OnceCell;
 use sea_orm::{
-    entity::*, query::*, sea_query::Expr, DatabaseConnection, DbErr, FromQueryResult, JsonValue,
-    QueryFilter,
+    entity::*, query::*, sea_query::Expr, DbErr, FromQueryResult, JsonValue, QueryFilter,
 };
 use std::collections::HashMap;
 use std::fs::File;
@@ -23,15 +22,15 @@ static DIR_TMP: OnceCell<String> = OnceCell::new();
 static S3BUCKET: OnceCell<S3Bucket> = OnceCell::new();
 
 #[inline(always)]
-pub fn get_ext_lookup() -> &'static HashMap<&'static str, &'static str> {
+fn get_ext_lookup() -> &'static HashMap<&'static str, &'static str> {
     unsafe { EXT_LOOKUP.get_unchecked() }
 }
 #[inline(always)]
-pub fn get_dir_tmp() -> &'static str {
+fn get_dir_tmp() -> &'static str {
     unsafe { DIR_TMP.get_unchecked() }
 }
 #[inline(always)]
-pub fn get_s3() -> &'static S3Bucket {
+fn get_s3() -> &'static S3Bucket {
     unsafe { S3BUCKET.get_unchecked() }
 }
 
@@ -267,7 +266,6 @@ pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> 
         })?;
 
         let (_file_id, canon_filename) = insert_attachment(
-            get_db_pool(),
             &s3_filename,
             &payload.hash.to_string(),
             filesize,
@@ -317,7 +315,7 @@ pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> 
 }
 
 /// this is my fancy intelligent extension extractor
-pub fn get_extension_guess(filename: &str) -> Option<String> {
+fn get_extension_guess(filename: &str) -> Option<String> {
     fn get_extension_guess_return(filename: &str, idx: usize) -> Option<String> {
         Some(filename[idx + 1..].to_ascii_lowercase())
     }
@@ -396,7 +394,6 @@ pub fn get_extension_guess(filename: &str) -> Option<String> {
 
 /// returns (file_id, true) if duplicate found, (file_id, false) if new
 async fn insert_attachment(
-    db: &DatabaseConnection,
     filename: &str,
     hash: &str,
     filesize: i64,
@@ -409,6 +406,8 @@ async fn insert_attachment(
         id: i32,
         filename: String,
     }
+
+    let db = get_db_pool();
     let txn = db.begin().await?;
 
     let select = attachments::Entity::find()
@@ -486,7 +485,7 @@ async fn insert_attachment(
     Ok((res.last_insert_id, canon_filename))
 }
 
-pub fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
+fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
     // We check the MIME manually because the mime and mime_guess crates are both inadequate. We
     // are only looking for formats where we can assume it is the only relevant extension.
     // For example we'd never want to add a format like .gz to the hashmaps, we'd rely on _guess for that.
@@ -572,6 +571,7 @@ pub fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
 pub struct SelectFilename {
     pub filename: String,
 }
+
 pub async fn get_filename_by_id(id: i32) -> Result<Option<SelectFilename>, DbErr> {
     Ok(attachments::Entity::find_by_id(id)
         .select_only()
@@ -581,16 +581,12 @@ pub async fn get_filename_by_id(id: i32) -> Result<Option<SelectFilename>, DbErr
         .await?)
 }
 
-pub async fn get_filename_by_ugc(id: i32) -> Result<Option<SelectFilename>, DbErr> {
-    #[derive(Debug, FromQueryResult)]
-    pub struct SelectAttachmentUgc {
-        pub filename: String,
-    }
+pub async fn get_filename_by_ugc(ugc_id: i32) -> Result<Option<SelectFilename>, DbErr> {
     Ok(ugc_attachments::Entity::find()
         .select_only()
         .column(attachments::Column::Filename)
         .inner_join(attachments::Entity)
-        .filter(ugc_attachments::Column::Id.eq(id))
+        .filter(ugc_attachments::Column::Id.eq(ugc_id))
         .into_model::<SelectFilename>()
         .one(get_db_pool())
         .await?)
@@ -609,8 +605,8 @@ pub async fn get_file_url(s3: &S3Bucket, id: i32) -> Result<Option<String>, DbEr
     }
 }
 
-pub async fn get_file_url_by_ugc(s3: &S3Bucket, id: i32) -> Result<Option<String>, DbErr> {
-    match get_filename_by_ugc(id).await? {
+pub async fn get_file_url_by_ugc(s3: &S3Bucket, ugc_id: i32) -> Result<Option<String>, DbErr> {
+    match get_filename_by_ugc(ugc_id).await? {
         Some(result) => Ok(Some(format!(
             "http://{}/{}/{}/{}", // TODO something
             s3.pub_url,
