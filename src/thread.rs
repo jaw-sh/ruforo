@@ -1,13 +1,12 @@
-use crate::frontend::TemplateToPubResponse;
 use crate::init::get_db_pool;
+use crate::middleware::ClientCtx;
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
 use crate::orm::{posts, threads, ugc_deletions, ugc_revisions};
 use crate::post::{NewPostFormData, PostForTemplate};
 use crate::template::{Paginator, PaginatorToHtml};
-use crate::user::Client;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
-use askama_actix::Template;
+use askama_actix::{Template, TemplateToResponse};
 use sea_orm::{entity::*, query::*, sea_query::Expr, FromQueryResult, QueryFilter};
 use serde::Deserialize;
 
@@ -40,7 +39,7 @@ pub struct NewThreadFormData {
 #[derive(Template)]
 #[template(path = "thread.html")]
 pub struct ThreadTemplate<'a> {
-    pub client: &'a Client,
+    pub client: ClientCtx,
     pub thread: crate::orm::threads::Model,
     pub posts: &'a Vec<PostForTemplate>,
     pub paginator: Paginator,
@@ -71,7 +70,7 @@ pub fn get_url_for_pos(thread_id: i32, pos: i32) -> String {
 
 /// Returns a Responder for a thread at a specific page.
 async fn get_thread_and_replies_for_page(
-    client: &Client,
+    client: ClientCtx,
     thread_id: i32,
     page: i32,
 ) -> Result<impl Responder, Error> {
@@ -125,18 +124,18 @@ async fn get_thread_and_replies_for_page(
         page_count: get_pages_in_thread(thread.post_count),
     };
 
-    ThreadTemplate {
+    Ok(ThreadTemplate {
         client,
         thread,
         posts: &posts,
         paginator,
     }
-    .to_pub_response()
+    .to_response())
 }
 
 #[post("/threads/{thread_id}/post-reply")]
 pub async fn create_reply(
-    client: Client,
+    client: ClientCtx,
     path: web::Path<(i32,)>,
     form: web::Form<NewPostFormData>,
 ) -> Result<impl Responder, Error> {
@@ -156,11 +155,12 @@ pub async fn create_reply(
         .ok_or_else(|| error::ErrorNotFound("Thread not found."))?;
 
     // Insert ugc and first revision
+    let user_id = client.get_id();
     let ugc_revision = create_ugc(
         &txn,
         NewUgcPartial {
             ip_id: None,
-            user_id: client.get_id(),
+            user_id,
             content: &form.content,
         },
     )
@@ -211,21 +211,20 @@ pub async fn create_reply(
 }
 
 #[get("/threads/{thread_id}/")]
-pub async fn view_thread(client: Client, path: web::Path<i32>) -> Result<impl Responder, Error> {
-    get_thread_and_replies_for_page(&client, path.into_inner(), 1).await
+pub async fn view_thread(client: ClientCtx, path: web::Path<i32>) -> Result<impl Responder, Error> {
+    get_thread_and_replies_for_page(client, path.into_inner(), 1).await
 }
 
 #[get("/threads/{thread_id}/page-{page}")]
 pub async fn view_thread_page(
-    client: Client,
+    client: ClientCtx,
     path: web::Path<(i32, i32)>,
 ) -> Result<impl Responder, Error> {
     let params = path.into_inner();
-
     if params.1 > 1 {
-        get_thread_and_replies_for_page(&client, params.0, params.1).await
+        get_thread_and_replies_for_page(client, params.0, params.1).await
     } else {
-        get_thread_and_replies_for_page(&client, params.0, 1).await
+        get_thread_and_replies_for_page(client, params.0, 1).await
         //Ok(HttpResponse::Found()
         //    .append_header(("Location", format!("/threads/{}/", params.0)))
         //    .finish())

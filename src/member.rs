@@ -1,19 +1,20 @@
-use crate::frontend::TemplateToPubResponse;
 use crate::init::get_db_pool;
+use crate::middleware::ClientCtx;
 use crate::orm::{user_names, users};
 use crate::user::UserProfile;
 use actix_web::{error, get, Responder};
-use askama_actix::Template;
+use askama_actix::{Template, TemplateToResponse};
 use sea_orm::{entity::*, query::*};
 
 #[derive(Template)]
 #[template(path = "members.html")]
 pub struct MembersTemplate {
+    pub client: ClientCtx,
     pub users: Vec<crate::user::UserProfile>,
 }
 
 #[get("/members")]
-pub async fn view_members() -> impl Responder {
+pub async fn view_members(client: ClientCtx) -> impl Responder {
     match users::Entity::find()
         .left_join(user_names::Entity)
         .column_as(user_names::Column::Name, "name")
@@ -21,7 +22,7 @@ pub async fn view_members() -> impl Responder {
         .all(get_db_pool())
         .await
     {
-        Ok(users) => Ok(MembersTemplate { users }.to_pub_response()),
+        Ok(users) => Ok(MembersTemplate { client, users }.to_response()),
         Err(e) => {
             log::error!("error {:?}", e);
             Err(error::ErrorInternalServerError("Couldn't load users"))

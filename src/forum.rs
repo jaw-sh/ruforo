@@ -1,22 +1,21 @@
-use crate::frontend::TemplateToPubResponse;
 use crate::init::get_db_pool;
+use crate::middleware::ClientCtx;
 use crate::orm::{posts, threads, user_names};
 use crate::thread::{validate_thread_form, NewThreadFormData, ThreadForTemplate};
-use crate::user::Client;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
-use askama_actix::Template;
+use askama_actix::{Template, TemplateToResponse};
 use sea_orm::{entity::*, query::*, sea_query::Expr};
 
 #[derive(Template)]
 #[template(path = "forum.html")]
 pub struct ForumTemplate<'a> {
-    pub client: &'a Client,
+    pub client: ClientCtx,
     pub threads: &'a Vec<ThreadForTemplate>,
 }
 
 #[post("/forums/post-thread")]
 pub async fn create_thread(
-    client: Client,
+    client: ClientCtx,
     form: web::Form<NewThreadFormData>,
 ) -> Result<impl Responder, Error> {
     use crate::ugc::{create_ugc, NewUgcPartial};
@@ -103,7 +102,7 @@ pub async fn create_thread(
 }
 
 #[get("/forums")]
-pub async fn view_forum(client: Client) -> Result<impl Responder, Error> {
+pub async fn view_forum(client: ClientCtx) -> Result<impl Responder, Error> {
     let threads: Vec<ThreadForTemplate> = threads::Entity::find()
         // Authoring User
         .left_join(user_names::Entity)
@@ -120,8 +119,8 @@ pub async fn view_forum(client: Client) -> Result<impl Responder, Error> {
         .map_err(error::ErrorNotFound)?;
 
     Ok(ForumTemplate {
-        client: &client,
+        client: client.to_owned(),
         threads: &threads,
     }
-    .to_pub_response())
+    .to_response())
 }

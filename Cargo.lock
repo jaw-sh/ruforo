@@ -2442,6 +2442,7 @@ dependencies = [
  "actix-rt",
  "actix-session",
  "actix-test",
+ "actix-utils",
  "actix-web",
  "actix-web-actors",
  "argon2",

@@ -1,18 +1,17 @@
-use crate::frontend::TemplateToPubResponse;
+use crate::middleware::ClientCtx;
 use crate::session::{get_sess, get_start_time};
-use crate::user::Client;
 use actix_web::{get, Responder};
-use askama_actix::Template;
+use askama_actix::{Template, TemplateToResponse};
 
 #[derive(Template)]
 #[template(path = "index.html")]
 pub struct IndexTemplate<'a> {
-    pub client: &'a Client,
+    pub client: ClientCtx,
     pub start_time: &'a chrono::NaiveDateTime,
 }
 
 #[get("/")]
-async fn view_index(client: Client) -> impl Responder {
+async fn view_index(client: ClientCtx) -> impl Responder {
     for (key, value) in &*get_sess().read().unwrap() {
         println!(
             "Session: {} / {:?}",
@@ -22,8 +21,8 @@ async fn view_index(client: Client) -> impl Responder {
     }
 
     IndexTemplate {
-        client: &client,
+        client,
         start_time: get_start_time(),
     }
-    .to_pub_response()
+    .to_response()
 }

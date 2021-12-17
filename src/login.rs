@@ -1,5 +1,5 @@
-use crate::frontend::TemplateToPubResponse;
 use crate::init::get_db_pool;
+use crate::middleware::ClientCtx;
 use crate::orm::users;
 use crate::session;
 use crate::session::{authenticate_by_cookie, get_argon2, get_sess};
@@ -8,6 +8,7 @@ use crate::user::get_user_id_from_name;
 use actix_identity::Identity;
 use actix_web::{error, get, post, web, Error, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
+use askama_actix::TemplateToResponse;
 use sea_orm::{entity::*, FromQueryResult};
 use serde::Deserialize;
 
@@ -50,6 +51,7 @@ async fn login(name: &str, pass: &str) -> Result<i32, Error> {
 
 #[post("/login")]
 pub async fn post_login(
+    client: ClientCtx,
     id: Identity,
     cookies: actix_session::Session,
     form: web::Form<FormData>,
@@ -74,19 +76,23 @@ pub async fn post_login(
 
     id.remember(uuid.to_owned());
 
-    let tmpl = LoginTemplate {
+    Ok(LoginTemplate {
+        client,
         user_id: Some(user_id),
         logged_in: true,
         username: Some(&form.username),
         token: Some(&uuid),
-    };
-
-    Ok(tmpl.to_pub_response())
+    }
+    .to_response())
 }
 
 #[get("/login")]
-pub async fn view_login(cookies: actix_session::Session) -> Result<impl Responder, Error> {
+pub async fn view_login(
+    client: ClientCtx,
+    cookies: actix_session::Session,
+) -> Result<impl Responder, Error> {
     let mut tmpl = LoginTemplate {
+        client,
         user_id: None,
         logged_in: false,
         username: None,
@@ -101,5 +107,5 @@ pub async fn view_login(cookies: actix_session::Session) -> Result<impl Responde
         tmpl.token = Some(&uuid_str);
     }
 
-    Ok(tmpl.to_pub_response())
+    Ok(tmpl.to_response())
 }

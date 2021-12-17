@@ -1,20 +1,21 @@
-use crate::frontend::TemplateToPubResponse;
+use crate::middleware::ClientCtx;
 use crate::session::{get_sess, remove_session};
 use actix_web::{get, Error, Responder};
-use askama_actix::Template;
+use askama_actix::{Template, TemplateToResponse};
 use uuid::Uuid;
 
 #[derive(Template)]
 #[template(path = "logout.html")]
-pub struct LogoutTemplate {}
+struct LogoutTemplate {
+    client: ClientCtx,
+}
 
 #[get("/logout")]
 pub async fn view_logout(
+    client: ClientCtx,
     id: actix_identity::Identity,
     cookies: actix_session::Session,
 ) -> Result<impl Responder, Error> {
-    let tmpl = LogoutTemplate {};
-
     // TODO: Needs mechanism to alter the HttpRequest.extensions stored Context and Client during this request cycle.
     match cookies.get::<String>("token") {
         Ok(Some(uuid)) => match Uuid::parse_str(&uuid) {
@@ -38,5 +39,5 @@ pub async fn view_logout(
     id.forget();
     cookies.remove("logged_in");
     cookies.remove("token");
-    Ok(tmpl.to_pub_response())
+    Ok(LogoutTemplate { client }.to_response())
 }

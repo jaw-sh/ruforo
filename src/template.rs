@@ -1,3 +1,4 @@
+use crate::middleware::ClientCtx;
 use askama_actix::Template;
 use std::ops::Range;
 
@@ -97,6 +98,7 @@ impl PaginatorToHtml for Paginator {
 #[derive(Template)]
 #[template(path = "create_user.html")]
 pub struct CreateUserTemplate<'a> {
+    pub client: ClientCtx,
     pub logged_in: bool,
     pub username: Option<&'a str>,
 }
@@ -104,6 +106,7 @@ pub struct CreateUserTemplate<'a> {
 #[derive(Template)]
 #[template(path = "login.html")]
 pub struct LoginTemplate<'a> {
+    pub client: ClientCtx,
     pub logged_in: bool,
     pub user_id: Option<i32>,
     pub username: Option<&'a str>,

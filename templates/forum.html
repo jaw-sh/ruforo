@@ -1,3 +1,6 @@
+{% extends "container/public.html" %}
+
+{% block content %}
 <h2>Threads</h2>
 <div class="struct-container">
     {% for thread in threads %}
@@ -30,3 +33,4 @@
     <button>Sneed</button>
 </form>
 {% endif %}
+{% endblock %}

@@ -10,6 +10,7 @@ actix-identity = { git = "https://github.com/actix/actix-extras" }
 actix-multipart = "0.4.0-beta.10"
 actix-session = { git = "https://github.com/actix/actix-extras" }
 #actix-session = "0.5.0-beta.4"
+actix-utils = "3.0.0"
 actix-web = "4.0.0-beta.14"
 actix-web-actors = "4.0.0-beta.8"
 argon2 = "0.3.2"
@@ -26,8 +27,8 @@ chrono = { version = "0.4.19", features = ["serde"] }
 dotenv = "0.15.0"
 env_logger = "0.9.0"
 ffmpeg-next = "4.4.0"
-futures = "0.3.17"
-futures-util = "0.3.17"
+futures = { version = "0.3.7", default-features = false }
+futures-util =  { version = "0.3.7", default-features = false }
 lettre = { version = "0.10.0-rc.4", default-features = false, features = [ "rustls", "smtp-transport", "pool", "hostname", "builder" ] }
 log = "0.4.14"
 mime = "0.3.16"

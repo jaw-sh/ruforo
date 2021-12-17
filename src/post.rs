@@ -1,10 +1,9 @@
-use crate::frontend::TemplateToPubResponse;
 use crate::init::get_db_pool;
+use crate::middleware::ClientCtx;
 use crate::orm::{posts, ugc_deletions, ugc_revisions, user_names};
 use crate::thread::get_url_for_pos;
-use crate::user::Client;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
-use askama_actix::Template;
+use askama_actix::{Template, TemplateToResponse};
 use chrono::prelude::Utc;
 use sea_orm::{entity::*, query::*, sea_query::Expr, DatabaseConnection, DbErr, FromQueryResult};
 use serde::Deserialize;
@@ -33,12 +32,14 @@ pub struct PostForTemplate {
 #[derive(Template)]
 #[template(path = "post_delete.html")]
 pub struct PostDeleteTemplate<'a> {
+    pub client: ClientCtx,
     pub post: &'a PostForTemplate,
 }
 
 #[derive(Template)]
 #[template(path = "post_update.html")]
 pub struct PostUpdateTemplate<'a> {
+    pub client: ClientCtx,
     pub post: &'a PostForTemplate,
 }
 
@@ -48,8 +49,8 @@ pub struct NewPostFormData {
 }
 
 #[get("/posts/{post_id}/delete")]
-pub async fn delete_post(client: Client, path: web::Path<(i32,)>) -> Result<impl Responder, Error> {
-    let post = get_post_for_template(get_db_pool(), path.into_inner().0)
+pub async fn delete_post(client: ClientCtx, path: web::Path<i32>) -> Result<impl Responder, Error> {
+    let post = get_post_for_template(get_db_pool(), path.into_inner())
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
@@ -60,16 +61,20 @@ pub async fn delete_post(client: Client, path: web::Path<(i32,)>) -> Result<impl
         ));
     }
 
-    PostDeleteTemplate { post: &post }.to_pub_response()
+    Ok(PostDeleteTemplate {
+        client,
+        post: &post,
+    }
+    .to_response())
 }
 
 #[post("/posts/{post_id}/delete")]
 pub async fn destroy_post(
-    client: Client,
-    path: web::Path<(i32,)>,
+    client: ClientCtx,
+    path: web::Path<i32>,
 ) -> Result<impl Responder, Error> {
     let db = get_db_pool();
-    let post = get_post_for_template(db, path.into_inner().0)
+    let post = get_post_for_template(db, path.into_inner())
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
@@ -107,8 +112,8 @@ pub async fn destroy_post(
 }
 
 #[get("/posts/{post_id}/edit")]
-pub async fn edit_post(client: Client, path: web::Path<(i32,)>) -> Result<impl Responder, Error> {
-    let post: PostForTemplate = get_post_for_template(get_db_pool(), path.into_inner().0)
+pub async fn edit_post(client: ClientCtx, path: web::Path<i32>) -> Result<impl Responder, Error> {
+    let post: PostForTemplate = get_post_for_template(get_db_pool(), path.into_inner())
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
@@ -119,20 +124,24 @@ pub async fn edit_post(client: Client, path: web::Path<(i32,)>) -> Result<impl R
         ));
     }
 
-    PostUpdateTemplate { post: &post }.to_pub_response()
+    Ok(PostUpdateTemplate {
+        client,
+        post: &post,
+    }
+    .to_response())
 }
 
 #[post("/posts/{post_id}/edit")]
 pub async fn update_post(
-    client: Client,
-    path: web::Path<(i32,)>,
+    client: ClientCtx,
+    path: web::Path<i32>,
     form: web::Form<NewPostFormData>,
 ) -> Result<impl Responder, Error> {
     use crate::ugc::{create_ugc_revision, NewUgcPartial};
 
     let db = get_db_pool();
 
-    let post: PostForTemplate = get_post_for_template(db, path.into_inner().0)
+    let post: PostForTemplate = get_post_for_template(db, path.into_inner())
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;

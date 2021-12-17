@@ -69,14 +69,13 @@
     </header>
     <main class="container">
         {% block content %}
-        {{ content|safe }}
         {% endblock %}
     </main>
     <footer class="container">
         <div class="footer-inner">
             {% block footer %}
             <p>🐍 Live Free or Die</p>
-            <p>Generated in {{ context.request_time_as_string() }}</p>
+            <p>Generated in {{ client.request_time_as_string() }}</p>
             {% endblock %}
         </div>
     </footer>

@@ -1,3 +1,6 @@
+{% extends "container/public.html" %}
+
+{% block content %}
 <h2>Create User</h2>
 <form action="/create_user" method="post">
     <label for="username">username:</label><br>
@@ -6,3 +9,4 @@
     <input type="password" id="password" name="password" placeholder="password"><br>
     <input type="submit">
 </form>
+{% endblock %}

@@ -4,7 +4,7 @@ extern crate ffmpeg_next;
 use crate::session::{get_sess, reload_session_cache};
 use crate::{
     chat, create_user, filesystem, forum, frontend, index, login, logout, member,
-    middleware::AppendContext, post, session, thread,
+    middleware::ClientCtx, post, session, thread,
 };
 use actix::Actor;
 use actix_identity::{CookieIdentityPolicy, IdentityService};
@@ -78,8 +78,8 @@ pub async fn start() -> std::io::Result<()> {
         App::new()
             .app_data(chat.clone())
             // Order of middleware IS IMPORTANT and is in REVERSE EXECUTION ORDER.
+            .wrap(ClientCtx::new())
             .wrap(CookieSession::signed(&[0; 32]).secure(false))
-            .wrap(AppendContext::default())
             .wrap(IdentityService::new(policy))
             .wrap(Logger::new("%a %{User-Agent}i"))
             // https://www.restapitutorial.com/lessons/httpmethods.html

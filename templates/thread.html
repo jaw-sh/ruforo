@@ -1,3 +1,6 @@
+{% extends "container/public.html" %}
+
+{% block content %}
 <div>
     <h2>{{ thread.title }}{% match thread.subtitle %}{% when Some with (subtitle) %}<span class="subtitle"> - {{ subtitle }}</span>{% when None %}{% endmatch %}</h2>
     {{ paginator.as_html()|safe }}
@@ -31,3 +34,4 @@
     });
 </script>
 {% endif %}
+{% endblock %}

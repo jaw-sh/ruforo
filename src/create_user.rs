@@ -1,5 +1,5 @@
-use crate::frontend::TemplateToPubResponse;
 use crate::init::get_db_pool;
+use crate::middleware::ClientCtx;
 use crate::orm::users;
 use crate::session::get_argon2;
 use crate::template::CreateUserTemplate;
@@ -8,6 +8,7 @@ use argon2::{
     password_hash::{rand_core::OsRng, SaltString},
     PasswordHasher,
 };
+use askama_actix::TemplateToResponse;
 use chrono::Utc;
 use sea_orm::{entity::*, DbErr, InsertResult};
 use serde::Deserialize;
@@ -71,12 +72,13 @@ async fn insert_new_user(
 }
 
 #[get("/create_user")]
-pub async fn create_user_get() -> impl Responder {
+pub async fn create_user_get(client: ClientCtx) -> impl Responder {
     CreateUserTemplate {
+        client,
         logged_in: true,
         username: None,
     }
-    .to_pub_response()
+    .to_response()
 }
 #[post("/create_user")]
 pub async fn create_user_post(form: web::Form<FormData>) -> Result<HttpResponse, Error> {
