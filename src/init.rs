@@ -73,6 +73,8 @@ pub async fn start() -> std::io::Result<()> {
                 web::scope("")
                     .app_data(chat.clone())
                     // Order of middleware IS IMPORTANT and is in REVERSE EXECUTION ORDER.
+                    // However, services are read top->down, higher traffic routes should be
+                    // placed higher
                     .wrap(ClientCtx::new())
                     .wrap(Compat::new(
                         CookieSession::signed(&[0; 32])

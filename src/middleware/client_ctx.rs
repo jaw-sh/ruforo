@@ -174,20 +174,19 @@ where
             match cookies {
                 Ok(cookies) => {
                     let result = authenticate_by_cookie(&cookies).await;
-                    match result {
-                        Some((uuid, session)) => {
-                            let x = ctx.0.borrow_mut().client.user = Some(ClientUser {
-                                id: session.user_id,
-                                name: "TMP FIXME".to_owned(),
-                            });
-                        }
-                        None => {}
-                    };
+                    if let Some((uuid, session)) = result {
+                        ctx.0.borrow_mut().client.user = Some(ClientUser {
+                            id: session.user_id,
+                            name: "TMP FIXME".to_owned(),
+                        });
+                    }
                 }
-                Err(_) => {
+                Err(e) => {
+                    log::error!("ClientCtxMiddleware: Session::extract(): {}", e);
                 }
             };
-            Ok(fut.await?)
+            let result = fut.await?;
+            Ok(result)
         }
         .boxed_local()
     }
