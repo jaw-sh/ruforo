@@ -1,11 +1,12 @@
 use actix_identity::{CookieIdentityPolicy, IdentityService};
+use actix_session::CookieSession;
 use actix_web::{middleware::Logger, App};
 use awc::Client;
 use criterion::{criterion_group, criterion_main, Criterion};
 use futures_util::future::join_all;
 use ruforo::{
     create_user, filesystem, forum, frontend, index, init, login, logout, member,
-    middleware::AppendContext, post, thread,
+    middleware::ClientCtx, post, thread,
 };
 
 // Shamelessly stolen from https://github.com/actix/actix-web/blob/master/benches/server.rs
@@ -48,7 +49,8 @@ fn bench_view_thread(c: &mut Criterion) {
                 .secure(true);
             App::new()
                 // Order of middleware IS IMPORTANT and is in REVERSE EXECUTION ORDER.
-                .wrap(AppendContext::default())
+                .wrap(ClientCtx::new())
+                .wrap(CookieSession::signed(&[0; 32]).secure(false))
                 .wrap(IdentityService::new(policy))
                 .wrap(Logger::new("%a %{User-Agent}i"))
                 // https://www.restapitutorial.com/lessons/httpmethods.html
