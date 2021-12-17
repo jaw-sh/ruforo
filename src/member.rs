@@ -10,7 +10,7 @@ use sea_orm::{entity::*, query::*};
 #[template(path = "members.html")]
 pub struct MembersTemplate {
     pub client: ClientCtx,
-    pub users: Vec<crate::user::UserProfile>,
+    pub users: Vec<UserProfile>,
 }
 
 #[get("/members")]

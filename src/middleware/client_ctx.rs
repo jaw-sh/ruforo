@@ -21,7 +21,7 @@ struct ClientInner {
 }
 
 impl ClientInner {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             request_start: Instant::now(),
             client: Client::new(),
