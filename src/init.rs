@@ -7,7 +7,6 @@ use crate::{
     middleware::ClientCtx, post, session, thread,
 };
 use actix::Actor;
-use actix_identity::{CookieIdentityPolicy, IdentityService};
 use actix_session::CookieSession;
 use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
@@ -67,20 +66,16 @@ pub fn init() {
 /// TODO break up into chunks
 pub async fn start() -> std::io::Result<()> {
     let chat = web::Data::new(chat::ChatServer::new().start());
-
-    // Start HTTP server
     HttpServer::new(move || {
-        // Authentication policy
-        let policy = CookieIdentityPolicy::new(&[0; 32]) // TODO: Set a 32B Salt
-            .name("auth")
-            .secure(true);
-
         App::new()
             .app_data(chat.clone())
             // Order of middleware IS IMPORTANT and is in REVERSE EXECUTION ORDER.
             .wrap(ClientCtx::new())
-            .wrap(CookieSession::signed(&[0; 32]).secure(false))
-            .wrap(IdentityService::new(policy))
+            .wrap(
+                CookieSession::signed(&[0; 32])
+                    .secure(false) // TODO make some sort of debug toggle for this
+                    .name("sneedessions"),
+            )
             .wrap(Logger::new("%a %{User-Agent}i"))
             // https://www.restapitutorial.com/lessons/httpmethods.html
             // GET    edit_ (get edit form)

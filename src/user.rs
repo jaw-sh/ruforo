@@ -1,7 +1,4 @@
-use crate::init::get_db_pool;
-use crate::orm::{user_names, users};
-use crate::session::authenticate_by_uuid_string;
-use actix_identity::Identity;
+use crate::orm::user_names;
 use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult};
 
 /// Represents information about this request's client.
@@ -33,25 +30,25 @@ pub struct UserProfile {
 }
 
 /// Produces a client object for a specific identity.
-pub async fn get_client_from_identity(id: &Identity) -> Client {
-    Client {
-        user: match id.identity() {
-            Some(id) => match authenticate_by_uuid_string(id).await {
-                Some((_uuid, session)) => users::Entity::find_by_id(session.user_id)
-                    .select_only()
-                    .column(users::Column::Id)
-                    .left_join(user_names::Entity)
-                    .column(user_names::Column::Name)
-                    .into_model::<ClientUser>()
-                    .one(get_db_pool())
-                    .await
-                    .unwrap_or(None),
-                None => None,
-            },
-            None => None,
-        },
-    }
-}
+// pub async fn get_client_from_identity(id: &Identity) -> Client {
+//     Client {
+//         user: match id.identity() {
+//             Some(id) => match authenticate_by_uuid_string(id).await {
+//                 Some((_uuid, session)) => users::Entity::find_by_id(session.user_id)
+//                     .select_only()
+//                     .column(users::Column::Id)
+//                     .left_join(user_names::Entity)
+//                     .column(user_names::Column::Name)
+//                     .into_model::<ClientUser>()
+//                     .one(get_db_pool())
+//                     .await
+//                     .unwrap_or(None),
+//                 None => None,
+//             },
+//             None => None,
+//         },
+//     }
+// }
 
 pub async fn get_user_id_from_name(db: &DatabaseConnection, name: &str) -> Option<i32> {
     user_names::Entity::find()

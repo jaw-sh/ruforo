@@ -1,5 +1,6 @@
-use crate::user::Client;
-use actix_identity::Identity;
+use crate::session::authenticate_by_cookie;
+use crate::user::{Client, ClientUser};
+use actix_session::Session;
 use actix_utils::future::{ok, Ready};
 use actix_web::{
     dev::{
@@ -15,9 +16,9 @@ use std::{cell::RefCell, rc::Rc};
 pub struct ClientCtx(Rc<RefCell<ClientInner>>);
 
 #[derive(Clone, Debug)]
-struct ClientInner {
-    request_start: Instant,
-    client: Client,
+pub struct ClientInner {
+    pub request_start: Instant,
+    pub client: Client,
 }
 
 impl ClientInner {
@@ -164,19 +165,29 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        // insert data into extensions if enabled
+        let (httpreq, payload) = req.into_parts();
+        let cookies = Session::extract(&httpreq).into_inner();
+        let req = ServiceRequest::from_parts(httpreq, payload);
+        let ctx = ClientCtx::get_client_ctx(&mut *req.extensions_mut());
         let fut = self.service.call(req);
         async move {
-            let res = fut.await?;
-            let id = Identity::extract(res.request()).into_inner();
-            match id {
-                Ok(_) => {
-                    Ok(res)
+            match cookies {
+                Ok(cookies) => {
+                    let result = authenticate_by_cookie(&cookies).await;
+                    match result {
+                        Some((uuid, session)) => {
+                            let x = ctx.0.borrow_mut().client.user = Some(ClientUser {
+                                id: session.user_id,
+                                name: "TMP FIXME".to_owned(),
+                            });
+                        }
+                        None => {}
+                    };
                 }
                 Err(_) => {
-                    Ok(res)
                 }
-            }
+            };
+            Ok(fut.await?)
         }
         .boxed_local()
     }

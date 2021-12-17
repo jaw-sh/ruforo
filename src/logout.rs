@@ -13,7 +13,6 @@ struct LogoutTemplate {
 #[get("/logout")]
 pub async fn view_logout(
     client: ClientCtx,
-    id: actix_identity::Identity,
     cookies: actix_session::Session,
 ) -> Result<impl Responder, Error> {
     // TODO: Needs mechanism to alter the HttpRequest.extensions stored Context and Client during this request cycle.
@@ -36,7 +35,6 @@ pub async fn view_logout(
         }
     }
 
-    id.forget();
     cookies.remove("logged_in");
     cookies.remove("token");
     Ok(LogoutTemplate { client }.to_response())

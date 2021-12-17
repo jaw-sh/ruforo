@@ -115,20 +115,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "actix-identity"
-version = "0.4.0-beta.5"
-source = "git+https://github.com/actix/actix-extras#c047cd5653a0cc783c43a52c911f9100600327f7"
-dependencies = [
- "actix-service",
- "actix-utils",
- "actix-web",
- "futures-util",
- "serde",
- "serde_json",
- "time 0.2.27",
-]
-
-[[package]]
 name = "actix-macros"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2437,7 +2423,6 @@ name = "ruforo"
 version = "0.1.0"
 dependencies = [
  "actix",
- "actix-identity",
  "actix-multipart",
  "actix-rt",
  "actix-session",
@@ -2450,8 +2435,6 @@ dependencies = [
  "askama_actix",
  "awc",
  "blake3",
- "bytes",
- "bytestring",
  "chrono",
  "criterion",
  "dotenv",

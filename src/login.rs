@@ -5,7 +5,6 @@ use crate::session;
 use crate::session::{authenticate_by_cookie, get_argon2, get_sess};
 use crate::template::LoginTemplate;
 use crate::user::get_user_id_from_name;
-use actix_identity::Identity;
 use actix_web::{error, get, post, web, Error, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
 use askama_actix::TemplateToResponse;
@@ -52,7 +51,6 @@ async fn login(name: &str, pass: &str) -> Result<i32, Error> {
 #[post("/login")]
 pub async fn post_login(
     client: ClientCtx,
-    id: Identity,
     cookies: actix_session::Session,
     form: web::Form<FormData>,
 ) -> Result<impl Responder, Error> {
@@ -73,8 +71,6 @@ pub async fn post_login(
     cookies
         .insert("token", uuid.to_owned())
         .map_err(|_| error::ErrorInternalServerError("middleware error"))?;
-
-    id.remember(uuid.to_owned());
 
     Ok(LoginTemplate {
         client,

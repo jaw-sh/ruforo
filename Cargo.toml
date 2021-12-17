@@ -5,8 +5,6 @@ edition = "2021"
 
 [dependencies]
 actix = "0.12.0"
-actix-identity = { git = "https://github.com/actix/actix-extras" }
-#actix-identity = "0.4.0-beta.4"
 actix-multipart = "0.4.0-beta.10"
 actix-session = { git = "https://github.com/actix/actix-extras" }
 #actix-session = "0.5.0-beta.4"
@@ -21,8 +19,6 @@ askama_actix = { git = "https://github.com/djc/askama" }
 #askama = { path = "../askama/askama", default-features = false, features = ["with-actix-web", "mime", "mime_guess"] }
 #askama_actix = { path = "../askama/askama_actix" }
 blake3 = "1.2.0"
-bytes = "1.1.0"
-bytestring = "1.0.0"
 chrono = { version = "0.4.19", features = ["serde"] }
 dotenv = "0.15.0"
 env_logger = "0.9.0"
