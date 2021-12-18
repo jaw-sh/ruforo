@@ -1,4 +1,4 @@
-use crate::session::authenticate_by_cookie;
+use crate::session::authenticate_client_ctx;
 use crate::user::{Client, ClientUser};
 use actix_session::Session;
 use actix_utils::future::{ok, Ready};
@@ -173,12 +173,11 @@ where
         async move {
             match cookies {
                 Ok(cookies) => {
-                    let result = authenticate_by_cookie(&cookies).await;
-                    if let Some((uuid, session)) = result {
-                        ctx.0.borrow_mut().client.user = Some(ClientUser {
-                            id: session.user_id,
-                            name: "TMP FIXME".to_owned(),
-                        });
+                    let result = authenticate_client_ctx(&cookies).await;
+
+                    // we could just naively assign it, but borrow_mut sounds expensive
+                    if let Some(user) = result {
+                        ctx.0.borrow_mut().client.user = Some(user);
                     }
                 }
                 Err(e) => {

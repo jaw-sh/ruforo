@@ -1,6 +1,8 @@
 use crate::init::get_db_pool;
 use crate::orm;
 use crate::orm::sessions::Entity as Sessions;
+use crate::orm::{user_names, users};
+use crate::user::ClientUser;
 use actix_web::{get, HttpResponse, Responder};
 use argon2::{
     password_hash::{rand_core::OsRng, SaltString},
@@ -101,6 +103,34 @@ pub async fn authenticate_by_cookie(cookies: &actix_session::Session) -> Option<
     authenticate_by_uuid(get_sess(), &uuid)
         .await
         .map(|session| (uuid, session))
+}
+
+pub async fn authenticate_client_ctx(cookies: &actix_session::Session) -> Option<ClientUser> {
+    let token = match cookies.get::<String>("token") {
+        Ok(Some(token)) => token,
+        _ => return None,
+    };
+    let uuid = match Uuid::parse_str(&token) {
+        Ok(uuid) => uuid,
+        Err(e) => {
+            log::error!("authenticate_client_ctx: parse_str(): {}", e);
+            return None;
+        }
+    };
+    let result = authenticate_by_uuid(get_sess(), &uuid).await;
+
+    match result {
+        Some(session) => users::Entity::find_by_id(session.user_id)
+            .select_only()
+            .column(users::Column::Id)
+            .left_join(user_names::Entity)
+            .column(user_names::Column::Name)
+            .into_model::<ClientUser>()
+            .one(get_db_pool())
+            .await
+            .unwrap_or(None),
+        None => None,
+    }
 }
 
 /// Accepts a UUID as a string and returns a session, if the UUID can parse and authenticate.
