@@ -8,7 +8,7 @@ use crate::{
 };
 use actix::Actor;
 use actix_session::CookieSession;
-use actix_web::middleware::{Compat, Logger};
+use actix_web::middleware::Logger;
 use actix_web::{web, App, HttpServer};
 use env_logger::Env;
 use once_cell::sync::OnceCell;
@@ -67,51 +67,48 @@ pub fn init() {
 pub async fn start() -> std::io::Result<()> {
     let chat = web::Data::new(chat::ChatServer::new().start());
     HttpServer::new(move || {
+        // Order of middleware IS IMPORTANT and is in REVERSE EXECUTION ORDER.
+        // However, services are read top->down, higher traffic routes should be
+        // placed higher
         App::new()
-            .service(web::scope("/static").service(frontend::css::view_css))
-            .service(
-                web::scope("")
-                    .app_data(chat.clone())
-                    // Order of middleware IS IMPORTANT and is in REVERSE EXECUTION ORDER.
-                    // However, services are read top->down, higher traffic routes should be
-                    // placed higher
-                    .wrap(ClientCtx::new())
-                    .wrap(Compat::new(
-                        CookieSession::signed(&[0; 32])
-                            .secure(false) // TODO make some sort of debug toggle for this
-                            .name("sneedessions"),
-                    ))
-                    .service(index::view_index)
-                    .service(create_user::create_user_get)
-                    .service(create_user::create_user_post)
-                    .service(login::view_login)
-                    .service(login::post_login)
-                    .service(logout::view_logout)
-                    .service(member::view_members)
-                    .service(filesystem::view_file_ugc)
-                    .service(filesystem::view_file_canonical)
-                    .service(filesystem::put_file)
-                    .service(post::delete_post)
-                    .service(post::destroy_post)
-                    .service(post::edit_post)
-                    .service(post::update_post)
-                    .service(post::view_post_by_id)
-                    .service(post::view_post_in_thread)
-                    .service(forum::create_thread)
-                    .service(forum::view_forum)
-                    .service(thread::create_reply)
-                    .service(thread::view_thread)
-                    .service(thread::view_thread_page)
-                    .service(session::view_task_expire_sessions)
-                    .service(web::resource("/chat").to(crate::hub::chat_route)),
+            .app_data(chat.clone())
+            .wrap(ClientCtx::new())
+            .wrap(
+                CookieSession::signed(&[0; 32])
+                    .secure(false) // TODO make some sort of debug toggle for this
+                    .name("sneedessions"),
             )
             .wrap(Logger::new("%a %{User-Agent}i"))
-        // https://www.restapitutorial.com/lessons/httpmethods.html
-        // GET    edit_ (get edit form)
-        // PATCH  update_ (apply edit)
-        // GET    view_ (read/view/render entity)
-        // Note: PUT and PATCH were added, removed, and re-added(?) to the HTML5 spec for <form method="">
+            .service(frontend::css::view_css)
+            .service(index::view_index)
+            .service(create_user::create_user_get)
+            .service(create_user::create_user_post)
+            .service(login::view_login)
+            .service(login::post_login)
+            .service(logout::view_logout)
+            .service(member::view_members)
+            .service(filesystem::view_file_ugc)
+            .service(filesystem::view_file_canonical)
+            .service(filesystem::put_file)
+            .service(post::delete_post)
+            .service(post::destroy_post)
+            .service(post::edit_post)
+            .service(post::update_post)
+            .service(post::view_post_by_id)
+            .service(post::view_post_in_thread)
+            .service(forum::create_thread)
+            .service(forum::view_forum)
+            .service(thread::create_reply)
+            .service(thread::view_thread)
+            .service(thread::view_thread_page)
+            .service(session::view_task_expire_sessions)
+            .service(web::resource("/chat").to(crate::hub::chat_route))
     })
+    // https://www.restapitutorial.com/lessons/httpmethods.html
+    // GET    edit_ (get edit form)
+    // PATCH  update_ (apply edit)
+    // GET    view_ (read/view/render entity)
+    // Note: PUT and PATCH were added, removed, and re-added(?) to the HTML5 spec for <form method="">
     .bind("127.0.0.1:8080")?
     .run()
     .await
