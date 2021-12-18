@@ -29,27 +29,6 @@ pub struct UserProfile {
     pub password_cipher: crate::orm::users::Cipher,
 }
 
-/// Produces a client object for a specific identity.
-// pub async fn get_client_from_identity(id: &Identity) -> Client {
-//     Client {
-//         user: match id.identity() {
-//             Some(id) => match authenticate_by_uuid_string(id).await {
-//                 Some((_uuid, session)) => users::Entity::find_by_id(session.user_id)
-//                     .select_only()
-//                     .column(users::Column::Id)
-//                     .left_join(user_names::Entity)
-//                     .column(user_names::Column::Name)
-//                     .into_model::<ClientUser>()
-//                     .one(get_db_pool())
-//                     .await
-//                     .unwrap_or(None),
-//                 None => None,
-//             },
-//             None => None,
-//         },
-//     }
-// }
-
 pub async fn get_user_id_from_name(db: &DatabaseConnection, name: &str) -> Option<i32> {
     user_names::Entity::find()
         .filter(user_names::Column::Name.eq(name))
