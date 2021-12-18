@@ -1,5 +1,5 @@
 use crate::session::authenticate_client_ctx;
-use crate::user::{Client, ClientUser};
+use crate::user::Client;
 use actix_session::Session;
 use actix_utils::future::{ok, Ready};
 use actix_web::{
