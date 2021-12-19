@@ -105,6 +105,8 @@ pub async fn destroy_post(
 
         // Spawn a thread to handle post-deletion work.
         actix_web::rt::spawn(async move {
+            use crate::thread::update_thread_after_reply_is_deleted;
+
             // Update subsequent posts's position.
             posts::Entity::update_many()
                 .col_expr(posts::Column::Position, Expr::cust("position - 1"))
@@ -114,9 +116,10 @@ pub async fn destroy_post(
                         .add(posts::Column::Position.gt(post.position)),
                 )
                 .exec(db)
-                .await
+                .await;
 
-            // TODO: Update post_count and last_post info.
+            // Update post_count and last_post info.
+            update_thread_after_reply_is_deleted(post.thread_id).await;
         });
     }
 

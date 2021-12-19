@@ -47,11 +47,11 @@ pub struct ThreadTemplate<'a> {
 
 /// Returns which human-readable page number this position will appear in.
 pub fn get_page_for_pos(pos: i32) -> i32 {
-    ((pos - 1) / POSTS_PER_PAGE) + 1
+    ((std::cmp::max(1, pos) - 1) / POSTS_PER_PAGE) + 1
 }
 
-pub fn get_pages_in_thread(post_count: i32) -> i32 {
-    (post_count / POSTS_PER_PAGE) + 1
+pub fn get_pages_in_thread(cnt: i32) -> i32 {
+    ((std::cmp::max(1, cnt) - 1) / POSTS_PER_PAGE) + 1
 }
 
 /// Returns the relative URL for the thread at this position.
@@ -131,6 +131,77 @@ async fn get_thread_and_replies_for_page(
         paginator,
     }
     .to_response())
+}
+
+/// Updates the post_count and last_post information on a thread.
+/// This DOES NOT update post positions. It only updates the thread.
+pub async fn update_thread_after_reply_is_deleted(id: i32) {
+    #[derive(Debug, FromQueryResult)]
+    struct LastPost {
+        id: i32,
+        created_at: chrono::NaiveDateTime,
+    }
+
+    let db = get_db_pool();
+
+    let last_post_query = Post::find()
+        .select_only()
+        .column_as(posts::Column::Id, "id")
+        .column_as(posts::Column::CreatedAt, "created_at")
+        .left_join(ugc_deletions::Entity)
+        .filter(posts::Column::ThreadId.eq(id))
+        .filter(ugc_deletions::Column::DeletedAt.is_null())
+        .into_model::<LastPost>()
+        .one(db);
+
+    let post_count_query = Post::find()
+        .left_join(ugc_deletions::Entity)
+        .filter(posts::Column::ThreadId.eq(id))
+        .filter(ugc_deletions::Column::DeletedAt.is_null())
+        .into_model::<LastPost>()
+        .count(db);
+
+    let (last_post_res, post_count_res) = futures::join!(last_post_query, post_count_query);
+
+    if post_count_res.is_err() {
+        log::error!(
+            "post_count errored when trying to update_thread: {:#?}",
+            post_count_res.unwrap_err()
+        );
+        return;
+    }
+
+    if last_post_res.is_err() {
+        log::error!(
+            "last_post errored when trying to update_thread: {:#?}",
+            last_post_res.unwrap_err()
+        );
+        return;
+    } else if let Some(last_post) = last_post_res.unwrap() {
+        let post_count = post_count_res.unwrap();
+
+        let update_res = Thread::update_many()
+            .col_expr(threads::Column::PostCount, Expr::value(post_count as i32))
+            .col_expr(threads::Column::LastPostId, Expr::value(last_post.id))
+            .col_expr(
+                threads::Column::LastPostAt,
+                Expr::value(last_post.created_at),
+            )
+            .exec(db)
+            .await;
+
+        if update_res.is_err() {
+            log::error!(
+                "update query errored when trying to update_thread: {:#?}",
+                update_res.unwrap_err()
+            );
+        }
+
+        return;
+    } else {
+        log::error!("thread has no last_post when trying to update thread.");
+        return;
+    }
 }
 
 #[post("/threads/{thread_id}/post-reply")]

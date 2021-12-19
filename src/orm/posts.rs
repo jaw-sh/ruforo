@@ -84,7 +84,7 @@ impl Related<super::user_names::Entity> for Entity {
 
 impl Related<super::ugc_deletions::Entity> for Entity {
     fn to() -> RelationDef {
-        super::ugc::Relation::UgcDeletions.def()
+        Relation::UgcDeletions.def()
     }
 }
 
