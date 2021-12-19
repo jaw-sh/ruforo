@@ -85,8 +85,6 @@ pub async fn destroy_post(
         ));
     }
 
-    // TODO: Decriment subsequent post positions!
-
     if post.deleted_at.is_some() {
         ugc_deletions::Entity::update_many()
             .col_expr(ugc_deletions::Column::UserId, Expr::value(client.get_id()))
@@ -104,6 +102,22 @@ pub async fn destroy_post(
         .exec(db)
         .await
         .map_err(error::ErrorInternalServerError)?;
+
+        // Spawn a thread to handle post-deletion work.
+        actix_web::rt::spawn(async move {
+            // Update subsequent posts's position.
+            posts::Entity::update_many()
+                .col_expr(posts::Column::Position, Expr::cust("position - 1"))
+                .filter(
+                    Condition::all()
+                        .add(posts::Column::ThreadId.eq(post.thread_id))
+                        .add(posts::Column::Position.gt(post.position)),
+                )
+                .exec(db)
+                .await
+
+            // TODO: Update post_count and last_post info.
+        });
     }
 
     Ok(HttpResponse::Found()
