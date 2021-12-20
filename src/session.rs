@@ -1,3 +1,4 @@
+use crate::global::get_session_time;
 use crate::init::get_db_pool;
 use crate::orm;
 use crate::orm::sessions::Entity as Sessions;
@@ -176,7 +177,7 @@ pub async fn authenticate_by_uuid(ses_map: &SessionMap, uuid: &Uuid) -> Option<S
 pub async fn new_session(ses_map: &SessionMap, user_id: i32) -> Result<Uuid, DbErr> {
     // TODO make the expiration duration configurable
     // 20 seconds for testing purposes
-    let expires_at = Utc::now().naive_utc() + chrono::Duration::seconds(20);
+    let expires_at = Utc::now().naive_utc() + get_session_time().clone();
     let ses = Session {
         user_id,
         expires_at,

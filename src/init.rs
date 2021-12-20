@@ -3,7 +3,7 @@ extern crate ffmpeg_next;
 
 use crate::session::{get_sess, reload_session_cache};
 use crate::{
-    chat, create_user, filesystem, forum, frontend, index, login, logout, member,
+    chat, create_user, filesystem, forum, frontend, global, index, login, logout, member,
     middleware::ClientCtx, post, session, thread,
 };
 use actix::Actor;
@@ -56,6 +56,7 @@ pub fn init() {
             .expect("failed to create DIR_TMP");
     }
 
+    global::init();
     session::init();
     filesystem::init();
     frontend::css::init();

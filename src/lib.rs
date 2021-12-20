@@ -4,6 +4,7 @@ mod ffmpeg;
 pub mod filesystem;
 pub mod forum;
 pub mod frontend;
+pub mod global;
 pub mod hub;
 pub mod index;
 pub mod init;
