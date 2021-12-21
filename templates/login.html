@@ -1,12 +1,23 @@
 {% extends "container/public.html" %}
 
 {% block content %}
+<script>
+    'use strict';
+    function login(form) {
+        const xhr = new XMLHttpRequest();
+        xhr.open(form.method, form.action, true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+//xhr.onreadystatechange = function() {if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {}}
+        xhr.send(form.segments.join(form.technique === 2 ? "\r\n" : "&"));
+        return false;
+    }
+</script>
+
 <h2>Login</h2>
-<form action="/login" method="post">
-    <label for="username">username:</label><br>
+<form action="/login" method="post" onsubmit="return login(this);">
     <input type="text" id="username" name="username" placeholder="username"><br>
-    <label for="password">password:</label><br>
     <input type="password" id="password" name="password" placeholder="password"><br>
+    <input type="text" id="totp" name="totp" placeholder="2FA Code (optional)"><br>
     <input type="submit">
 </form>
 

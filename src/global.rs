@@ -17,5 +17,5 @@ pub fn init() {
         panic!("SESSION_TIME is a negative number!");
     }
     let time = chrono::Duration::minutes(time);
-    SESSION_TIME.set(time).expect("failed to set SESSION_TIME");
+    SESSION_TIME.set(time).unwrap();
 }

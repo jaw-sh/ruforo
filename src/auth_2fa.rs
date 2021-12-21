@@ -3,7 +3,7 @@ use crate::middleware::ClientCtx;
 use crate::orm::user_2fa;
 use actix_web::{error, get, http::header::ContentType, Error, HttpResponse, Responder};
 use google_authenticator::{ErrorCorrectionLevel, GoogleAuthenticator};
-use sea_orm::{entity::*, query::*, DbErr, FromQueryResult, QueryFilter};
+use sea_orm::{entity::*, query::*, DbErr, QueryFilter};
 
 async fn db_user_enable_2fa(user_id: i32, secret: &str, email_reset: bool) -> Result<bool, DbErr> {
     let db = get_db_pool();
@@ -37,8 +37,6 @@ async fn db_user_enable_2fa(user_id: i32, secret: &str, email_reset: bool) -> Re
 pub async fn user_enable_2fa(client: ClientCtx) -> Result<impl Responder, Error> {
     let auth = GoogleAuthenticator::new();
     let secret = auth.create_secret(32);
-    let code = auth.get_code(&secret, 0).unwrap();
-    let verify = auth.verify_code(&secret, &code, 0, 0);
     let qr = auth
         .qr_code(
             &secret,
@@ -48,15 +46,16 @@ pub async fn user_enable_2fa(client: ClientCtx) -> Result<impl Responder, Error>
             128,
             ErrorCorrectionLevel::Medium,
         )
-        .unwrap();
-    log::error!("qr: {}", qr);
-    log::error!("secret: {}\ncode: {}\nverify: {}", secret, code, verify);
+        .map_err(|e| {
+            log::error!("user_enable_2fa: {}", e);
+            error::ErrorInternalServerError("Error Generating QR Code")
+        })?;
 
     let user_id = client.get_id().unwrap(); // TODO tmp unwrap
     let result = db_user_enable_2fa(user_id, &secret, false)
         .await
         .map_err(|e| {
-            log::error!("Login: {}", e);
+            log::error!("user_enable_2fa: {}", e);
             error::ErrorInternalServerError("DB error")
         })?;
 
