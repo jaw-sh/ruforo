@@ -3,7 +3,7 @@ extern crate ffmpeg_next;
 
 use crate::session::{get_sess, reload_session_cache};
 use crate::{
-    chat, create_user, filesystem, forum, frontend, global, index, login, logout, member,
+    auth_2fa, chat, create_user, filesystem, forum, frontend, global, index, login, logout, member,
     middleware::ClientCtx, post, session, thread,
 };
 use actix::Actor;
@@ -84,6 +84,7 @@ pub async fn start() -> std::io::Result<()> {
             .service(index::view_index)
             .service(create_user::create_user_get)
             .service(create_user::create_user_post)
+            .service(auth_2fa::user_enable_2fa)
             .service(login::view_login)
             .service(login::post_login)
             .service(logout::view_logout)

@@ -116,7 +116,10 @@ async fn get_thread_and_replies_for_page(
         .into_model::<PostForTemplate>()
         .all(db)
         .await
-        .map_err(error::ErrorInternalServerError)?;
+        .map_err(|e| {
+            log::error!("get_thread_and_replies_for_page: Post::find(): {}", e);
+            error::ErrorInternalServerError("DB error")
+        })?;
 
     let paginator = Paginator {
         base_url: format!("/threads/{}/", thread_id),

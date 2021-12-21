@@ -8,5 +8,8 @@ pub use super::sessions::Entity as Sessions;
 pub use super::threads::Entity as Threads;
 pub use super::ugc::Entity as Ugc;
 pub use super::ugc_attachments::Entity as UgcAttachments;
+pub use super::ugc_deletions::Entity as UgcDeletions;
 pub use super::ugc_revisions::Entity as UgcRevisions;
+pub use super::user_2fa::Entity as User2fa;
+pub use super::user_name_history::Entity as UserNameHistory;
 pub use super::users::Entity as Users;

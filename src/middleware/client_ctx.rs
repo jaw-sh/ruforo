@@ -149,6 +149,7 @@ where
 
 pub struct ClientCtxMiddleware<S> {
     service: S,
+    #[allow(dead_code)]
     inner: Rc<RefCell<ClientInner>>,
 }
 

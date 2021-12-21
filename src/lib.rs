@@ -1,3 +1,4 @@
+pub mod auth_2fa;
 pub mod chat;
 pub mod create_user;
 mod ffmpeg;

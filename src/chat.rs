@@ -62,6 +62,7 @@ pub struct ChatServer {
 }
 
 impl ChatServer {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> ChatServer {
         log::info!("New ChatServer");
         // pub fn new(visitor_count: Arc<AtomicUsize>) -> ChatServer {

@@ -32,6 +32,8 @@ pub enum Relation {
     Posts,
     #[sea_orm(has_many = "super::sessions::Entity")]
     Sessions,
+    #[sea_orm(has_many = "super::ugc_deletions::Entity")]
+    UgcDeletions,
     #[sea_orm(has_many = "super::ugc_attachments::Entity")]
     UgcAttachments,
     #[sea_orm(
@@ -42,6 +44,8 @@ pub enum Relation {
         on_delete = "NoAction"
     )]
     UserName,
+    #[sea_orm(has_many = "super::user_2fa::Entity")]
+    User2fa,
 }
 
 impl Related<super::threads::Entity> for Entity {
@@ -68,6 +72,12 @@ impl Related<super::sessions::Entity> for Entity {
     }
 }
 
+impl Related<super::ugc_deletions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UgcDeletions.def()
+    }
+}
+
 impl Related<super::ugc_attachments::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UgcAttachments.def()
@@ -77,6 +87,12 @@ impl Related<super::ugc_attachments::Entity> for Entity {
 impl Related<super::user_names::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserName.def()
+    }
+}
+
+impl Related<super::user_2fa::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::User2fa.def()
     }
 }
 

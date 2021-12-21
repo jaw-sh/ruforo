@@ -23,8 +23,9 @@ chrono = { version = "0.4.19", features = ["serde"] }
 dotenv = "0.15.0"
 env_logger = "0.9.0"
 ffmpeg-next = "4.4.0"
-futures = { version = "0.3.17", default-features = false }
-futures-util =  { version = "0.3.17", default-features = false }
+futures = { version = "0.3.19", default-features = false }
+futures-util =  { version = "0.3.19", default-features = false }
+google-authenticator = { version = "0.3.0", features = [ "with-qrcode" ] }
 lettre = { version = "0.10.0-rc.4", default-features = false, features = [ "rustls", "smtp-transport", "pool", "hostname", "builder" ] }
 log = "0.4.14"
 mime = "0.3.16"
