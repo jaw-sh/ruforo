@@ -79,8 +79,10 @@ impl ClientCtx {
         self.is_user() && self.get_id() == post.user_id
     }
 
-    pub fn can_read_post(&self, _post: &crate::post::PostForTemplate) -> bool {
-        true
+    pub fn can_read_post(&self, post: &crate::post::PostForTemplate) -> bool {
+        // TODO: In XenForo, users cannot view their own deleted posts.
+        // This should be a moderator setting. Maybe a 'can view own deleted posts' option.
+        post.deleted_at.is_none() || self.get_id() == post.user_id
     }
 
     /// Returns Duration representing request time.
