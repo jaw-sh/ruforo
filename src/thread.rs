@@ -1,3 +1,4 @@
+use crate::attachment::AttachmentForTemplate;
 use crate::init::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::posts::Entity as Post;
@@ -9,9 +10,7 @@ use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::{Template, TemplateToResponse};
 use sea_orm::{entity::*, query::*, sea_query::Expr, FromQueryResult, QueryFilter};
 use serde::Deserialize;
-
-// TODO: Dynamic page sizing.
-const POSTS_PER_PAGE: i32 = 20;
+use std::collections::HashMap;
 
 #[derive(Debug, FromQueryResult)]
 pub struct ThreadForTemplate {
@@ -41,9 +40,13 @@ pub struct NewThreadFormData {
 pub struct ThreadTemplate<'a> {
     pub client: ClientCtx,
     pub thread: crate::orm::threads::Model,
-    pub posts: &'a Vec<PostForTemplate>,
     pub paginator: Paginator,
+    pub posts: &'a Vec<PostForTemplate>,
+    pub attachments: &'a HashMap<i32, Vec<AttachmentForTemplate>>,
 }
+
+// TODO: Dynamic page sizing.
+const POSTS_PER_PAGE: i32 = 20;
 
 /// Returns which human-readable page number this position will appear in.
 pub fn get_page_for_pos(pos: i32) -> i32 {
@@ -74,6 +77,7 @@ async fn get_thread_and_replies_for_page(
     thread_id: i32,
     page: i32,
 ) -> Result<impl Responder, Error> {
+    use crate::attachment::get_attachments_for_ugc_by_id;
     use crate::orm::user_names;
 
     let db = get_db_pool();
@@ -121,6 +125,8 @@ async fn get_thread_and_replies_for_page(
             error::ErrorInternalServerError("DB error")
         })?;
 
+    let attachments = get_attachments_for_ugc_by_id(posts.iter().map(|p| p.id).collect()).await;
+
     let paginator = Paginator {
         base_url: format!("/threads/{}/", thread_id),
         this_page: page,
@@ -132,6 +138,7 @@ async fn get_thread_and_replies_for_page(
         thread,
         posts: &posts,
         paginator,
+        attachments: &attachments,
     }
     .to_response())
 }

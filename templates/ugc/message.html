@@ -14,11 +14,21 @@
                 <a href="/threads/{{ post.thread_id }}/post-{{ post.id }}" title="Permanent link">#{{ post.position }}</a>
             </div>
         </div>
+
+        {% match post.content %}{% when Some with (content) %}
         <div class="message-content">
-            {% match post.content %}{% when Some with (content) %}
-                <div>{{ content }}</div>
-            {% when None %}{% endmatch %}
+            <div>{{ content }}</div>
         </div>
+        {% when None %}{% endmatch %}
+
+        {% match post_attachments %}{% when Some with (post_attachments) %}
+        <div class="message-attachments">
+            {% for attachment in post_attachments %}
+            <div class="attachment">📎 {{ attachment.ugc_filename }}</div>
+            {% endfor %}
+        </div>
+        {% when None %}{% endmatch %}
+
         <div class="message-footer">
             <div class="message-footer--left">
                 {# Mod Checkbox, Report, Delete, IP, Warn #}
