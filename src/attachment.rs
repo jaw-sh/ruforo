@@ -23,12 +23,6 @@ pub struct AttachmentForTemplate {
 pub async fn get_attachments_for_ugc_by_id(
     ugc: Vec<i32>,
 ) -> HashMap<i32, Vec<AttachmentForTemplate>> {
-    // TODO: Replace this when SeaQL has a way to do filter where in. This is fucking ridiculous.
-    let mut filter_where = Condition::any();
-    for ugc_id in ugc {
-        filter_where = filter_where.add(ugc_attachments::Column::UgcId.eq(ugc_id));
-    }
-
     let db = get_db_pool();
     let attachments: Vec<AttachmentForTemplate> = ugc_attachments::Entity::find()
         .select_only()
@@ -43,7 +37,7 @@ pub async fn get_attachments_for_ugc_by_id(
         .column(attachments::Column::FileHeight)
         .column(attachments::Column::FileWidth)
         .column(attachments::Column::Mime)
-        .filter(filter_where)
+        .filter(ugc_attachments::Column::UgcId.is_in(ugc))
         .order_by_asc(ugc_attachments::Column::CreatedAt)
         .into_model::<AttachmentForTemplate>()
         .all(db)
