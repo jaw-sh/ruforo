@@ -76,6 +76,7 @@ pub fn init() {
         ("ico", "ico"),
         ("jpeg", "jpeg"),
         ("jpg", "jpeg"),
+        ("jfif", "jpeg"),
         ("json", "json"),
         ("ktx", "ktx"),
         ("m4a", "m4a"),
