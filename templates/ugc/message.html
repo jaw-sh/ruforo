@@ -24,7 +24,7 @@
         {% match post_attachments %}{% when Some with (post_attachments) %}
         <div class="message-attachments">
             {% for attachment in post_attachments %}
-            <div class="attachment">📎 {{ attachment.ugc_filename }}</div>
+            <div class="attachment">📎 <a href="{{ attachment.get_download_url() }}">{{ attachment.ugc_filename }}</a></div>
             {% endfor %}
         </div>
         {% when None %}{% endmatch %}

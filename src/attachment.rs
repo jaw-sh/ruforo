@@ -1,3 +1,4 @@
+use crate::filesystem::get_file_url_by_hash;
 use crate::init::get_db_pool;
 use crate::orm::{attachments, posts, ugc_attachments};
 use sea_orm::{entity::*, query::*, FromQueryResult};
@@ -18,6 +19,12 @@ pub struct AttachmentForTemplate {
     pub file_height: Option<i32>,
     pub file_width: Option<i32>,
     pub mime: String,
+}
+
+impl AttachmentForTemplate {
+    pub fn get_download_url(&self) -> String {
+        get_file_url_by_hash(&self.hash, &self.ugc_filename)
+    }
 }
 
 pub async fn get_attachments_for_ugc_by_id(

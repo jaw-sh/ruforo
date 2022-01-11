@@ -579,6 +579,16 @@ pub struct SelectFilename {
     pub filename: String,
 }
 
+pub fn get_file_url_by_hash(hash: &String, filename: &String) -> String {
+    format!(
+        "http://{}/{}/{}/{}", // TODO something
+        get_s3().pub_url,     // Is this legal? I think it's legal.
+        &hash[0..2],
+        &hash[2..4],
+        filename
+    )
+}
+
 pub async fn get_filename_by_id(id: i32) -> Result<Option<SelectFilename>, DbErr> {
     Ok(attachments::Entity::find_by_id(id)
         .select_only()
