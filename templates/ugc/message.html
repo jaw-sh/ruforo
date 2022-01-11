@@ -15,11 +15,7 @@
             </div>
         </div>
 
-        {% match post.content %}{% when Some with (content) %}
-        <div class="message-content">
-            <div>{{ content }}</div>
-        </div>
-        {% when None %}{% endmatch %}
+        <div class="message-content">{{ post.render()|safe }}</div>
 
         {% match post_attachments %}{% when Some with (post_attachments) %}
         <div class="message-attachments">

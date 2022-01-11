@@ -30,6 +30,15 @@ pub struct PostForTemplate {
     pub username: Option<String>,
 }
 
+impl PostForTemplate {
+    pub fn render(&self) -> String {
+        match &self.content {
+            Some(content) => crate::bbcode::bbcode_to_html_ugly(&content),
+            None => "".to_owned(),
+        }
+    }
+}
+
 #[derive(Template)]
 #[template(path = "post_delete.html")]
 pub struct PostDeleteTemplate<'a> {
