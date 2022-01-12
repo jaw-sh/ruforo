@@ -5,14 +5,14 @@ use sea_orm::sea_query::Expr;
 use sea_orm::ConnectionTrait;
 use sea_orm::{entity::*, query::*, Set};
 
-// Contains only the UGC we can get from a form submission.
+/// Contains only the UGC we can get from a form submission.
 pub struct NewUgcPartial<'a> {
     pub ip_id: Option<i32>,
     pub user_id: Option<i32>,
     pub content: &'a str,
 }
 
-// Crates a new UGC and an accompanying first revision.
+/// Creates a new UGC and an accompanying first revision.
 pub async fn create_ugc<'a, C>(
     pool: &'a C,
     revision: NewUgcPartial<'a>,

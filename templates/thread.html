@@ -5,6 +5,7 @@
     <h2>{{ thread.title }}{% match thread.subtitle %}{% when Some with (subtitle) %}<span class="subtitle"> - {{ subtitle }}</span>{% when None %}{% endmatch %}</h2>
     {{ paginator.as_html()|safe }}
     {% for post in posts %}
+        {% let post_attachments = attachments.get(post.ugc_id) %}
         {% include "ugc/message.html" %}
     {% endfor %}
     {{ paginator.as_html()|safe }}
@@ -14,12 +15,14 @@
 <form action="/threads/{{ thread.id }}/post-reply" method="post">
     <h2>Post Reply</h2>
     <textarea name="content" rows="8" cols="80"></textarea>
-    <div><input id="fileupload" type="file" name="attachment" /><button id="submitfile">Upload</button></div>
+    <div class="attachment-upload">
+        <input type="file" name="attachment" class="attachment-input" />
+    </div>
     <button>Sneed</button>
 </form>
 
 <script>
-    document.getElementById('submitfile').addEventListener('click', async function uploadFile(event) {
+    document.getElementById('.attachment-input').addEventListener('click', async function uploadFile(event) {
         event.preventDefault();
 
         let formData = new FormData();

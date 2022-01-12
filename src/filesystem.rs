@@ -76,6 +76,7 @@ pub fn init() {
         ("ico", "ico"),
         ("jpeg", "jpeg"),
         ("jpg", "jpeg"),
+        ("jfif", "jpeg"),
         ("json", "json"),
         ("ktx", "ktx"),
         ("m4a", "m4a"),
@@ -577,6 +578,16 @@ fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
 #[derive(Debug, FromQueryResult)]
 pub struct SelectFilename {
     pub filename: String,
+}
+
+pub fn get_file_url_by_hash(hash: &String, filename: &String) -> String {
+    format!(
+        "http://{}/{}/{}/{}", // TODO something
+        get_s3().pub_url,     // Is this legal? I think it's legal.
+        &hash[0..2],
+        &hash[2..4],
+        filename
+    )
 }
 
 pub async fn get_filename_by_id(id: i32) -> Result<Option<SelectFilename>, DbErr> {
