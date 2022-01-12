@@ -14,6 +14,7 @@ pub struct BBCodeLexer {
     linebreaks_allowed: bool,
     preserve_empty: bool,
 }
+
 impl BBCodeLexer {
     /// Creates a new BBCodeLexer.
     pub fn new(preserve_empty: bool) -> BBCodeLexer {
@@ -27,6 +28,7 @@ impl BBCodeLexer {
             preserve_empty,
         }
     }
+
     /// Lexes a vector of Instructions.
     pub fn lex(&mut self, instructions: &[Instruction]) -> Node<ASTElement> {
         self.anchor
@@ -39,6 +41,7 @@ impl BBCodeLexer {
         self.end_group(GroupType::Paragraph);
         self.current_node.ancestors().last().unwrap()
     }
+
     /// Matches Instruction types.
     fn execute(&mut self, instruction: &Instruction) {
         if let Some(arg_cmd) = self.next_text_as_arg {
@@ -98,31 +101,18 @@ impl BBCodeLexer {
                         self.end_group(GroupType::Br);
                     }
                 }
-                Instruction::Scenebreak => {
-                    if self.ignore_formatting {
-                        self.new_group(GroupType::Text);
-                        self.current_node
-                            .borrow_mut()
-                            .add_text(&"\n\n\n".to_string());
-                        self.end_group(GroupType::Text);
-                    } else {
-                        self.end_group(GroupType::Paragraph);
-                        self.new_group(GroupType::Scenebreak);
-                        self.current_node.borrow_mut().set_void(true);
-                        self.end_group(GroupType::Scenebreak);
-                        self.new_group(GroupType::Paragraph);
-                    }
-                }
                 _ => {}
             }
         }
     }
+
     /// Creates a new ASTElement.
     fn new_group(&mut self, ele_type: GroupType) {
         self.current_node
             .append(Node::new(ASTElement::new(ele_type)));
         self.current_node = self.current_node.last_child().unwrap();
     }
+
     // Closes groups when the current group is the target group.
     fn close_same_group(&mut self) {
         match self.current_node.parent() {
@@ -152,6 +142,7 @@ impl BBCodeLexer {
             }
         };
     }
+
     // Closes groups when the current group is not the target group.
     fn close_diff_group(&mut self, group_stack: &mut Vec<GroupShorthand>, ele_type: GroupType) {
         let mut go = true;
@@ -224,6 +215,7 @@ impl BBCodeLexer {
             }
         }
     }
+
     // Reopens closed groups after another element has closed.
     fn reopen_groups(&mut self, group_stack: &mut Vec<GroupShorthand>) {
         while !group_stack.is_empty() {
@@ -234,6 +226,7 @@ impl BBCodeLexer {
             }
         }
     }
+
     /// Moves current working node up to the current node's parent and then creates a new element,
     /// preserving the formatting from the previous.
     fn end_and_new_group(&mut self, ele_type: GroupType, new_type: GroupType) {
@@ -269,6 +262,7 @@ impl BBCodeLexer {
             self.reopen_groups(&mut group_stack);
         }
     }
+
     /// Moves current working node up to the current node's parent and then creates a new element,
     /// *without* preserving formatting from the previous element.
     fn end_and_kill_new_group(&mut self, ele_type: GroupType, new_type: GroupType) {
@@ -302,6 +296,7 @@ impl BBCodeLexer {
             self.new_group(new_type);
         }
     }
+
     /// Moves current working node up to the current node's parent.
     fn end_group(&mut self, ele_type: GroupType) {
         if let Some(mut kid) = self.current_node.last_child() {
@@ -332,6 +327,7 @@ impl BBCodeLexer {
             self.reopen_groups(&mut group_stack);
         }
     }
+
     /// Parses tag Instructions.
     fn parse_tag(&mut self, tag: &str, args: &Option<String>) {
         match args {
@@ -477,6 +473,16 @@ impl BBCodeLexer {
     fn cmd_h6_close(&mut self) {
         self.end_group(GroupType::Header);
         self.new_group(GroupType::Paragraph);
+    }
+
+    fn cmd_plain_open(&mut self) {
+        self.end_and_new_group(GroupType::Paragraph, GroupType::Plain);
+        self.ignore_formatting = true;
+    }
+    fn cmd_plain_close(&mut self) {
+        self.end_group(GroupType::Plain);
+        self.ignore_formatting = false;
+        self.new_group(GroupType::Plain);
     }
 
     fn cmd_pre_open(&mut self) {
@@ -1108,6 +1114,8 @@ static NO_ARG_CMD: phf::Map<&'static str, fn(&mut BBCodeLexer)> = phf_map! {
     "/h5" => BBCodeLexer::cmd_h5_close,
     "h6" => BBCodeLexer::cmd_h6_open,
     "/h6" => BBCodeLexer::cmd_h6_close,
+    "plain" => BBCodeLexer::cmd_plain_open,
+    "/plain" => BBCodeLexer::cmd_plain_close,
     "pre" => BBCodeLexer::cmd_pre_open,
     "/pre" => BBCodeLexer::cmd_pre_close,
     "footnote" => BBCodeLexer::cmd_footnote_bare_open,

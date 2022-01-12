@@ -8,8 +8,8 @@ enum ReadMode {
     Tag,
     TagPrimaryArg,
     Parabreak,
-    Scenebreak,
 }
+
 impl Default for ReadMode {
     fn default() -> Self {
         ReadMode::Text
@@ -23,6 +23,7 @@ pub struct BBCodeTokenizer {
     current_instruction: Instruction,
     instructions: Vec<Instruction>,
 }
+
 impl BBCodeTokenizer {
     /// Creates a new BBCodeTokenizer
     pub fn new() -> Self {
@@ -48,14 +49,12 @@ impl BBCodeTokenizer {
                 ReadMode::Parabreak => {
                     self.parse_parabreak(character);
                 }
-                ReadMode::Scenebreak => {
-                    self.parse_scenebreak(character);
-                }
             }
         }
         self.set_cur_instruction();
         &self.instructions
     }
+
     /// s characters.
     fn parse_text(&mut self, character: char) {
         match character {
@@ -89,15 +88,13 @@ impl BBCodeTokenizer {
             },
         }
     }
+
     /// s paragraph breaks.
     fn parse_parabreak(&mut self, character: char) {
         match character {
             '\t' => {
                 self.set_new_instruction(Instruction::Parabreak("\n\t".to_string()));
                 self.mode = ReadMode::Text;
-            }
-            '\n' | '\r' => {
-                self.mode = ReadMode::Scenebreak;
             }
             ' ' => {}
             _ => {
@@ -107,21 +104,7 @@ impl BBCodeTokenizer {
             }
         }
     }
-    /// s scen breaks (three newlines).
-    fn parse_scenebreak(&mut self, character: char) {
-        match character {
-            '\n' | '\r' => {
-                self.set_new_instruction(Instruction::Scenebreak);
-                self.mode = ReadMode::Text;
-            }
-            ' ' => {}
-            _ => {
-                self.set_new_instruction(Instruction::Parabreak("\n\n".to_string()));
-                self.mode = ReadMode::Text;
-                self.parse_text(character);
-            }
-        }
-    }
+
     /// s escaped charcters.
     fn parse_escape(&mut self, character: char) {
         self.mode = ReadMode::Text;

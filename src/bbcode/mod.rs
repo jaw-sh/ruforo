@@ -51,7 +51,7 @@ pub fn bbcode_to_html_ugly(input: &str) -> String {
     constructor.construct(lexer.lex(tokenizer.tokenize(input)))
 }
 
-/// A single element of a BBCode AST.
+/// A single element of a BbCode Abstract Syntax Tree (AST).
 #[derive(Debug, Clone)]
 pub struct ASTElement {
     ele_type: GroupType,
@@ -61,6 +61,7 @@ pub struct ASTElement {
     detachable: bool,
     broken: bool,
 }
+
 impl ASTElement {
     /// Creates a new ASTElement.
     pub fn new(ele_type: GroupType) -> ASTElement {
@@ -159,7 +160,6 @@ pub enum Instruction {
     Text(String),
     Parabreak(String),
     Linebreak,
-    Scenebreak,
 }
 impl Default for Instruction {
     fn default() -> Self {
@@ -195,6 +195,7 @@ pub enum GroupType {
     Quote,
     Footnote,
     Indent,
+    Plain,
     Pre,
     PreLine,
     Header,
@@ -213,14 +214,13 @@ pub enum GroupType {
     TableHeader,
     TableCaption,
     Paragraph,
-    Scenebreak,
     Null,
     Broken(Box<GroupType>, &'static str),
     Document,
     Anchor,
 }
 
-///Types of argument for Instructions.
+/// Types of argument for Instructions.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Argument {
     Colour(String),
