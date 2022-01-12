@@ -205,6 +205,7 @@ impl BBCodeTokenizer {
             },
         }
     }
+
     /// Adds current instruction to instruction vector and restes current instruction.
     fn set_cur_instruction(&mut self) {
         if self.current_instruction != Instruction::Null {
@@ -212,11 +213,13 @@ impl BBCodeTokenizer {
             self.current_instruction = Instruction::Null;
         }
     }
+
     /// Adds a given instruction to instruction vector and resets current instruction.
     fn set_new_instruction(&mut self, instruction: Instruction) {
         self.instructions.push(instruction);
         self.current_instruction = Instruction::Null;
     }
+
     /// Sanitizes characters for HTML.
     fn sanitize(&mut self, character: char) -> String {
         match character {

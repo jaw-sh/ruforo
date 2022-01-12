@@ -5,6 +5,9 @@ mod bbcode_lexer;
 mod bbcode_tokenizer;
 mod html_constructor;
 
+#[cfg(test)]
+mod tests;
+
 pub use self::bbcode_lexer::BBCodeLexer;
 pub use self::bbcode_tokenizer::BBCodeTokenizer;
 pub use self::html_constructor::HTMLConstructor;

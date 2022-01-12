@@ -37,7 +37,7 @@ impl HTMLConstructor {
                     self.output_string.push_str(text)
                 }
             }
-            GroupType::Paragraph => self.output_string.push_str("<p>"),
+            //GroupType::Paragraph => self.output_string.push_str("<p>"),
             GroupType::Bold => self.output_string.push_str("<b>"),
             GroupType::Strong => self.output_string.push_str("<strong>"),
             GroupType::Italic => self.output_string.push_str("<i>"),
@@ -49,7 +49,7 @@ impl HTMLConstructor {
             GroupType::Subscript => self.output_string.push_str("<sub>"),
             GroupType::Superscript => self.output_string.push_str("<sup>"),
             GroupType::Spoiler => self.output_string.push_str("<span class=\"spoiler\">"),
-            GroupType::Hr => self.output_string.push_str("<hr>"),
+            GroupType::Hr => self.output_string.push_str("<hr />"),
             GroupType::Br => self.output_string.push_str("<br />"),
             GroupType::Center => self.output_string.push_str("<div class=\"center\">"),
             GroupType::Right => self.output_string.push_str("<div class=\"right\">"),
@@ -191,7 +191,7 @@ impl HTMLConstructor {
     /// Closes an HTML tag.
     fn end_element(&mut self, element: Ref<ASTElement>) {
         match element.ele_type() {
-            GroupType::Paragraph => self.output_string.push_str("</p>"),
+            //GroupType::Paragraph => self.output_string.push_str("</p>"),
             GroupType::Bold => self.output_string.push_str("</b>"),
             GroupType::Strong => self.output_string.push_str("</strong>"),
             GroupType::Italic => self.output_string.push_str("</i>"),
