@@ -63,7 +63,8 @@ impl BBCodeTokenizer {
                 self.set_cur_instruction();
                 self.mode = ReadMode::Tag;
             }
-            '\n' | '\r' => {
+            '\r' => {}
+            '\n' => {
                 self.set_cur_instruction();
                 self.mode = ReadMode::Parabreak;
             }
@@ -96,6 +97,9 @@ impl BBCodeTokenizer {
                 self.set_new_instruction(Instruction::Parabreak("\n\t".to_string()));
                 self.mode = ReadMode::Text;
             }
+            // Consume carriage returns.
+            '\r' => {}
+            // Consume whitespace.
             ' ' => {}
             _ => {
                 self.set_new_instruction(Instruction::Linebreak);
