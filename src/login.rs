@@ -21,7 +21,7 @@ pub struct FormData {
 }
 
 #[derive(Debug)]
-pub enum LoginResultType {
+pub enum LoginResultStatus {
     Success,
     BadName,
     BadPassword,
@@ -30,18 +30,18 @@ pub enum LoginResultType {
 }
 
 pub struct LoginResult {
-    result: LoginResultType,
+    result: LoginResultStatus,
     user_id: Option<i32>,
 }
 
 impl LoginResult {
     fn success(user_id: i32) -> Self {
         Self {
-            result: LoginResultType::Success,
+            result: LoginResultStatus::Success,
             user_id: Some(user_id),
         }
     }
-    fn fail(result: LoginResultType) -> Self {
+    fn fail(result: LoginResultStatus) -> Self {
         Self {
             result,
             user_id: None,
@@ -68,7 +68,7 @@ pub async fn login<S: AsRef<str>>(
 
     let user_id = match user_id {
         Some(user) => user.user_id,
-        None => return Ok(LoginResult::fail(LoginResultType::BadName)),
+        None => return Ok(LoginResult::fail(LoginResultStatus::BadName)),
     };
 
     let user = users::Entity::find_by_id(user_id)
@@ -78,7 +78,7 @@ pub async fn login<S: AsRef<str>>(
 
     let user = match user {
         Some(user) => user,
-        None => return Ok(LoginResult::fail(LoginResultType::BadName)),
+        None => return Ok(LoginResult::fail(LoginResultStatus::BadName)),
     };
 
     let parsed_hash = PasswordHash::new(&user.password).unwrap();
@@ -86,7 +86,7 @@ pub async fn login<S: AsRef<str>>(
         .verify_password(pass.as_bytes(), &parsed_hash)
         .is_err()
     {
-        return Ok(LoginResult::fail(LoginResultType::BadPassword));
+        return Ok(LoginResult::fail(LoginResultStatus::BadPassword));
     }
 
     let totp_exists = user_2fa::Entity::find()
@@ -104,10 +104,10 @@ pub async fn login<S: AsRef<str>>(
                 if verify {
                     return Ok(LoginResult::success(user.id));
                 }
-                return Ok(LoginResult::fail(LoginResultType::Bad2FA));
+                return Ok(LoginResult::fail(LoginResultStatus::Bad2FA));
             }
         }
-        return Ok(LoginResult::fail(LoginResultType::Missing2FA));
+        return Ok(LoginResult::fail(LoginResultStatus::Missing2FA));
     }
 
     Ok(LoginResult::success(user.id))
@@ -128,7 +128,10 @@ pub async fn post_login(
         })?;
 
     let user_id = match user_id.result {
-        LoginResultType::Success => user_id.user_id.unwrap(),
+        LoginResultStatus::Success => user_id.user_id.unwrap(),
+        LoginResultStatus::Missing2FA => {
+            // TODO: finish this
+        }
         _ => {
             log::debug!("login failure: {:?}", user_id.result);
             return Err(error::ErrorInternalServerError(
