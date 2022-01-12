@@ -170,7 +170,7 @@ impl HTMLConstructor {
                         .push_str(&format!("<div class=\"embed\" data-content=\"{}\">", arg));
                 }
             }
-            GroupType::Broken(_, tag) if !self.pretty_print => {
+            GroupType::Kaput(_, tag) if !self.pretty_print => {
                 if let Some(text) = element.text_contents() {
                     if let Some(arg) = element.argument() {
                         self.output_string
@@ -240,7 +240,7 @@ impl HTMLConstructor {
             | GroupType::Indent
             | GroupType::MathBlock
             | GroupType::Embed => self.output_string.push_str("</div>"),
-            GroupType::Broken(_, tag) if !self.pretty_print => {
+            GroupType::Kaput(_, tag) if !self.pretty_print => {
                 if !element.is_void() {
                     self.output_string.push_str(&format!("[/{}]", tag));
                 }

@@ -59,7 +59,7 @@ pub struct ASTElement {
     argument: Option<String>,
     is_void: bool,
     detachable: bool,
-    broken: bool,
+    kaput: bool,
 }
 
 impl ASTElement {
@@ -69,8 +69,8 @@ impl ASTElement {
         let argument = None;
         let is_void = false;
         let detachable = true;
-        let broken = match ele_type {
-            GroupType::Broken(_, _) => true,
+        let kaput = match ele_type {
+            GroupType::Kaput(_, _) => true,
             _ => false,
         };
         ASTElement {
@@ -79,13 +79,13 @@ impl ASTElement {
             argument,
             is_void,
             detachable,
-            broken,
+            kaput,
         }
     }
     /// Sets an ASTElement's type.
     pub fn set_ele_type(&mut self, new_type: GroupType) {
-        self.broken = match new_type {
-            GroupType::Broken(_, _) => true,
+        self.kaput = match new_type {
+            GroupType::Kaput(_, _) => true,
             _ => false,
         };
         self.ele_type = new_type;
@@ -146,9 +146,9 @@ impl ASTElement {
     pub fn is_detachable(&self) -> bool {
         self.detachable
     }
-    /// Gets the value of an ASTElement's broken field.
-    pub fn is_broken(&self) -> bool {
-        self.broken
+    /// Gets the value of an ASTElement's kaput field.
+    pub fn is_kaput(&self) -> bool {
+        self.kaput
     }
 }
 
@@ -215,7 +215,7 @@ pub enum GroupType {
     TableCaption,
     Paragraph,
     Null,
-    Broken(Box<GroupType>, &'static str),
+    Kaput(Box<GroupType>, &'static str),
     Document,
     Anchor,
 }

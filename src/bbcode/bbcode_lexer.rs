@@ -128,7 +128,7 @@ impl BBCodeLexer {
                             })
                         && !self.current_node.borrow().is_void()
                         && (self.current_node.borrow().is_detachable()))
-                        || (self.current_node.borrow().is_broken()
+                        || (self.current_node.borrow().is_kaput()
                             && !self.current_node.has_children())
                     {
                         self.current_node.detach();
@@ -164,7 +164,7 @@ impl BBCodeLexer {
                 _ => {
                     if my_type == ele_type {
                         go = false;
-                    } else if let GroupType::Broken(some_box, _) = my_type.clone() {
+                    } else if let GroupType::Kaput(some_box, _) = my_type.clone() {
                         let unpacked_type = *some_box;
                         if unpacked_type == ele_type {
                             go = false;
@@ -198,7 +198,7 @@ impl BBCodeLexer {
                                         })
                                     && !self.current_node.borrow().is_void()
                                     && (self.current_node.borrow().is_detachable()))
-                                    || (self.current_node.borrow().is_broken()
+                                    || (self.current_node.borrow().is_kaput()
                                         && !self.current_node.has_children())
                                 {
                                     self.current_node.detach();
@@ -238,9 +238,9 @@ impl BBCodeLexer {
         if self.current_node.borrow().ele_type() == &ele_type {
             self.close_same_group();
             self.new_group(new_type);
-        } else if self.current_node.borrow().is_broken() {
+        } else if self.current_node.borrow().is_kaput() {
             let mut same = false;
-            if let GroupType::Broken(some_box, _) = self.current_node.borrow().ele_type().clone() {
+            if let GroupType::Kaput(some_box, _) = self.current_node.borrow().ele_type().clone() {
                 let unpacked_type = *some_box;
                 if unpacked_type == ele_type {
                     same = true;
@@ -274,9 +274,9 @@ impl BBCodeLexer {
         if self.current_node.borrow_mut().ele_type() == &ele_type {
             self.close_same_group();
             self.new_group(new_type);
-        } else if self.current_node.borrow().is_broken() {
+        } else if self.current_node.borrow().is_kaput() {
             let mut same = false;
-            if let GroupType::Broken(some_box, _) = self.current_node.borrow().ele_type().clone() {
+            if let GroupType::Kaput(some_box, _) = self.current_node.borrow().ele_type().clone() {
                 let unpacked_type = *some_box;
                 if unpacked_type == ele_type {
                     same = true;
@@ -306,9 +306,9 @@ impl BBCodeLexer {
         }
         if self.current_node.borrow_mut().ele_type() == &ele_type {
             self.close_same_group();
-        } else if self.current_node.borrow().is_broken() {
+        } else if self.current_node.borrow().is_kaput() {
             let mut same = false;
-            if let GroupType::Broken(some_box, _) = self.current_node.borrow().ele_type().clone() {
+            if let GroupType::Kaput(some_box, _) = self.current_node.borrow().ele_type().clone() {
                 let unpacked_type = *some_box;
                 if unpacked_type == ele_type {
                     same = true;
@@ -507,12 +507,12 @@ impl BBCodeLexer {
             self.new_group(GroupType::Colour);
             self.current_node.borrow_mut().set_arg(arg);
         } else {
-            self.new_group(GroupType::Broken(Box::new(GroupType::Colour), "colour"));
+            self.new_group(GroupType::Kaput(Box::new(GroupType::Colour), "colour"));
             self.current_node.borrow_mut().set_arg(arg);
         }
     }
     fn cmd_colour_bare_open(&mut self) {
-        self.new_group(GroupType::Broken(Box::new(GroupType::Colour), "colour"));
+        self.new_group(GroupType::Kaput(Box::new(GroupType::Colour), "colour"));
     }
     fn cmd_color_open(&mut self, arg: &str) {
         if (arg.starts_with('#') && arg.len() == 7
@@ -526,12 +526,12 @@ impl BBCodeLexer {
             self.new_group(GroupType::Colour);
             self.current_node.borrow_mut().set_arg(arg);
         } else {
-            self.new_group(GroupType::Broken(Box::new(GroupType::Colour), "color"));
+            self.new_group(GroupType::Kaput(Box::new(GroupType::Colour), "color"));
             self.current_node.borrow_mut().set_arg(arg);
         }
     }
     fn cmd_color_bare_open(&mut self) {
-        self.new_group(GroupType::Broken(Box::new(GroupType::Colour), "color"));
+        self.new_group(GroupType::Kaput(Box::new(GroupType::Colour), "color"));
     }
     fn cmd_colour_close(&mut self) {
         self.end_group(GroupType::Colour);
@@ -550,9 +550,9 @@ impl BBCodeLexer {
                     if self.current_node.borrow().ele_type() == &GroupType::Url {
                         self.current_node
                             .borrow_mut()
-                            .set_ele_type(GroupType::Broken(Box::new(GroupType::Url), "url"));
+                            .set_ele_type(GroupType::Kaput(Box::new(GroupType::Url), "url"));
                     } else {
-                        self.new_group(GroupType::Broken(Box::new(GroupType::Url), "url"));
+                        self.new_group(GroupType::Kaput(Box::new(GroupType::Url), "url"));
                     }
                     self.current_node.borrow_mut().add_text(arg);
                     return;
@@ -573,7 +573,7 @@ impl BBCodeLexer {
         } else {
             for c in arg.chars() {
                 if FORBIDDEN_URL_CHARS.contains(&c) {
-                    self.new_group(GroupType::Broken(Box::new(GroupType::Url), "url"));
+                    self.new_group(GroupType::Kaput(Box::new(GroupType::Url), "url"));
                     self.current_node.borrow_mut().set_arg(arg);
                     return;
                 }
@@ -590,7 +590,7 @@ impl BBCodeLexer {
         {
             self.current_node
                 .borrow_mut()
-                .set_ele_type(GroupType::Broken(Box::new(GroupType::Url), "url"));
+                .set_ele_type(GroupType::Kaput(Box::new(GroupType::Url), "url"));
             self.current_node.borrow_mut().set_detachable(false);
         }
         self.end_group(GroupType::Url);
@@ -614,7 +614,7 @@ impl BBCodeLexer {
         {
             self.current_node
                 .borrow_mut()
-                .set_ele_type(GroupType::Broken(Box::new(GroupType::Email), "email"));
+                .set_ele_type(GroupType::Kaput(Box::new(GroupType::Email), "email"));
             self.current_node.borrow_mut().set_detachable(false);
         }
         self.end_group(GroupType::Email);
@@ -637,25 +637,25 @@ impl BBCodeLexer {
                         if self.current_node.borrow().ele_type() == &GroupType::Image {
                             self.end_group(GroupType::Image);
                         }
-                        self.new_group(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                        self.new_group(GroupType::Kaput(Box::new(GroupType::Image), "img"));
                         self.current_node.borrow_mut().add_text(arg);
-                        self.end_group(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                        self.end_group(GroupType::Kaput(Box::new(GroupType::Image), "img"));
                     }
                 } else {
                     if self.current_node.borrow().ele_type() == &GroupType::Image {
                         self.end_group(GroupType::Image);
                     }
-                    self.new_group(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                    self.new_group(GroupType::Kaput(Box::new(GroupType::Image), "img"));
                     self.current_node.borrow_mut().add_text(arg);
-                    self.end_group(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                    self.end_group(GroupType::Kaput(Box::new(GroupType::Image), "img"));
                 }
             } else {
                 if self.current_node.borrow().ele_type() == &GroupType::Image {
                     self.end_group(GroupType::Image);
                 }
-                self.new_group(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                self.new_group(GroupType::Kaput(Box::new(GroupType::Image), "img"));
                 self.current_node.borrow_mut().add_text(arg);
-                self.end_group(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                self.end_group(GroupType::Kaput(Box::new(GroupType::Image), "img"));
             }
         } else {
             for c in arg.chars() {
@@ -663,9 +663,9 @@ impl BBCodeLexer {
                     if self.current_node.borrow().ele_type() == &GroupType::Image {
                         self.end_group(GroupType::Image);
                     }
-                    self.new_group(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                    self.new_group(GroupType::Kaput(Box::new(GroupType::Image), "img"));
                     self.current_node.borrow_mut().add_text(arg);
-                    self.end_group(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                    self.end_group(GroupType::Kaput(Box::new(GroupType::Image), "img"));
                     return;
                 }
             }
@@ -682,25 +682,25 @@ impl BBCodeLexer {
                         if self.current_node.borrow().ele_type() == &GroupType::Image {
                             self.end_group(GroupType::Image);
                         }
-                        self.new_group(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                        self.new_group(GroupType::Kaput(Box::new(GroupType::Image), "img"));
                         self.current_node.borrow_mut().add_text(arg);
-                        self.end_group(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                        self.end_group(GroupType::Kaput(Box::new(GroupType::Image), "img"));
                     }
                 } else {
                     if self.current_node.borrow().ele_type() == &GroupType::Image {
                         self.end_group(GroupType::Image);
                     }
-                    self.new_group(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                    self.new_group(GroupType::Kaput(Box::new(GroupType::Image), "img"));
                     self.current_node.borrow_mut().add_text(arg);
-                    self.end_group(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                    self.end_group(GroupType::Kaput(Box::new(GroupType::Image), "img"));
                 }
             } else {
                 if self.current_node.borrow().ele_type() == &GroupType::Image {
                     self.end_group(GroupType::Image);
                 }
-                self.new_group(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                self.new_group(GroupType::Kaput(Box::new(GroupType::Image), "img"));
                 self.current_node.borrow_mut().add_text(arg);
-                self.end_group(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                self.end_group(GroupType::Kaput(Box::new(GroupType::Image), "img"));
             }
         }
     }
@@ -710,7 +710,7 @@ impl BBCodeLexer {
         {
             self.current_node
                 .borrow_mut()
-                .set_ele_type(GroupType::Broken(Box::new(GroupType::Image), "img"));
+                .set_ele_type(GroupType::Kaput(Box::new(GroupType::Image), "img"));
             self.current_node.borrow_mut().set_detachable(false);
         }
         self.end_group(GroupType::Image);
@@ -737,13 +737,13 @@ impl BBCodeLexer {
                 self.current_node.borrow_mut().set_arg(&val.to_string());
             }
             Err(_) => {
-                self.new_group(GroupType::Broken(Box::new(GroupType::Opacity), "opacity"));
+                self.new_group(GroupType::Kaput(Box::new(GroupType::Opacity), "opacity"));
                 self.current_node.borrow_mut().set_arg(arg);
             }
         }
     }
     fn cmd_opacity_bare_open(&mut self) {
-        self.new_group(GroupType::Broken(Box::new(GroupType::Opacity), "opacity"));
+        self.new_group(GroupType::Kaput(Box::new(GroupType::Opacity), "opacity"));
     }
     fn cmd_opacity_close(&mut self) {
         self.end_group(GroupType::Opacity);
@@ -770,13 +770,13 @@ impl BBCodeLexer {
                 self.current_node.borrow_mut().set_arg(&val.to_string());
             }
             Err(_) => {
-                self.new_group(GroupType::Broken(Box::new(GroupType::Size), "size"));
+                self.new_group(GroupType::Kaput(Box::new(GroupType::Size), "size"));
                 self.current_node.borrow_mut().set_arg(arg);
             }
         }
     }
     fn cmd_size_bare_open(&mut self) {
-        self.new_group(GroupType::Broken(Box::new(GroupType::Size), "size"));
+        self.new_group(GroupType::Kaput(Box::new(GroupType::Size), "size"));
     }
     fn cmd_size_close(&mut self) {
         self.end_group(GroupType::Size);
@@ -839,7 +839,7 @@ impl BBCodeLexer {
             self.current_node.borrow_mut().set_arg(arg);
             self.new_group(GroupType::Paragraph);
         } else {
-            self.new_group(GroupType::Broken(Box::new(GroupType::Figure), "figure"));
+            self.new_group(GroupType::Kaput(Box::new(GroupType::Figure), "figure"));
             self.current_node.borrow_mut().set_arg(arg);
         }
     }
@@ -859,7 +859,7 @@ impl BBCodeLexer {
         } else {
             for c in arg.chars() {
                 if FORBIDDEN_URL_CHARS.contains(&c) {
-                    self.new_group(GroupType::Broken(Box::new(GroupType::Embed), "embed"));
+                    self.new_group(GroupType::Kaput(Box::new(GroupType::Embed), "embed"));
                     self.current_node.borrow_mut().set_arg(arg);
                     return;
                 }
@@ -883,7 +883,7 @@ impl BBCodeLexer {
             self.current_node.borrow_mut().set_arg(arg);
             self.linebreaks_allowed = false;
         } else {
-            self.new_group(GroupType::Broken(Box::new(GroupType::List), "list"));
+            self.new_group(GroupType::Kaput(Box::new(GroupType::List), "list"));
             self.current_node.borrow_mut().set_arg(arg);
         }
     }
@@ -903,11 +903,11 @@ impl BBCodeLexer {
                 self.end_and_new_group(GroupType::ListItem, GroupType::ListItem);
                 self.new_group(GroupType::Paragraph);
             } else {
-                self.new_group(GroupType::Broken(Box::new(GroupType::ListItem), "*"));
+                self.new_group(GroupType::Kaput(Box::new(GroupType::ListItem), "*"));
                 self.current_node.borrow_mut().set_void(true);
             }
         } else {
-            self.new_group(GroupType::Broken(Box::new(GroupType::ListItem), "*"));
+            self.new_group(GroupType::Kaput(Box::new(GroupType::ListItem), "*"));
             self.current_node.borrow_mut().set_void(true);
         }
     }
@@ -924,7 +924,7 @@ impl BBCodeLexer {
         if self.current_node.borrow().ele_type() == &GroupType::Table {
             self.new_group(GroupType::TableRow);
         } else {
-            self.new_group(GroupType::Broken(Box::new(GroupType::TableRow), "tr"));
+            self.new_group(GroupType::Kaput(Box::new(GroupType::TableRow), "tr"));
         }
     }
     fn cmd_table_row_close(&mut self) {
@@ -935,7 +935,7 @@ impl BBCodeLexer {
             self.new_group(GroupType::TableHeader);
             self.new_group(GroupType::Paragraph);
         } else {
-            self.new_group(GroupType::Broken(Box::new(GroupType::TableHeader), "th"));
+            self.new_group(GroupType::Kaput(Box::new(GroupType::TableHeader), "th"));
         }
     }
     fn cmd_table_header_close(&mut self) {
@@ -949,7 +949,7 @@ impl BBCodeLexer {
             self.new_group(GroupType::TableData);
             self.new_group(GroupType::Paragraph);
         } else {
-            self.new_group(GroupType::Broken(Box::new(GroupType::TableData), "td"));
+            self.new_group(GroupType::Kaput(Box::new(GroupType::TableData), "td"));
         }
     }
     fn cmd_table_data_close(&mut self) {
@@ -963,7 +963,7 @@ impl BBCodeLexer {
             self.new_group(GroupType::TableCaption);
             self.new_group(GroupType::Paragraph);
         } else {
-            self.new_group(GroupType::Broken(
+            self.new_group(GroupType::Kaput(
                 Box::new(GroupType::TableCaption),
                 "caption",
             ));
@@ -1023,7 +1023,7 @@ impl BBCodeLexer {
                 self.new_group(GroupType::Paragraph);
             }
             _ => {
-                self.new_group(GroupType::Broken(Box::new(GroupType::Indent), "indent"));
+                self.new_group(GroupType::Kaput(Box::new(GroupType::Indent), "indent"));
                 self.current_node.borrow_mut().set_arg(arg);
             }
         }
