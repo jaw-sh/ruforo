@@ -343,6 +343,11 @@ impl BBCodeLexer {
     }
 
     /*-- COMMANDS --*/
+    /// Consumes the input without doing anything.
+    fn cmd_consume(&mut self) {
+        // Intentionally empty.
+    }
+
     fn cmd_bold_open(&mut self) {
         self.new_group(GroupType::Bold);
     }
@@ -1080,6 +1085,7 @@ static NO_ARG_CMD: phf::Map<&'static str, fn(&mut BBCodeLexer)> = phf_map! {
     "spoiler" => BBCodeLexer::cmd_spoiler_open,
     "/spoiler" => BBCodeLexer::cmd_spoiler_close,
     "hr" => BBCodeLexer::cmd_hr,
+    "/hr" => BBCodeLexer::cmd_consume,
     "center" => BBCodeLexer::cmd_center_open,
     "/center" => BBCodeLexer::cmd_center_close,
     "right" => BBCodeLexer::cmd_right_open,
