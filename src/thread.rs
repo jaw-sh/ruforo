@@ -45,6 +45,12 @@ pub struct ThreadTemplate<'a> {
     pub attachments: &'a HashMap<i32, Vec<AttachmentForTemplate>>,
 }
 
+mod filters {
+    pub fn ugc(s: &str) -> ::askama::Result<String> {
+        Ok(crate::bbcode::bbcode_to_html_ugly(s))
+    }
+}
+
 // TODO: Dynamic page sizing.
 const POSTS_PER_PAGE: i32 = 20;
 
