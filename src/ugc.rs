@@ -29,7 +29,7 @@ where
     .await
     .map_err(error::ErrorInternalServerError)?;
 
-    let ugc_id = new_ugc.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
+    let ugc_id = new_ugc.id.clone().unwrap();
 
     Ok(create_ugc_revision(pool, ugc_id, revision).await?)
 }
@@ -47,7 +47,7 @@ where
     let revision = validate_ugc(revision).map_err(|err| err)?;
 
     // Use supplied _revision to build a UGC Revision with referebasences we just created.
-    let new_revision: ugc_revisions::ActiveModel = ugc_revisions::ActiveModel {
+    let new_revision = ugc_revisions::ActiveModel {
         created_at: Set(Utc::now().naive_utc()),
         ugc_id: Set(ugc_id),
         ip_id: Set(revision.ip_id),
@@ -59,7 +59,7 @@ where
     .await
     .map_err(error::ErrorInternalServerError)?;
 
-    let ugc_revision_id = new_revision.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
+    let ugc_revision_id = new_revision.id.clone().unwrap();
     ugc::Entity::update_many()
         .col_expr(ugc::Column::UgcRevisionId, Expr::value(ugc_revision_id))
         .filter(ugc::Column::Id.eq(ugc_id))

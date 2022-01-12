@@ -74,14 +74,14 @@ pub async fn create_thread(
     .map_err(error::ErrorInternalServerError)?;
 
     // Step 4. Update the thread to include last, first post id info.
-    let post_id = new_post.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
+    let post_id = new_post.id.clone().unwrap();
     threads::Entity::update_many()
         .col_expr(threads::Column::PostCount, Expr::value(1))
         .col_expr(threads::Column::FirstPostId, Expr::value(post_id))
         .col_expr(threads::Column::LastPostId, Expr::value(post_id))
         .col_expr(
             threads::Column::LastPostAt,
-            Expr::value(revision.created_at.clone().unwrap()), // TODO: Change once SeaQL 0.5.0 is out
+            Expr::value(revision.created_at.clone().unwrap()),
         )
         .filter(threads::Column::Id.eq(thread_res.last_insert_id))
         .exec(&txn)

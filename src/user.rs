@@ -29,7 +29,7 @@ pub struct UserProfile {
     pub password_cipher: crate::orm::users::Cipher,
 }
 
-pub async fn get_user_id_from_name(db: &DatabaseConnection, name: &str) -> Option<i32> {
+pub async fn _get_user_id_from_name(db: &DatabaseConnection, name: &str) -> Option<i32> {
     user_names::Entity::find()
         .filter(user_names::Column::Name.eq(name))
         .one(db)

@@ -1,6 +1,6 @@
 use crate::filesystem::get_file_url_by_hash;
 use crate::init::get_db_pool;
-use crate::orm::{attachments, posts, ugc_attachments};
+use crate::orm::{attachments, ugc_attachments};
 use sea_orm::{entity::*, query::*, FromQueryResult};
 use std::collections::HashMap;
 

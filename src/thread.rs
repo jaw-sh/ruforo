@@ -8,7 +8,7 @@ use crate::post::{NewPostFormData, PostForTemplate};
 use crate::template::{Paginator, PaginatorToHtml};
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::{Template, TemplateToResponse};
-use sea_orm::{entity::*, query::*, sea_query::Expr, FromQueryResult, QueryFilter};
+use sea_orm::{entity::*, query::*, sea_query::Expr, DbErr, FromQueryResult, QueryFilter};
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -151,7 +151,7 @@ async fn get_thread_and_replies_for_page(
 
 /// Updates the post_count and last_post information on a thread.
 /// This DOES NOT update post positions. It only updates the thread.
-pub async fn update_thread_after_reply_is_deleted(id: i32) {
+pub async fn update_thread_after_reply_is_deleted(id: i32) -> Result<(), DbErr> {
     #[derive(Debug, FromQueryResult)]
     struct LastPost {
         id: i32,
@@ -180,19 +180,15 @@ pub async fn update_thread_after_reply_is_deleted(id: i32) {
     let (last_post_res, post_count_res) = futures::join!(last_post_query, post_count_query);
 
     if post_count_res.is_err() {
-        log::error!(
-            "post_count errored when trying to update_thread: {:#?}",
-            post_count_res.unwrap_err()
-        );
-        return;
+        let err = post_count_res.unwrap_err();
+        log::error!("post_count error in update_thread: {:#?}", err);
+        return Err(err);
     }
 
     if last_post_res.is_err() {
-        log::error!(
-            "last_post errored when trying to update_thread: {:#?}",
-            last_post_res.unwrap_err()
-        );
-        return;
+        let err = last_post_res.unwrap_err();
+        log::error!("last_post error in update_thread: {:#?}", err);
+        return Err(err);
     } else if let Some(last_post) = last_post_res.unwrap() {
         let post_count = post_count_res.unwrap();
 
@@ -207,17 +203,15 @@ pub async fn update_thread_after_reply_is_deleted(id: i32) {
             .await;
 
         if update_res.is_err() {
-            log::error!(
-                "update query errored when trying to update_thread: {:#?}",
-                update_res.unwrap_err()
-            );
+            let err = update_res.unwrap_err();
+            log::error!("update query error in update_thread: {:#?}", err);
+            return Err(err);
         }
-
-        return;
     } else {
         log::error!("thread has no last_post when trying to update thread.");
-        return;
     }
+
+    Ok(())
 }
 
 #[post("/threads/{thread_id}/post-reply")]
@@ -273,7 +267,7 @@ pub async fn create_reply(
         .map_err(error::ErrorInternalServerError)?;
 
     // Update thread
-    let post_id = new_post.id.clone().unwrap(); // TODO: Change once SeaQL 0.5.0 is out
+    let post_id = new_post.id.clone().unwrap();
     threads::Entity::update_many()
         .col_expr(
             threads::Column::PostCount,
@@ -282,7 +276,7 @@ pub async fn create_reply(
         .col_expr(threads::Column::LastPostId, Expr::value(post_id))
         .col_expr(
             threads::Column::LastPostAt,
-            Expr::value(new_post.created_at.clone().unwrap()), // TODO: Change once SeaQL 0.5.0 is out
+            Expr::value(new_post.created_at.clone().unwrap()),
         )
         .filter(threads::Column::Id.eq(thread_id))
         .exec(db)

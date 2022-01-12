@@ -1,4 +1,3 @@
-use crate::attachment::AttachmentForTemplate;
 use crate::init::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::{posts, ugc_deletions, ugc_revisions, user_names};
@@ -109,7 +108,7 @@ pub async fn destroy_post(
             use crate::thread::update_thread_after_reply_is_deleted;
 
             // Update subsequent posts's position.
-            posts::Entity::update_many()
+            let _post_res = posts::Entity::update_many()
                 .col_expr(posts::Column::Position, Expr::cust("position - 1"))
                 .filter(
                     Condition::all()
@@ -117,10 +116,13 @@ pub async fn destroy_post(
                         .add(posts::Column::Position.gt(post.position)),
                 )
                 .exec(db)
-                .await;
+                .await
+                .map_err(|e| log::error!("destroy_post thread: {}", e));
 
             // Update post_count and last_post info.
-            update_thread_after_reply_is_deleted(post.thread_id).await;
+            let _thread_res = update_thread_after_reply_is_deleted(post.thread_id)
+                .await
+                .map_err(|e| log::error!("destroy_post thread: {}", e));
         });
     }
 
