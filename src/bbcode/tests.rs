@@ -14,6 +14,11 @@ fn test_parse_basic_tags() {
 }
 
 #[test]
+fn test_parse_incomplete_tag_pairs() {
+    assert_eq!(bbcode_to_html("[b]Text"), "<b>Text</b>");
+}
+
+#[test]
 fn test_parse_linebreaks() {
     assert_eq!(
         bbcode_to_html("Line 1\r\nLine 2\nLine 3\r\n\r\nLine 5"),

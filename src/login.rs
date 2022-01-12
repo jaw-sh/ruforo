@@ -131,6 +131,7 @@ pub async fn post_login(
         LoginResultStatus::Success => user_id.user_id.unwrap(),
         LoginResultStatus::Missing2FA => {
             // TODO: finish this
+            return Err(error::ErrorForbidden("2FA required."));
         }
         _ => {
             log::debug!("login failure: {:?}", user_id.result);

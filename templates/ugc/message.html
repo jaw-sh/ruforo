@@ -29,6 +29,7 @@
         </div>
         {% when None %}{% endmatch %}
 
+        {% if client.is_user() %}
         <div class="message-footer">
             <div class="message-footer--left">
                 {# Mod Checkbox, Report, Delete, IP, Warn #}
@@ -39,6 +40,7 @@
                 {# Like, Quote, Reply #}
             </div>
         </div>
+        {% endif %}
         {% else %}
         <div class="message-holder">
             This message was deleted.

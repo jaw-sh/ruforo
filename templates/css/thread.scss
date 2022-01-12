@@ -1,23 +1,33 @@
+@import 'variables';
+
 .subtitle {
     font-weight: normal;
 }
 
 .message {
-    border: 1px solid #666666;
+    border: 1px solid $border-color;
     display: flex;
     flex-direction: row;
     margin: 1rem 0;
 }
-.message-cell {
-    padding: 8px;
+
+// Messages that replace the post.
+.message-holder {
+    padding: $padding;
 }
-.message-cell--author {
-    width: 144px;
-}
-.message-cell--main {
-    flex: 5;
-}
+
+.message-cell {}
+    .message-cell--author {
+        border-right: 1px solid $border-color;
+        padding: $padding;
+        width: 144px;
+    }
+    .message-cell--main {
+        flex: 5;
+    }
+
 .message-header {
+    padding: $padding $padding 0 $padding;
     font-size: 0.8rem;
 
     &::after {
@@ -26,18 +36,20 @@
         clear: both;
     }
 }
-.message-header--left {
-    float: left;
-}
-.message-header--right {
-    float: right;
-}
+    .message-header--left {
+        float: left;
+    }
+    .message-header--right {
+        float: right;
+    }
+
 .message-content {
-    margin: 0.5rem 0;
+    padding: $padding;
 }
 
 .message-attachments {
     display: flex;
+    padding: $padding;
     gap: 0.4em;
     flex-direction: row;
     flex-wrap: wrap;
@@ -58,12 +70,14 @@
 
 .message-footer {
     display: flex;
+    border-top: 1px solid $border-color;
     font-size: 0.8rem;
+    padding: $padding;
 }
-.message-footer--left,
-.message-footer--right {
-    flex: 1;
-}
-.message-footer--right {
-    text-align: right;
-}
+    .message-footer--left,
+    .message-footer--right {
+        flex: 1;
+    }
+    .message-footer--right {
+        text-align: right;
+    }
