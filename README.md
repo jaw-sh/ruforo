@@ -9,6 +9,7 @@ PROJECT_NAME is a traditional web forum built in Rust.
    - Askama for Templating
    - SeaQL (sqlx) for ORM
  - Postgres
+ - Webpack
 
 ## Aspirations
  - Minimal bloat.
@@ -17,13 +18,9 @@ PROJECT_NAME is a traditional web forum built in Rust.
  - Event driven WebSocket subscriptions.
  - Total replacement for XenForo.
 
-## Still trying to figure out
- - l10n / i18n
- - JavaScript framework, if any, or JavaScript deployment stack
-
 ## Environment
  - Example `.env` file
-	 + NOTE: AWS variables will likely be migrated to DB
+   + NOTE: AWS variables will likely be migrated to DB
 ```
 DATABASE_URL=postgres://rfuser:rfpass@localhost/ruforo
 SALT=GPIb5gy10Vw/SEj5f+cjeA
@@ -32,6 +29,10 @@ AWS_SECRET_ACCESS_KEY=testsecretkey
 DIR_TMP=./tmp     # used for file uploads
 SESSION_TIME=1440 # 1 day in minutes
 ```
+ - node and webpack
+  + Install [npm](https://nodejs.org/en/download/).
+  + Run `npm install` from the root directory to install node dependencies.
+  + Run `npx webpack` from the root directory to deploy browser-friendly resource files.
 
 ### WebM Validation Notes
  - https://www.webmproject.org/docs/container/
