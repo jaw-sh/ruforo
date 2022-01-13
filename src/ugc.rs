@@ -16,7 +16,7 @@ pub struct NewUgcPartial<'a> {
 pub async fn create_ugc<'a, C>(
     pool: &'a C,
     revision: NewUgcPartial<'a>,
-) -> Result<ugc_revisions::ActiveModel, Error>
+) -> Result<ugc_revisions::Model, Error>
 where
     C: ConnectionTrait<'a>,
 {
@@ -29,9 +29,7 @@ where
     .await
     .map_err(error::ErrorInternalServerError)?;
 
-    let ugc_id = new_ugc.id.clone().unwrap();
-
-    Ok(create_ugc_revision(pool, ugc_id, revision).await?)
+    Ok(create_ugc_revision(pool, new_ugc.id, revision).await?)
 }
 
 /// Creates a new UGC revision and sets it as the living revision for the UGC it belongs to.
@@ -39,7 +37,7 @@ pub async fn create_ugc_revision<'a, C>(
     conn: &'a C,
     ugc_id: i32,
     revision: NewUgcPartial<'a>,
-) -> Result<ugc_revisions::ActiveModel, Error>
+) -> Result<ugc_revisions::Model, Error>
 where
     C: ConnectionTrait<'a>,
 {
@@ -59,9 +57,8 @@ where
     .await
     .map_err(error::ErrorInternalServerError)?;
 
-    let ugc_revision_id = new_revision.id.clone().unwrap();
     ugc::Entity::update_many()
-        .col_expr(ugc::Column::UgcRevisionId, Expr::value(ugc_revision_id))
+        .col_expr(ugc::Column::UgcRevisionId, Expr::value(new_revision.id))
         .filter(ugc::Column::Id.eq(ugc_id))
         .exec(conn)
         .await

@@ -44,7 +44,7 @@ pub async fn create_thread(
     // Step 2. Create a thread.
     let thread = threads::ActiveModel {
         user_id: Set(client.get_id()),
-        created_at: revision.created_at.to_owned(),
+        created_at: Set(revision.created_at),
         title: Set(form.title.trim().to_owned()),
         subtitle: Set(form
             .subtitle
@@ -64,8 +64,8 @@ pub async fn create_thread(
     let new_post = posts::ActiveModel {
         user_id: Set(client.get_id()),
         thread_id: Set(thread_res.last_insert_id),
-        ugc_id: revision.ugc_id,
-        created_at: revision.created_at.clone(),
+        ugc_id: Set(revision.ugc_id),
+        created_at: Set(revision.created_at),
         position: Set(1),
         ..Default::default()
     }
@@ -74,14 +74,13 @@ pub async fn create_thread(
     .map_err(error::ErrorInternalServerError)?;
 
     // Step 4. Update the thread to include last, first post id info.
-    let post_id = new_post.id.clone().unwrap();
     threads::Entity::update_many()
         .col_expr(threads::Column::PostCount, Expr::value(1))
-        .col_expr(threads::Column::FirstPostId, Expr::value(post_id))
-        .col_expr(threads::Column::LastPostId, Expr::value(post_id))
+        .col_expr(threads::Column::FirstPostId, Expr::value(new_post.id))
+        .col_expr(threads::Column::LastPostId, Expr::value(new_post.id))
         .col_expr(
             threads::Column::LastPostAt,
-            Expr::value(revision.created_at.clone().unwrap()),
+            Expr::value(revision.created_at),
         )
         .filter(threads::Column::Id.eq(thread_res.last_insert_id))
         .exec(&txn)

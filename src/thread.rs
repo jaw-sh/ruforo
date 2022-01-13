@@ -251,9 +251,9 @@ pub async fn create_reply(
     // Insert post
     let new_post = posts::ActiveModel {
         thread_id: Set(our_thread.id),
-        user_id: ugc_revision.user_id,
-        ugc_id: ugc_revision.ugc_id,
-        created_at: ugc_revision.created_at,
+        user_id: Set(ugc_revision.user_id),
+        ugc_id: Set(ugc_revision.ugc_id),
+        created_at: Set(ugc_revision.created_at),
         position: Set(our_thread.post_count + 1),
         ..Default::default()
     }
@@ -267,7 +267,7 @@ pub async fn create_reply(
         .map_err(error::ErrorInternalServerError)?;
 
     // Update thread
-    let post_id = new_post.id.clone().unwrap();
+    let post_id = new_post.id;
     threads::Entity::update_many()
         .col_expr(
             threads::Column::PostCount,
@@ -276,7 +276,7 @@ pub async fn create_reply(
         .col_expr(threads::Column::LastPostId, Expr::value(post_id))
         .col_expr(
             threads::Column::LastPostAt,
-            Expr::value(new_post.created_at.clone().unwrap()),
+            Expr::value(new_post.created_at),
         )
         .filter(threads::Column::Id.eq(thread_id))
         .exec(db)
