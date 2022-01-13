@@ -16,20 +16,21 @@ impl Default for ReadMode {
     }
 }
 
-/// Struct for BBCode tokenization.
+/// Struct for BbCode tokenization.
 #[derive(Default)]
-pub struct BBCodeTokenizer {
+pub struct Tokenizer {
     mode: ReadMode,
     current_instruction: Instruction,
     instructions: Vec<Instruction>,
 }
 
-impl BBCodeTokenizer {
-    /// Creates a new BBCodeTokenizer
+impl Tokenizer {
+    /// Creates a new Tokenizer
     pub fn new() -> Self {
         Default::default()
     }
-    /// Reads and tokenizes BBCode into individual Instructions.
+
+    /// Reads and tokenizes BbCode into individual Instructions.
     pub fn tokenize(&mut self, bbcode: &str) -> &Vec<Instruction> {
         let bbcode_chars = bbcode.chars();
         for character in bbcode_chars {
@@ -134,7 +135,7 @@ impl BBCodeTokenizer {
             },
         }
     }
-    /// s BBCode tags.
+    /// s BbCode tags.
     fn parse_tag(&mut self, character: char) {
         match character {
             ']' => {
@@ -165,7 +166,7 @@ impl BBCodeTokenizer {
             },
         }
     }
-    /// s BBCode tag arguments.
+    /// s BbCode tag arguments.
     fn parse_tag_primary_arg(&mut self, character: char) {
         match character {
             ']' => {

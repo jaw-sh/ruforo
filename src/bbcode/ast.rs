@@ -1,0 +1,153 @@
+/// A single element of a BbCode Abstract Syntax Tree (AST).
+#[derive(Debug, Clone)]
+pub struct Element {
+    ele_type: GroupType,
+    text_contents: Option<String>,
+    argument: Option<String>,
+    is_void: bool,
+    detachable: bool,
+    kaput: bool,
+}
+
+impl Element {
+    /// Creates a new ASTElement.
+    pub fn new(ele_type: GroupType) -> Element {
+        let text_contents = None;
+        let argument = None;
+        let is_void = false;
+        let detachable = true;
+        let kaput = match ele_type {
+            GroupType::Kaput(_, _) => true,
+            _ => false,
+        };
+        Element {
+            ele_type,
+            text_contents,
+            argument,
+            is_void,
+            detachable,
+            kaput,
+        }
+    }
+    /// Sets an ASTElement's type.
+    pub fn set_ele_type(&mut self, new_type: GroupType) {
+        self.kaput = match new_type {
+            GroupType::Kaput(_, _) => true,
+            _ => false,
+        };
+        self.ele_type = new_type;
+    }
+    /// Gets an immutable reference to an ASTElement's type.
+    pub fn ele_type(&self) -> &GroupType {
+        &self.ele_type
+    }
+    /// Sets an ASTElement's is_void field (indicates that the ASTElement does not contain text or children).
+    pub fn set_void(&mut self, in_void: bool) {
+        self.is_void = in_void;
+    }
+    /// gets the value of an ASTElement's is_void field.
+    pub fn is_void(&self) -> bool {
+        self.is_void
+    }
+    /// Adds text to an ASTElement.
+    pub fn add_text(&mut self, new_text: &str) {
+        if let Some(text) = &self.text_contents {
+            self.text_contents = Some(format!("{}{}", text, new_text));
+        } else {
+            self.text_contents = Some(new_text.to_string());
+        }
+    }
+    /// Gets whether or not an ASTElement has text.
+    pub fn has_text(&self) -> bool {
+        self.text_contents.is_some()
+    }
+    /// Gets an immutable reference to an ASTElement's text_contents.
+    pub fn text_contents(&self) -> &Option<String> {
+        &self.text_contents
+    }
+    /// Sets an ASTElement's Argument field.
+    pub fn set_arg(&mut self, arg: &str) {
+        self.argument = Some(arg.to_string());
+    }
+    /// Adds to arg of an ASTElement.
+    pub fn add_arg(&mut self, new_arg: &str) {
+        if let Some(arg) = &self.argument {
+            self.argument = Some(format!("{}{}", arg, new_arg));
+        } else {
+            self.argument = Some(new_arg.to_string());
+        }
+    }
+    /// Gets whether or not an ASTElement has an argument.
+    pub fn has_arg(&self) -> bool {
+        self.argument.is_some()
+    }
+    /// Gets an immutable reference to an ASTElement's argument field.
+    pub fn argument(&self) -> &Option<String> {
+        &self.argument
+    }
+    /// Sets an ASTElement's detachable field (indicates whether the element should be detatched if empty);
+    pub fn set_detachable(&mut self, in_det: bool) {
+        self.detachable = in_det;
+    }
+    /// Gets the value of an ASTElement's detachable field.
+    pub fn is_detachable(&self) -> bool {
+        self.detachable
+    }
+    /// Gets the value of an ASTElement's kaput field.
+    pub fn is_kaput(&self) -> bool {
+        self.kaput
+    }
+}
+
+/// Types of ASTElement.
+#[derive(Debug, PartialEq, Clone)]
+pub enum GroupType {
+    Text,
+    Hr,
+    Br,
+    Bold,
+    Strong,
+    Italic,
+    Emphasis,
+    Underline,
+    Smallcaps,
+    Strikethrough,
+    Monospace,
+    Superscript,
+    Subscript,
+    Spoiler,
+    Colour,
+    Url,
+    Email,
+    Opacity,
+    Size,
+    Center,
+    Right,
+    Image,
+    Quote,
+    Footnote,
+    Indent,
+    Plain,
+    Pre,
+    PreLine,
+    Header,
+    Figure,
+    List,
+    ListItem,
+    Embed,
+    Code,
+    CodeBlock,
+    //Icon,
+    Math,
+    MathBlock,
+    Table,
+    TableRow,
+    TableData,
+    TableHeader,
+    TableCaption,
+    Paragraph,
+    Null,
+    Kaput(Box<GroupType>, &'static str),
+    Document,
+    Anchor,
+}

@@ -1,5 +1,5 @@
-use super::ASTElement;
-use super::GroupType;
+use super::ast::Element;
+use super::ast::GroupType;
 use rctree::{Node, NodeEdge};
 use std::cell::Ref;
 
@@ -18,8 +18,8 @@ impl HTMLConstructor {
         }
     }
 
-    /// Generates an HTML string from an ASTElement
-    pub fn construct(&mut self, ast: Node<ASTElement>) -> String {
+    /// Generates an HTML string from an Element
+    pub fn construct(&mut self, ast: Node<Element>) -> String {
         for node_edge in ast.traverse() {
             match node_edge {
                 NodeEdge::Start(node) => self.start_element(node.borrow()),
@@ -30,7 +30,7 @@ impl HTMLConstructor {
     }
 
     /// Opens an HTML tag.
-    fn start_element(&mut self, element: Ref<ASTElement>) {
+    fn start_element(&mut self, element: Ref<Element>) {
         match element.ele_type() {
             GroupType::Text => {
                 if let Some(text) = element.text_contents() {
@@ -189,7 +189,7 @@ impl HTMLConstructor {
     }
 
     /// Closes an HTML tag.
-    fn end_element(&mut self, element: Ref<ASTElement>) {
+    fn end_element(&mut self, element: Ref<Element>) {
         match element.ele_type() {
             //GroupType::Paragraph => self.output_string.push_str("</p>"),
             GroupType::Bold => self.output_string.push_str("</b>"),
