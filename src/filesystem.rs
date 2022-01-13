@@ -3,7 +3,7 @@ use crate::init::get_db_pool;
 use crate::orm::{attachments, ugc_attachments};
 use crate::s3::S3Bucket;
 use actix_multipart::Multipart;
-use actix_web::{get, http::header::ContentType, post, web, Error, HttpResponse, Responder};
+use actix_web::{error, get, http::header::ContentType, post, web, Error, HttpResponse, Responder};
 use chrono::Utc;
 use futures::{StreamExt, TryStreamExt};
 use mime::Mime;
@@ -11,6 +11,7 @@ use once_cell::sync::OnceCell;
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, DbErr, FromQueryResult, JsonValue, QueryFilter,
 };
+use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::File;
@@ -140,6 +141,11 @@ pub fn init() {
     MIME_LOOKUP.set(map).unwrap();
 }
 
+#[derive(Deserialize)]
+pub struct FileHashFormData {
+    pub hash: String,
+}
+
 struct UploadPayload {
     data: Vec<u8>,
     filename: String,
@@ -148,10 +154,33 @@ struct UploadPayload {
     mime: Mime,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, FromQueryResult, Serialize)]
 struct UploadResponse {
     id: i32,
     hash: String,
+}
+
+#[post("/fs/check-file")]
+pub async fn post_file_hash(form: web::Json<FileHashFormData>) -> Result<impl Responder, Error> {
+    // TODO: I do not know why .len() returns 64 when it should be 32.
+    if form.hash.len() != 64 {
+        // note: .len() is byte count
+        return Err(error::ErrorBadRequest(format!(
+            "Malformed BLAKE3 hash (b{}).",
+            form.hash.len()
+        )));
+    };
+
+    let file = attachments::Entity::find()
+        .column(attachments::Column::Id)
+        .column(attachments::Column::Hash)
+        .filter(attachments::Column::Hash.eq(form.hash.to_owned()))
+        .into_model::<UploadResponse>()
+        .one(get_db_pool())
+        .await
+        .map_err(error::ErrorInternalServerError)?;
+
+    Ok(web::Json(file))
 }
 
 #[get("/fs/{file_id}")]
@@ -177,7 +206,7 @@ pub async fn view_file_canonical(file_id: web::Path<i32>) -> Result<impl Respond
 pub async fn view_file_ugc(file_id: web::Path<i32>) -> Result<impl Responder, Error> {
     let result = get_file_url_by_ugc(get_s3(), *file_id).await.map_err(|e| {
         log::error!("view_file: get_filename_by_id: {}", e);
-        actix_web::error::ErrorInternalServerError("view_file: bad ID")
+        error::ErrorInternalServerError("view_file: bad ID")
     })?;
     let content = match result {
         Some(result) => result,

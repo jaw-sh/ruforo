@@ -8,6 +8,20 @@ document.addEventListener("DOMContentLoaded", function() {
 
             reader.onload = async function (readerEvent) {
                 let hash = await blake3(new Uint8Array(readerEvent.target.result));
+                let formData = new FormData();
+                formData.append("hash", hash);
+
+                let response = await fetch('/fs/check-file', {
+                    method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        hash: hash,
+                    }),
+                });
+
+                console.log(response);
             }
 
             reader.onerror = function (readerEvent) {

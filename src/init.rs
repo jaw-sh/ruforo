@@ -90,6 +90,7 @@ pub async fn start() -> std::io::Result<()> {
             .service(member::view_members)
             .service(filesystem::view_file_ugc)
             .service(filesystem::view_file_canonical)
+            .service(filesystem::post_file_hash)
             .service(filesystem::put_file)
             .service(post::delete_post)
             .service(post::destroy_post)
