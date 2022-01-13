@@ -30,9 +30,9 @@ DIR_TMP=./tmp     # used for file uploads
 SESSION_TIME=1440 # 1 day in minutes
 ```
  - node and webpack
-  + Install [npm](https://nodejs.org/en/download/).
-  + Run `npm install` from the root directory to install node dependencies.
-  + Run `npx webpack` from the root directory to deploy browser-friendly resource files.
+   + Install [npm](https://nodejs.org/en/download/).
+   + Run `npm install` from the root directory to install node dependencies.
+   + Run `npx webpack` from the root directory to deploy browser-friendly resource files.
 
 ### WebM Validation Notes
  - https://www.webmproject.org/docs/container/
