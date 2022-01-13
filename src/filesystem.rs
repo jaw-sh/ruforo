@@ -1,6 +1,6 @@
 use crate::ffmpeg::get_extension_ffmpeg;
 use crate::init::get_db_pool;
-use crate::orm::{attachments, ugc, ugc_attachments};
+use crate::orm::{attachments, ugc_attachments};
 use crate::s3::S3Bucket;
 use actix_multipart::Multipart;
 use actix_web::{get, http::header::ContentType, post, web, Error, HttpResponse, Responder};
@@ -11,6 +11,7 @@ use once_cell::sync::OnceCell;
 use sea_orm::{
     entity::*, query::*, sea_query::Expr, DbErr, FromQueryResult, JsonValue, QueryFilter,
 };
+use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
@@ -147,6 +148,12 @@ struct UploadPayload {
     mime: Mime,
 }
 
+#[derive(Serialize)]
+struct UploadResponse {
+    id: i32,
+    hash: String,
+}
+
 #[get("/fs/{file_id}")]
 pub async fn view_file_canonical(file_id: web::Path<i32>) -> Result<impl Responder, Error> {
     let result = get_file_url(get_s3(), *file_id).await.map_err(|e| {
@@ -189,6 +196,7 @@ pub async fn view_file_ugc(file_id: web::Path<i32>) -> Result<impl Responder, Er
 pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> {
     // see: https://users.rust-lang.org/t/file-upload-in-actix-web/64871/3
     let mut payloads: Vec<UploadPayload> = Vec::new(); // TODO can we count files from the multipart to reserve?
+    let mut response: Vec<UploadResponse> = Vec::new();
 
     // iterate over multipart stream
     while let Ok(Some(mut field)) = mutipart.try_next().await {
@@ -310,19 +318,14 @@ pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> 
             actix_web::error::ErrorInternalServerError("put_file: file too large")
         })?;
 
-        let (_file_id, canon_filename) = insert_attachment(
-            &s3_filename,
-            &payload.hash.to_string(),
-            filesize,
-            &payload.mime.to_string(),
-            None,
-            None,
-        )
-        .await
-        .map_err(|e| {
-            log::error!("put_file: failed select_attachment_by_filename_hash: {}", e);
-            actix_web::error::ErrorInternalServerError("put_file: DB error")
-        })?;
+        let hash = &payload.hash.to_string();
+        let (file_id, canon_filename) =
+            insert_attachment(&s3_filename, hash, filesize, &payload.mime.to_string())
+                .await
+                .map_err(|e| {
+                    log::error!("put_file: failed select_attachment_by_filename_hash: {}", e);
+                    actix_web::error::ErrorInternalServerError("put_file: DB error")
+                })?;
 
         if canon_filename.is_none() {
             let count = list.key_count.ok_or_else(|| {
@@ -354,9 +357,14 @@ pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> 
             log::error!("put_file: delete tmp file error: {}", e);
             actix_web::error::ErrorInternalServerError("put_file: failed to store file")
         })?;
+
+        response.push(UploadResponse {
+            id: file_id,
+            hash: hash.to_owned(),
+        });
     }
 
-    Ok(HttpResponse::Ok().body("put_file: ok"))
+    Ok(web::Json(response))
 }
 
 /// this is my fancy intelligent extension extractor
@@ -443,8 +451,6 @@ async fn insert_attachment(
     hash: &str,
     filesize: i64,
     mime: &str,
-    user_id: Option<i32>,
-    user_ip: Option<i32>,
 ) -> Result<(i32, Option<String>), DbErr> {
     #[derive(Debug, FromQueryResult)]
     struct SelectResult {
@@ -501,33 +507,9 @@ async fn insert_attachment(
             (res.last_insert_id, None)
         }
     };
-
-    // Insert UGC
-    let new_ugc = ugc::ActiveModel {
-        ugc_revision_id: Set(None),
-        ..Default::default()
-    }
-    .insert(&txn)
-    .await?;
-
-    // TODO add user ID stuff
-
-    // Insert UGC Attachment
-    let new_ugc_attachment = ugc_attachments::ActiveModel {
-        attachment_id: Set(attachment_id),
-        ugc_id: Set(new_ugc.id.unwrap()),
-        user_id: Set(user_id),
-        ip_id: Set(user_ip),
-        created_at: Set(now),
-        filename: Set(filename.to_owned()),
-        ..Default::default()
-    };
-    let res = ugc_attachments::Entity::insert(new_ugc_attachment)
-        .exec(&txn)
-        .await?;
     txn.commit().await?;
 
-    Ok((res.last_insert_id, canon_filename))
+    Ok((attachment_id, canon_filename))
 }
 
 fn get_extension(filename: &str, mime: &Mime) -> Option<String> {

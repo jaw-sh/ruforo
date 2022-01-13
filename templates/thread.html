@@ -15,18 +15,19 @@
 <form action="/threads/{{ thread.id }}/post-reply" method="post">
     <h2>Post Reply</h2>
     <textarea name="content" rows="8" cols="80"></textarea>
-    <div class="attachment-upload">
+    <div>
         <input type="file" name="attachment" class="attachment-input" />
+        <button class="attachment-upload">Upload</button>
     </div>
     <button>Sneed</button>
 </form>
 
 <script>
-    document.getElementById('.attachment-input').addEventListener('click', async function uploadFile(event) {
+    document.querySelector('.attachment-upload').addEventListener('click', async function uploadFile(event) {
         event.preventDefault();
 
         let formData = new FormData();
-        formData.append("file", fileupload.files[0]);
+        formData.append("file", document.querySelector('.attachment-input').files[0]);
         await fetch('/fs/upload-file', {
           method: "POST",
           body: formData
