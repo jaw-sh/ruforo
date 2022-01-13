@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 actix = "0.12.0"
 actix-multipart = "0.4.0-beta.10"
+actix-files = "0.6.0-beta.13"
 actix-session = { git = "https://github.com/actix/actix-extras" }
 #actix-session = "0.5.0-beta.4"
 actix-utils = "3.0.0"
@@ -33,7 +34,7 @@ once_cell = "1.9.0"
 phf = { version = "0.10.1", features = ["macros"] }
 rand = "0.8.4"
 rctree = "0.4.0"
-rsass = "0.23.0"
+#rsass = "0.23.0"
 rusoto_core = "0.47.0"
 rusoto_s3 = "0.47.0"
 sea-orm = { version = "0.4.2", features = [ "sqlx-postgres", "runtime-actix-rustls", "macros" ], default-features = false }

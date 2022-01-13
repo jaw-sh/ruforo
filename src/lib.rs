@@ -1,3 +1,4 @@
+pub mod asset;
 pub mod attachment;
 pub mod auth_2fa;
 pub mod bbcode;
@@ -6,7 +7,6 @@ pub mod create_user;
 mod ffmpeg;
 pub mod filesystem;
 pub mod forum;
-pub mod frontend;
 pub mod global;
 pub mod hub;
 pub mod index;

@@ -21,21 +21,5 @@
     </div>
     <button>Sneed</button>
 </form>
-
-<script>
-    document.querySelector('.attachment-upload').addEventListener('click', async function uploadFile(event) {
-        event.preventDefault();
-
-        let formData = new FormData();
-        formData.append("file", document.querySelector('.attachment-input').files[0]);
-        await fetch('/fs/upload-file', {
-          method: "POST",
-          body: formData
-        });
-        console.log("Triggered successfully.");
-
-        return false; // prevent default
-    });
-</script>
 {% endif %}
 {% endblock %}
