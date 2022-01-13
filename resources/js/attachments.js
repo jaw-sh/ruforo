@@ -1,9 +1,5 @@
 import { blake3 } from 'hash-wasm';
 
-(async function () {
-    console.log(await blake3('foo'));
-})();
-
 document.addEventListener("DOMContentLoaded", function() {
     document.querySelector('.attachment-input').addEventListener('change', async function (event) {
         let file = event.target.files[0];
