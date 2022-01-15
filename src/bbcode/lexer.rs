@@ -1,7 +1,7 @@
 use super::ast::Element;
 use super::ast::GroupType;
 use super::Instruction;
-use phf::{phf_map, phf_set};
+use phf::phf_map;
 use rctree::Node;
 
 /// Struct for lexing BbCode Instructions into an Element tree.
@@ -354,102 +354,6 @@ impl Lexer {
     pub(crate) fn cmd_consume(&mut self) {
         // Intentionally empty.
     }
-
-    pub(crate) fn cmd_list_bare_open(&mut self) {
-        self.end_and_new_group(GroupType::Paragraph, GroupType::List);
-        self.linebreaks_allowed = false;
-    }
-    pub(crate) fn cmd_list_open(&mut self, arg: &str) {
-        if LIST_TYPES.contains(arg as &str) {
-            self.end_and_new_group(GroupType::Paragraph, GroupType::List);
-            self.current_node.borrow_mut().set_arg(arg);
-            self.linebreaks_allowed = false;
-        } else {
-            self.new_group(GroupType::Kaput(Box::new(GroupType::List), "list"));
-            self.current_node.borrow_mut().set_arg(arg);
-        }
-    }
-    pub(crate) fn cmd_list_close(&mut self) {
-        self.end_and_new_group(GroupType::List, GroupType::Paragraph);
-        self.linebreaks_allowed = true;
-    }
-    pub(crate) fn cmd_list_item(&mut self) {
-        if self.current_node.borrow().ele_type() == &GroupType::List {
-            self.end_and_new_group(GroupType::ListItem, GroupType::ListItem);
-            self.new_group(GroupType::Paragraph);
-        } else if let Some(parent) = self.current_node.parent() {
-            if parent.borrow().ele_type() == &GroupType::ListItem {
-                if self.current_node.borrow_mut().ele_type() == &GroupType::Paragraph {
-                    self.end_group(GroupType::Paragraph);
-                }
-                self.end_and_new_group(GroupType::ListItem, GroupType::ListItem);
-                self.new_group(GroupType::Paragraph);
-            } else {
-                self.new_group(GroupType::Kaput(Box::new(GroupType::ListItem), "*"));
-                self.current_node.borrow_mut().set_void(true);
-            }
-        } else {
-            self.new_group(GroupType::Kaput(Box::new(GroupType::ListItem), "*"));
-            self.current_node.borrow_mut().set_void(true);
-        }
-    }
-
-    pub(crate) fn cmd_hr(&mut self) {
-        self.end_group(GroupType::Paragraph);
-        self.new_group(GroupType::Hr);
-        self.current_node.borrow_mut().set_void(true);
-        self.end_group(GroupType::Hr);
-        self.new_group(GroupType::Paragraph);
-    }
-
-    pub(crate) fn cmd_preline_open(&mut self) {
-        self.new_group(GroupType::PreLine);
-        self.ignore_formatting = true;
-    }
-    pub(crate) fn cmd_preline_close(&mut self) {
-        self.ignore_formatting = false;
-        self.end_group(GroupType::PreLine);
-    }
-
-    pub(crate) fn cmd_indent_open(&mut self, arg: &str) {
-        match arg {
-            "1" | "2" | "3" | "4" => {
-                self.end_and_new_group(GroupType::Paragraph, GroupType::Indent);
-                self.current_node.borrow_mut().set_arg(arg);
-                self.new_group(GroupType::Paragraph);
-            }
-            _ => {
-                self.new_group(GroupType::Kaput(Box::new(GroupType::Indent), "indent"));
-                self.current_node.borrow_mut().set_arg(arg);
-            }
-        }
-    }
-    pub(crate) fn cmd_indent_bare_open(&mut self) {
-        self.end_and_new_group(GroupType::Paragraph, GroupType::Indent);
-        self.current_node.borrow_mut().set_arg(&"1".to_string());
-        self.new_group(GroupType::Paragraph);
-    }
-    pub(crate) fn cmd_indent_close(&mut self) {
-        self.end_and_new_group(GroupType::Indent, GroupType::Paragraph);
-    }
-
-    pub(crate) fn cmd_center_open(&mut self) {
-        self.end_and_new_group(GroupType::Paragraph, GroupType::Center);
-        self.new_group(GroupType::Paragraph);
-    }
-    pub(crate) fn cmd_center_close(&mut self) {
-        self.end_group(GroupType::Paragraph);
-        self.end_and_new_group(GroupType::Center, GroupType::Paragraph);
-    }
-
-    pub(crate) fn cmd_right_open(&mut self) {
-        self.end_and_new_group(GroupType::Paragraph, GroupType::Right);
-        self.new_group(GroupType::Paragraph);
-    }
-    pub(crate) fn cmd_right_close(&mut self) {
-        self.end_group(GroupType::Paragraph);
-        self.end_and_new_group(GroupType::Right, GroupType::Paragraph);
-    }
 }
 
 /// A simplified representation of an element used when closing and reopening groups.
@@ -553,16 +457,4 @@ static ONE_ARG_CMD: phf::Map<&'static str, fn(&mut Lexer, &str)> = phf_map! {
     "footnote" => Lexer::cmd_footnote_open,
     "list" => Lexer::cmd_list_open,
     "indent" => Lexer::cmd_indent_open,
-};
-
-/// Static compile-time set of accepted list types.
-static LIST_TYPES: phf::Set<&'static str> = phf_set! {
-    "1",
-    "a",
-    "A",
-    "i",
-    "I",
-    "circle",
-    "square",
-    "none",
 };

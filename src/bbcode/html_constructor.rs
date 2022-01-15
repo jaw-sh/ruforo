@@ -1,6 +1,5 @@
 use super::ast::Element;
 use super::ast::GroupType;
-use super::tag::*;
 use rctree::{Node, NodeEdge};
 use std::cell::Ref;
 

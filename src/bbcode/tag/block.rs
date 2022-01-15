@@ -94,4 +94,61 @@ impl Lexer {
         self.end_group(GroupType::Paragraph);
         self.end_group(GroupType::Quote);
     }
+
+    pub(crate) fn cmd_hr(&mut self) {
+        self.end_group(GroupType::Paragraph);
+        self.new_group(GroupType::Hr);
+        self.current_node.borrow_mut().set_void(true);
+        self.end_group(GroupType::Hr);
+        self.new_group(GroupType::Paragraph);
+    }
+
+    pub(crate) fn cmd_preline_open(&mut self) {
+        self.new_group(GroupType::PreLine);
+        self.ignore_formatting = true;
+    }
+    pub(crate) fn cmd_preline_close(&mut self) {
+        self.ignore_formatting = false;
+        self.end_group(GroupType::PreLine);
+    }
+
+    pub(crate) fn cmd_indent_open(&mut self, arg: &str) {
+        match arg {
+            "1" | "2" | "3" | "4" => {
+                self.end_and_new_group(GroupType::Paragraph, GroupType::Indent);
+                self.current_node.borrow_mut().set_arg(arg);
+                self.new_group(GroupType::Paragraph);
+            }
+            _ => {
+                self.new_group(GroupType::Kaput(Box::new(GroupType::Indent), "indent"));
+                self.current_node.borrow_mut().set_arg(arg);
+            }
+        }
+    }
+    pub(crate) fn cmd_indent_bare_open(&mut self) {
+        self.end_and_new_group(GroupType::Paragraph, GroupType::Indent);
+        self.current_node.borrow_mut().set_arg(&"1".to_string());
+        self.new_group(GroupType::Paragraph);
+    }
+    pub(crate) fn cmd_indent_close(&mut self) {
+        self.end_and_new_group(GroupType::Indent, GroupType::Paragraph);
+    }
+
+    pub(crate) fn cmd_center_open(&mut self) {
+        self.end_and_new_group(GroupType::Paragraph, GroupType::Center);
+        self.new_group(GroupType::Paragraph);
+    }
+    pub(crate) fn cmd_center_close(&mut self) {
+        self.end_group(GroupType::Paragraph);
+        self.end_and_new_group(GroupType::Center, GroupType::Paragraph);
+    }
+
+    pub(crate) fn cmd_right_open(&mut self) {
+        self.end_and_new_group(GroupType::Paragraph, GroupType::Right);
+        self.new_group(GroupType::Paragraph);
+    }
+    pub(crate) fn cmd_right_close(&mut self) {
+        self.end_group(GroupType::Paragraph);
+        self.end_and_new_group(GroupType::Right, GroupType::Paragraph);
+    }
 }
