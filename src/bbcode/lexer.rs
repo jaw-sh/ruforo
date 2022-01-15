@@ -13,6 +13,9 @@ pub struct Lexer {
     pub ignore_formatting: bool,
     pub linebreaks_allowed: bool,
     pub preserve_empty: bool,
+    /// A list of dependencies to be loaded before HTML construction.
+    /// TODO: Make dependencies generic?
+    pub attachments: Vec<i32>,
 }
 
 impl Lexer {
@@ -26,6 +29,7 @@ impl Lexer {
             ignore_formatting: false,
             linebreaks_allowed: true,
             preserve_empty,
+            attachments: Vec::new(),
         }
     }
 
@@ -533,6 +537,8 @@ static NO_ARG_CMD: phf::Map<&'static str, fn(&mut Lexer)> = phf_map! {
     "/embed" => Lexer::cmd_embed_close,
     "email" => Lexer::cmd_email_open,
     "/email" => Lexer::cmd_email_close,
+    "attach" => Lexer::cmd_attachment_open,
+    "/attach" => Lexer::cmd_attachment_close,
 };
 
 /// Static compile-time map of tags with single arguments to lexer commands.

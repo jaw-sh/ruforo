@@ -53,19 +53,20 @@
     gap: 0.4em;
     flex-direction: row;
     flex-wrap: wrap;
-}
-.attachment {
-    flex: 1;
 
-    padding: 0.2em;
+    .attachment {
+        flex: 1;
 
-    border: 1px solid rgba(0,0,0,0.2);
-    border-radius: 2px;
+        padding: 0.2em;
 
-    min-width: 384px;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
+        border: 1px solid rgba(0,0,0,0.2);
+        border-radius: 2px;
+
+        min-width: 384px;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 }
 
 .message-footer {

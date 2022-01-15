@@ -150,4 +150,6 @@ pub enum GroupType {
     Kaput(Box<GroupType>, &'static str),
     Document,
     Anchor,
+    // Custom
+    Attachment,
 }

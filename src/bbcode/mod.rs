@@ -30,30 +30,20 @@ pub use self::tokenizer::Tokenizer;
 #[no_mangle]
 pub fn bbcode_to_html(input: &str) -> String {
     let mut tokenizer = Tokenizer::new();
-    let mut lexer = Lexer::new(false);
-    let mut constructor = HTMLConstructor::new(input.len(), true);
-    constructor.construct(lexer.lex(tokenizer.tokenize(input)))
-}
-
-/// Generates a string of HTML from an &str of BbCode.
-/// This function produces *ugly* output, meaning that any eroneously written BbCode or empty tags encountered will be included in the final output.
-/// # Examples
-///
-/// ```
-///use ruforo::bbcode::bbcode_to_html_ugly;
-///
-///assert_eq!(bbcode_to_html_ugly("I'm [colour]missing an argument![/colour]"),
-///		"<p>I&#x27m [colour]missing an argument![/colour]</p>");
-///
-///assert_eq!(bbcode_to_html_ugly("[quote][/quote]"),
-///		"<blockquote></blockquote>");
-/// ```
-#[no_mangle]
-pub fn bbcode_to_html_ugly(input: &str) -> String {
-    let mut tokenizer = Tokenizer::new();
     let mut lexer = Lexer::new(true);
-    let mut constructor = HTMLConstructor::new(input.len(), false);
-    constructor.construct(lexer.lex(tokenizer.tokenize(input)))
+
+    let dom = lexer.lex(tokenizer.tokenize(input));
+    let prefetch_data = async_std::task::block_on(
+        crate::attachment::get_attachments_by_ugc_attachment_id(lexer.attachments.to_owned()),
+    );
+
+    dbg!(&prefetch_data);
+    HTMLConstructor {
+        output_string: String::with_capacity(input.len() + input.len() / 2),
+        pretty_print: false,
+        prefetch_data,
+    }
+    .construct(dom)
 }
 
 /// Types of argument for Instructions.

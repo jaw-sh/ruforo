@@ -1,23 +1,18 @@
 use super::ast::Element;
 use super::ast::GroupType;
+use super::tag::*;
 use rctree::{Node, NodeEdge};
 use std::cell::Ref;
 
 /// Struct for generation of HTML strings.
 pub struct HTMLConstructor {
-    output_string: String,
-    pretty_print: bool,
+    pub output_string: String,
+    pub pretty_print: bool,
+    /// TODO: Definitely find some way to make this generic.
+    pub prefetch_data: Vec<crate::attachment::AttachmentForTemplate>,
 }
-impl HTMLConstructor {
-    /// Creates a new HTMLConstructor.
-    pub fn new(out_len: usize, pretty_print: bool) -> HTMLConstructor {
-        let output_string = String::with_capacity(out_len + out_len / 2);
-        HTMLConstructor {
-            output_string,
-            pretty_print,
-        }
-    }
 
+impl HTMLConstructor {
     /// Generates an HTML string from an Element
     pub fn construct(&mut self, ast: Node<Element>) -> String {
         for node_edge in ast.traverse() {
@@ -37,6 +32,7 @@ impl HTMLConstructor {
                     self.output_string.push_str(text)
                 }
             }
+            GroupType::Attachment => self.start_attach_element(element),
             //GroupType::Paragraph => self.output_string.push_str("<p>"),
             GroupType::Bold => self.output_string.push_str("<b>"),
             GroupType::Strong => self.output_string.push_str("<strong>"),
