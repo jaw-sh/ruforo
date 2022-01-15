@@ -1,4 +1,4 @@
-use crate::ffmpeg::get_extension_ffmpeg;
+use crate::attachment::{get_attachment_by_hash, update_attachment_last_seen};
 use crate::init::get_db_pool;
 use crate::orm::{attachments, ugc_attachments};
 use crate::s3::S3Bucket;
@@ -224,7 +224,6 @@ pub async fn view_file_ugc(file_id: web::Path<i32>) -> Result<impl Responder, Er
 #[post("/fs/upload-file")]
 pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> {
     // see: https://users.rust-lang.org/t/file-upload-in-actix-web/64871/3
-    let mut payloads: Vec<UploadPayload> = Vec::new(); // TODO can we count files from the multipart to reserve?
     let mut response: Vec<UploadResponse> = Vec::new();
 
     // iterate over multipart stream
@@ -306,94 +305,81 @@ pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> 
                 .unwrap()?;
         }
 
-        let parsed = UploadPayload {
-            data: buf,
-            filename,
-            tmp_path: filepath, // WARNING we delete tmp_path at the end, don't screw up
-            hash: hasher.finalize(),
-            mime: field.content_type().to_owned(),
-        };
+        // deduplication check
+        let hash = hasher.finalize();
+        let model = get_attachment_by_hash(hash.to_string()).await;
 
-        payloads.push(parsed);
-    }
-
-    for payload in payloads {
-        log::info!("Filename: {}", payload.filename);
-        log::info!("BLAKE3: {}", payload.hash);
-        log::info!("MIME: {}", payload.mime);
-
-        let extension = match get_extension_ffmpeg(&payload.tmp_path).await {
-            Some(v) => Some(v),
-            None => get_extension(&payload.filename, &payload.mime),
-        };
-
-        let s3_filename = match extension {
-            Some(v) => format!("{}.{}", payload.hash, v),
-            None => payload.hash.to_string(),
-        };
-
-        // TODO probably check DB instead of the S3 bucket, or both
-        let bucket = get_s3();
-        let list = bucket.list_objects_v2(&s3_filename).await.map_err(|e| {
-            log::error!("put_file: failed to list_objects_v2: {}", e);
-            actix_web::error::ErrorInternalServerError("put_file: failed to check if file exists")
-        })?;
-
-        let filesize: i64 = payload.data.len().try_into().map_err(|e| {
-            log::error!(
-                "put_file: failed convert filesize from usize to i64, too big?: {}",
-                e
-            );
-            actix_web::error::ErrorInternalServerError("put_file: file too large")
-        })?;
-
-        let hash = &payload.hash.to_string();
-        let (file_id, canon_filename) =
-            insert_attachment(&s3_filename, hash, filesize, &payload.mime.to_string())
-                .await
-                .map_err(|e| {
-                    log::error!("put_file: failed select_attachment_by_filename_hash: {}", e);
-                    actix_web::error::ErrorInternalServerError("put_file: DB error")
-                })?;
-
-        if canon_filename.is_none() {
-            let count = list.key_count.ok_or_else(|| {
-                log::error!("put_file: key_count, I don't think this should ever happen");
-                actix_web::error::ErrorInternalServerError(
-                    "put_file: failed to check if file exists",
-                )
-            })?;
-
-            // count should only ever be 0 or 1, otherwise there's something wrong with the prefix
-            if count == 0 {
-                bucket
-                    .put_object(payload.data, &s3_filename)
-                    .await
-                    .map_err(|e| {
-                        log::error!("put_file: failed to put_object: {}", e);
-                        actix_web::error::ErrorInternalServerError("put_file: failed to store file")
-                    })?;
-            } else {
-                log::info!("put_file: duplicate upload, skipping S3 put_object");
+        match model {
+            // Attachment exists in storage and we can skip processing
+            Some(attachment) => {
+                actix_web::rt::spawn(update_attachment_last_seen(attachment.id));
+                response.push(UploadResponse {
+                    id: attachment.id,
+                    hash: attachment.hash,
+                });
             }
-        } else {
-            log::info!("put_file: duplicate found in DB, skipping S3 put_object");
+            // Attachment is new and we need to process it.
+            None => {
+                response.push(
+                    insert_payload_as_attachment(UploadPayload {
+                        data: buf,
+                        filename,
+                        tmp_path: filepath, // WARNING we delete tmp_path at the end, don't screw up
+                        hash: hasher.finalize(),
+                        mime: field.content_type().to_owned(),
+                    })
+                    .await?,
+                );
+            }
         }
-
-        // !!! WARNING !!! we delete a file, be mindful and don't fucking delete my porn folder
-        log::warn!("Deleting Tmp File: {:#?}", payload.tmp_path);
-        std::fs::remove_file(payload.tmp_path).map_err(|e| {
-            log::error!("put_file: delete tmp file error: {}", e);
-            actix_web::error::ErrorInternalServerError("put_file: failed to store file")
-        })?;
-
-        response.push(UploadResponse {
-            id: file_id,
-            hash: hash.to_owned(),
-        });
     }
 
     Ok(web::Json(response))
+}
+
+fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
+    // We check the MIME manually because the mime and mime_guess crates are both inadequate. We
+    // are only looking for formats where we can assume it is the only relevant extension.
+    // For example we'd never want to add a format like .gz to the hashmaps, we'd rely on _guess for that.
+    let result = get_mime_lookup().get(mime.as_ref().to_ascii_lowercase().as_str());
+    match result {
+        Some(v) => {
+            log::info!("MIME_LOOKUP: Found {}", v);
+            Some(v.to_string())
+        }
+        None => get_extension_guess(filename),
+    }
+
+    // Old Method, static hashmap is probably faster than a jump table
+    //
+    // match mime.type_() {
+    //     mime::IMAGE => match mime.subtype().as_str() {
+    //         "apng" => Some("apng".to_owned()),
+    //         "avif" => Some("avif".to_owned()),
+    //         "bmp" => Some("bmp".to_owned()),
+    //         "gif" => Some("gif".to_owned()),
+    //         "jpeg" => Some("jpeg".to_owned()),
+    //         "png" => Some("png".to_owned()),
+    //         "svg+xml" => Some("svg".to_owned()),
+    //         "webp" => Some("webp".to_owned()),
+    //         _ => get_extension_guess(filename),
+    //     },
+    //     mime::VIDEO => match mime.subtype().as_str() {
+    //         "x-msvideo" => Some("avi".to_owned()),
+    //         "ogg" => Some("ogv".to_owned()),
+    //         "webm" => Some("webm".to_owned()),
+    //         "x-matroska" => Some("mkv".to_owned()),
+    //         _ => get_extension_guess(filename),
+    //     },
+    //     mime::AUDIO => match mime.subtype().as_str() {
+    //         "m4a" => Some("m4a".to_owned()),
+    //         "ogg" => Some("ogg".to_owned()),
+    //         "webm" => Some("webm".to_owned()),
+    //         "x-matroska" => Some("mka".to_owned()),
+    //         _ => get_extension_guess(filename),
+    //     },
+    //     _ => get_extension_guess(filename),
+    // }
 }
 
 /// this is my fancy intelligent extension extractor
@@ -474,118 +460,6 @@ fn get_extension_guess(filename: &str) -> Option<String> {
     }
 }
 
-/// returns (file_id, true) if duplicate found, (file_id, false) if new
-async fn insert_attachment(
-    filename: &str,
-    hash: &str,
-    filesize: i64,
-    mime: &str,
-) -> Result<(i32, Option<String>), DbErr> {
-    #[derive(Debug, FromQueryResult)]
-    struct SelectResult {
-        id: i32,
-        filename: String,
-    }
-
-    let db = get_db_pool();
-    let txn = db.begin().await?;
-
-    let select = attachments::Entity::find()
-        .select_only()
-        .column(attachments::Column::Id)
-        .column(attachments::Column::Filename)
-        .filter(attachments::Column::Hash.eq(hash));
-
-    // Check for duplicate attachment and insert if new
-    let now = Utc::now().naive_utc();
-    let (attachment_id, canon_filename) = match select
-        .into_model::<SelectResult>()
-        .one(&txn)
-        .await?
-    {
-        Some(res) => {
-            // Update last_seen_at
-            log::error!("Duplicate File Hash: {:#?} - {}", res, filename);
-            // I use update_many because it seems cleaner than using an actual ActiveModel
-            let rows_updated = attachments::Entity::update_many()
-                .col_expr(attachments::Column::LastSeenAt, Expr::value(now))
-                .filter(attachments::Column::Id.eq(res.id))
-                .exec(db)
-                .await?;
-            if rows_updated.rows_affected != 1 {
-                log::error!("insert_attachment: SANITY ERROR: more than 1 row updated on last_seen_at update: {:?}", rows_updated.rows_affected);
-            }
-
-            (res.id, Some(res.filename))
-        }
-        None => {
-            // Insert attachment
-            let new_attachment = attachments::ActiveModel {
-                filename: Set(filename.to_owned()),
-                hash: Set(hash.to_owned()),
-                first_seen_at: Set(now),
-                last_seen_at: Set(now),
-                filesize: Set(filesize),
-                mime: Set(mime.to_owned()),
-                meta: Set(JsonValue::Null),
-                ..Default::default()
-            };
-            let res = attachments::Entity::insert(new_attachment)
-                .exec(&txn)
-                .await?;
-            (res.last_insert_id, None)
-        }
-    };
-    txn.commit().await?;
-
-    Ok((attachment_id, canon_filename))
-}
-
-fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
-    // We check the MIME manually because the mime and mime_guess crates are both inadequate. We
-    // are only looking for formats where we can assume it is the only relevant extension.
-    // For example we'd never want to add a format like .gz to the hashmaps, we'd rely on _guess for that.
-    let result = get_mime_lookup().get(mime.as_ref().to_ascii_lowercase().as_str());
-    match result {
-        Some(v) => {
-            log::info!("MIME_LOOKUP: Found {}", v);
-            Some(v.to_string())
-        }
-        None => get_extension_guess(filename),
-    }
-
-    // Old Method, static hashmap is probably faster than a jump table
-    //
-    // match mime.type_() {
-    //     mime::IMAGE => match mime.subtype().as_str() {
-    //         "apng" => Some("apng".to_owned()),
-    //         "avif" => Some("avif".to_owned()),
-    //         "bmp" => Some("bmp".to_owned()),
-    //         "gif" => Some("gif".to_owned()),
-    //         "jpeg" => Some("jpeg".to_owned()),
-    //         "png" => Some("png".to_owned()),
-    //         "svg+xml" => Some("svg".to_owned()),
-    //         "webp" => Some("webp".to_owned()),
-    //         _ => get_extension_guess(filename),
-    //     },
-    //     mime::VIDEO => match mime.subtype().as_str() {
-    //         "x-msvideo" => Some("avi".to_owned()),
-    //         "ogg" => Some("ogv".to_owned()),
-    //         "webm" => Some("webm".to_owned()),
-    //         "x-matroska" => Some("mkv".to_owned()),
-    //         _ => get_extension_guess(filename),
-    //     },
-    //     mime::AUDIO => match mime.subtype().as_str() {
-    //         "m4a" => Some("m4a".to_owned()),
-    //         "ogg" => Some("ogg".to_owned()),
-    //         "webm" => Some("webm".to_owned()),
-    //         "x-matroska" => Some("mka".to_owned()),
-    //         _ => get_extension_guess(filename),
-    //     },
-    //     _ => get_extension_guess(filename),
-    // }
-}
-
 #[derive(Debug, FromQueryResult)]
 pub struct SelectFilename {
     pub filename: String,
@@ -645,4 +519,112 @@ pub async fn get_file_url_by_ugc(s3: &S3Bucket, ugc_id: i32) -> Result<Option<St
         ))),
         None => Ok(None),
     }
+}
+
+/// Receives a request payload and inserts it into the database and the s3 bucket.
+async fn insert_payload_as_attachment(payload: UploadPayload) -> Result<UploadResponse, Error> {
+    log::info!("Filename: {}", payload.filename);
+    log::info!("BLAKE3: {}", payload.hash);
+    log::info!("MIME: {}", payload.mime);
+
+    let dimensions: (Option<i32>, Option<i32>);
+    let extension: Option<String>;
+
+    match crate::ffmpeg::open_with_ffmpeg(&payload.tmp_path) {
+        Some(ffmpeg) => {
+            dimensions = match crate::ffmpeg::get_dimensions_from_input(&ffmpeg) {
+                Some(xy) => (Some(xy.0 as i32), Some(xy.1 as i32)),
+                None => (None, None),
+            };
+            extension = match crate::ffmpeg::get_extension_from_input(&ffmpeg) {
+                Some(ffext) => Some(ffext),
+                None => get_extension(&payload.filename, &payload.mime),
+            };
+        }
+        None => {
+            dimensions = (None, None);
+            extension = get_extension(&payload.filename, &payload.mime);
+        }
+    };
+
+    let s3_filename = match extension {
+        Some(extension) => format!("{}.{}", payload.hash, extension),
+        None => payload.hash.to_string(),
+    };
+
+    let filesize: i64 = payload.data.len().try_into().map_err(|e| {
+        log::error!(
+            "put_file: failed convert filesize from usize to i64, too big?: {}",
+            e
+        );
+        actix_web::error::ErrorInternalServerError("put_file: file too large")
+    })?;
+
+    let now = Utc::now().naive_utc();
+    let hash = &payload.hash.to_string();
+    let new_attachment = attachments::ActiveModel {
+        // This is our canonical filename, not the user's filename.
+        // User's filename belongs in ugc_attachments.
+        filename: Set(s3_filename.to_owned()),
+        hash: Set(hash.to_owned()),
+        first_seen_at: Set(now),
+        last_seen_at: Set(now),
+        filesize: Set(filesize),
+        file_width: Set(dimensions.0),
+        file_height: Set(dimensions.1),
+        mime: Set(payload.mime.to_string()),
+        meta: Set(JsonValue::Null),
+        ..Default::default()
+    };
+
+    // Insert the attachment into the database.
+    let res = attachments::Entity::insert(new_attachment)
+        .exec(get_db_pool())
+        .await
+        .map_err(|e| {
+            log::error!("put_file: failed to put_object: {}", e);
+            actix_web::error::ErrorInternalServerError("put_file: failed to store file")
+        })?;
+
+    let bucket = get_s3();
+    let list = bucket.list_objects_v2(&s3_filename).await.map_err(|e| {
+        log::error!("put_file: failed to list_objects_v2: {}", e);
+        actix_web::error::ErrorInternalServerError("put_file: failed to check if file exists")
+    })?;
+
+    // Check for existing s3 data.
+    let count = list.key_count.ok_or_else(|| {
+        log::error!("put_file: key_count, I don't think this should ever happen");
+        actix_web::error::ErrorInternalServerError("put_file: failed to check if file exists")
+    })?;
+
+    // s3 key count should only ever be 0 or 1, otherwise there's something wrong with the prefix
+    if count == 0 {
+        // Insert the file data into s3.
+        bucket
+            .put_object(payload.data, &s3_filename)
+            .await
+            .map_err(|e| {
+                log::error!("put_file: failed to put_object: {}", e);
+                actix_web::error::ErrorInternalServerError("put_file: failed to store file")
+            })?;
+    } else {
+        log::info!("put_file: duplicate upload, skipping S3 put_object");
+    }
+
+    // !!! WARNING !!! we delete a file, be mindful and don't fucking delete my porn folder
+    log::warn!("Deleting Tmp File: {:#?}", payload.tmp_path);
+    std::fs::remove_file(payload.tmp_path).map_err(|e| {
+        log::error!("put_file: delete tmp file error: {}", e);
+        actix_web::error::ErrorInternalServerError("put_file: failed to store file")
+    })?;
+
+    Ok(UploadResponse {
+        id: res.last_insert_id,
+        hash: hash.to_owned(),
+    })
+}
+
+pub fn is_hash_on_disk(hash: String) -> bool {
+    false
 }

@@ -37,7 +37,6 @@ pub fn bbcode_to_html(input: &str) -> String {
         crate::attachment::get_attachments_by_ugc_attachment_id(lexer.attachments.to_owned()),
     );
 
-    dbg!(&prefetch_data);
     HTMLConstructor {
         output_string: String::with_capacity(input.len() + input.len() / 2),
         pretty_print: false,

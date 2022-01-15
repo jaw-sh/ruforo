@@ -1,7 +1,8 @@
 use crate::filesystem::get_file_url_by_hash;
 use crate::init::get_db_pool;
 use crate::orm::{attachments, ugc_attachments};
-use sea_orm::{entity::*, query::*, FromQueryResult};
+use chrono::Utc;
+use sea_orm::{entity::*, query::*, sea_query::Expr, FromQueryResult};
 use std::collections::HashMap;
 
 /// Represents an attachments on UGC.
@@ -23,7 +24,7 @@ pub struct AttachmentForTemplate {
 
 impl AttachmentForTemplate {
     pub fn get_download_url(&self) -> String {
-        get_file_url_by_hash(&self.hash, &self.ugc_filename)
+        get_file_url_by_hash(&self.hash, &self.local_filename)
     }
 
     pub fn to_html(&self) -> String {
@@ -31,7 +32,7 @@ impl AttachmentForTemplate {
         if let (Some(width), Some(height)) = (self.file_width, self.file_height) {
             format!(
                 "<img class=\"bbcode attachment\" src=\"{}\" width=\"{}px\" height=\"{}px\" />",
-                "sneed", width, height
+                url, width, height
             )
         } else {
             format!(
@@ -40,6 +41,15 @@ impl AttachmentForTemplate {
             )
         }
     }
+}
+
+pub async fn get_attachment_by_hash(hash: String) -> Option<attachments::Model> {
+    attachments::Entity::find()
+        .filter(attachments::Column::Hash.eq(hash))
+        .one(get_db_pool())
+        .await
+        .map_err(|e| log::error!("get_attachment_by_hash: {}", e))
+        .unwrap_or_default()
 }
 
 // Returns attachments through their ugc_attachment.id.
@@ -107,4 +117,18 @@ pub async fn get_attachments_for_ugc_by_id(
     }
 
     result
+}
+
+pub async fn update_attachment_last_seen(id: i32) {
+    if let Err(e) = attachments::Entity::update_many()
+        .col_expr(
+            attachments::Column::LastSeenAt,
+            Expr::value(Utc::now().naive_utc()),
+        )
+        .filter(attachments::Column::Id.eq(id))
+        .exec(get_db_pool())
+        .await
+    {
+        log::error!("update_attachment_last_seen: {}", e);
+    }
 }
