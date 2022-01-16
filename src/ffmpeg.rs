@@ -4,7 +4,6 @@ use ffmpeg_next::media::Type;
 use std::path::Path;
 
 pub fn get_dimensions_from_input(ctx: &Input) -> Option<(u32, u32)> {
-    let format = ctx.format();
     for stream in ctx.streams() {
         let codec = stream.codec();
         if codec.medium() == Type::Video {

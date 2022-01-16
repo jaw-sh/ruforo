@@ -8,9 +8,7 @@ use chrono::Utc;
 use futures::{StreamExt, TryStreamExt};
 use mime::Mime;
 use once_cell::sync::OnceCell;
-use sea_orm::{
-    entity::*, query::*, sea_query::Expr, DbErr, FromQueryResult, JsonValue, QueryFilter,
-};
+use sea_orm::{entity::*, query::*, DbErr, FromQueryResult, JsonValue, QueryFilter};
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -623,8 +621,4 @@ async fn insert_payload_as_attachment(payload: UploadPayload) -> Result<UploadRe
         id: res.last_insert_id,
         hash: hash.to_owned(),
     })
-}
-
-pub fn is_hash_on_disk(hash: String) -> bool {
-    false
 }
