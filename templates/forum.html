@@ -8,7 +8,7 @@
         <div class="struct-item-cell struct-item-cell--icon struct-item-cell--iconStart"></div>
         <div class="struct-item-cell struct-item-cell--main">
             <a href="/threads/{{ thread.id }}/">{{ thread.title }}</a><br />
-            {% match thread.subtitle %}{% when Some with (subtitle) %}{{ subtitle }}<br />{% when None %}{% endmatch %}
+            {% if let Some(subtitle) = thread.subtitle %}{{ subtitle }}<br />{% endif %}
             <small>
                 {% match thread.username %}{% when Some with (username) %}{{ username }}{% when None %}Guest{% endmatch %}
                 · <time datetime="{{ thread.created_at }}">{{ thread.created_at.format("%v %r") }}</time>

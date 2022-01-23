@@ -12,7 +12,7 @@
 </div>
 
 {% if client.can_post_in_thread(thread) %}
-<form action="/threads/{{ thread.id }}/post-reply" method="post">
+<form action="/threads/{{ thread.id }}/post-reply" method="post" enctype="multipart/form-data">
     <h2>Post Reply</h2>
     <textarea name="content" rows="8" cols="80"></textarea>
     <div>

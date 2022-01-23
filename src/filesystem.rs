@@ -2,7 +2,7 @@ use crate::attachment::{get_attachment_by_hash, update_attachment_last_seen};
 use crate::init::get_db_pool;
 use crate::orm::{attachments, ugc_attachments};
 use crate::s3::S3Bucket;
-use actix_multipart::Multipart;
+use actix_multipart::{Field, Multipart};
 use actix_web::{error, get, http::header::ContentType, post, web, Error, HttpResponse, Responder};
 use chrono::Utc;
 use futures::{StreamExt, TryStreamExt};
@@ -144,7 +144,7 @@ pub struct FileHashFormData {
     pub hash: String,
 }
 
-struct UploadPayload {
+pub struct UploadPayload {
     data: Vec<u8>,
     filename: String,
     tmp_path: PathBuf,
@@ -153,9 +153,9 @@ struct UploadPayload {
 }
 
 #[derive(Debug, FromQueryResult, Serialize)]
-struct UploadResponse {
-    id: i32,
-    hash: String,
+pub struct UploadResponse {
+    pub id: i32,
+    pub hash: String,
 }
 
 #[post("/fs/check-file")]
@@ -226,110 +226,7 @@ pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> 
 
     // iterate over multipart stream
     while let Ok(Some(mut field)) = mutipart.try_next().await {
-        let content_type = field.content_disposition();
-        let filename = content_type
-            .get_filename()
-            .ok_or_else(|| {
-                actix_web::error::ErrorInternalServerError("put_file: missing filename")
-            })?
-            .to_owned();
-
-        let f = web::block(move || {
-            let mut filepath;
-            let mut uuid;
-            loop {
-                uuid = format!("{}/{}", get_dir_tmp(), Uuid::new_v4());
-                filepath = Path::new(&uuid);
-                match filepath.metadata() {
-                    Ok(metadata) => {
-                        log::error!(
-                            "put_file: file already exists: {:#?}\n{:#?}",
-                            filepath,
-                            metadata
-                        );
-                    }
-                    Err(e) => {
-                        match e.kind() {
-                            std::io::ErrorKind::NotFound => {
-                                break;
-                            }
-                            std::io::ErrorKind::PermissionDenied => {
-                                log::error!("put_file tmp permission error: {}", e);
-                                return Err(e);
-                            }
-                            _ => {
-                                log::error!("put_file unhandled fs error: {}", e);
-                                return Err(e);
-                            }
-                        };
-                    }
-                }
-            }
-            log::info!(
-                "put_file: creating tmp file: {}",
-                filepath.to_str().unwrap()
-            );
-            Ok((File::create(filepath), filepath.to_owned()))
-        });
-
-        let mut hasher = blake3::Hasher::new();
-        let mut buf: Vec<u8> = Vec::with_capacity(1024); // TODO can we estimate a real size from the multipart?
-
-        let (f, filepath) = f
-            .await
-            .map_err(|e| {
-                log::error!("put_file: {}", e);
-                actix_web::error::ErrorInternalServerError("put_file: saving data")
-            })?
-            .map_err(|e| {
-                log::error!("put_file: {}", e);
-                actix_web::error::ErrorInternalServerError("put_file: saving data")
-            })?;
-
-        let mut f = f.map_err(|e| {
-            log::error!("put_file: {}", e);
-            actix_web::error::ErrorInternalServerError("put_file: saving data")
-        })?;
-
-        while let Some(chunk) = field.next().await {
-            let bytes = chunk.map_err(|e| {
-                log::error!("put_file: multipart read error: {}", e);
-                actix_web::error::ErrorInternalServerError("put_file: error reading upload data")
-            })?;
-            hasher.update(&bytes);
-            buf.extend(bytes.to_owned());
-            f = web::block(move || f.write_all(&bytes.clone()).map(|_| f))
-                .await
-                .unwrap()?;
-        }
-
-        // deduplication check
-        let hash = hasher.finalize();
-        let model = get_attachment_by_hash(hash.to_string()).await;
-
-        match model {
-            // Attachment exists in storage and we can skip processing
-            Some(attachment) => {
-                actix_web::rt::spawn(update_attachment_last_seen(attachment.id));
-                response.push(UploadResponse {
-                    id: attachment.id,
-                    hash: attachment.hash,
-                });
-            }
-            // Attachment is new and we need to process it.
-            None => {
-                response.push(
-                    insert_payload_as_attachment(UploadPayload {
-                        data: buf,
-                        filename,
-                        tmp_path: filepath, // WARNING we delete tmp_path at the end, don't screw up
-                        hash: hasher.finalize(),
-                        mime: field.content_type().to_owned(),
-                    })
-                    .await?,
-                );
-            }
-        }
+        response.push(get_upload_response_from_field(&mut field).await?);
     }
 
     Ok(web::Json(response))
@@ -517,6 +414,108 @@ pub async fn get_file_url_by_ugc(s3: &S3Bucket, ugc_id: i32) -> Result<Option<St
         ))),
         None => Ok(None),
     }
+}
+pub async fn get_upload_response_from_field(field: &mut Field) -> Result<UploadResponse, Error> {
+    let content_type = field.content_disposition();
+    let filename = content_type
+        .get_filename()
+        .ok_or_else(|| actix_web::error::ErrorInternalServerError("put_file: missing filename"))?
+        .to_owned();
+
+    let f = web::block(move || {
+        let mut filepath;
+        let mut uuid;
+        loop {
+            uuid = format!("{}/{}", get_dir_tmp(), Uuid::new_v4());
+            filepath = Path::new(&uuid);
+            match filepath.metadata() {
+                Ok(metadata) => {
+                    log::error!(
+                        "put_file: file already exists: {:#?}\n{:#?}",
+                        filepath,
+                        metadata
+                    );
+                }
+                Err(e) => {
+                    match e.kind() {
+                        std::io::ErrorKind::NotFound => {
+                            break;
+                        }
+                        std::io::ErrorKind::PermissionDenied => {
+                            log::error!("put_file tmp permission error: {}", e);
+                            return Err(e);
+                        }
+                        _ => {
+                            log::error!("put_file unhandled fs error: {}", e);
+                            return Err(e);
+                        }
+                    };
+                }
+            }
+        }
+        log::info!(
+            "put_file: creating tmp file: {}",
+            filepath.to_str().unwrap()
+        );
+        Ok((File::create(filepath), filepath.to_owned()))
+    });
+
+    let mut hasher = blake3::Hasher::new();
+    let mut buf: Vec<u8> = Vec::with_capacity(1024); // TODO can we estimate a real size from the multipart?
+
+    let (f, filepath) = f
+        .await
+        .map_err(|e| {
+            log::error!("put_file: {}", e);
+            actix_web::error::ErrorInternalServerError("put_file: saving data")
+        })?
+        .map_err(|e| {
+            log::error!("put_file: {}", e);
+            actix_web::error::ErrorInternalServerError("put_file: saving data")
+        })?;
+
+    let mut f = f.map_err(|e| {
+        log::error!("put_file: {}", e);
+        actix_web::error::ErrorInternalServerError("put_file: saving data")
+    })?;
+
+    while let Some(chunk) = field.next().await {
+        let bytes = chunk.map_err(|e| {
+            log::error!("put_file: multipart read error: {}", e);
+            actix_web::error::ErrorInternalServerError("put_file: error reading upload data")
+        })?;
+        hasher.update(&bytes);
+        buf.extend(bytes.to_owned());
+        f = web::block(move || f.write_all(&bytes.clone()).map(|_| f))
+            .await
+            .unwrap()?;
+    }
+
+    // deduplication check
+    let hash = hasher.finalize();
+    let model = get_attachment_by_hash(hash.to_string()).await;
+
+    Ok(match model {
+        // Attachment exists in storage and we can skip processing
+        Some(attachment) => {
+            actix_web::rt::spawn(update_attachment_last_seen(attachment.id));
+            UploadResponse {
+                id: attachment.id,
+                hash: attachment.hash,
+            }
+        }
+        // Attachment is new and we need to process it.
+        None => {
+            insert_payload_as_attachment(UploadPayload {
+                data: buf,
+                filename,
+                tmp_path: filepath, // WARNING we delete tmp_path at the end, don't screw up
+                hash: hasher.finalize(),
+                mime: field.content_type().to_owned(),
+            })
+            .await?
+        }
+    })
 }
 
 /// Receives a request payload and inserts it into the database and the s3 bucket.

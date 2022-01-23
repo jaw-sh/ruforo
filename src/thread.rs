@@ -6,11 +6,12 @@ use crate::orm::threads::Entity as Thread;
 use crate::orm::{posts, threads, ugc_deletions, ugc_revisions};
 use crate::post::{NewPostFormData, PostForTemplate};
 use crate::template::{Paginator, PaginatorToHtml};
+use actix_multipart::Multipart;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::{Template, TemplateToResponse};
 use sea_orm::{entity::*, query::*, sea_query::Expr, DbErr, FromQueryResult, QueryFilter};
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::{collections::HashMap, str};
 
 #[derive(Debug, FromQueryResult)]
 pub struct ThreadForTemplate {
@@ -131,7 +132,7 @@ async fn get_thread_and_replies_for_page(
             error::ErrorInternalServerError("DB error")
         })?;
 
-    let attachments = get_attachments_for_ugc_by_id(posts.iter().map(|p| p.id).collect()).await;
+    let attachments = get_attachments_for_ugc_by_id(posts.iter().map(|p| p.ugc_id).collect()).await;
 
     let paginator = Paginator {
         base_url: format!("/threads/{}/", thread_id),
@@ -218,14 +219,63 @@ pub async fn update_thread_after_reply_is_deleted(id: i32) -> Result<(), DbErr> 
 pub async fn create_reply(
     client: ClientCtx,
     path: web::Path<(i32,)>,
-    form: web::Form<NewPostFormData>,
+    mutipart: Option<Multipart>,
 ) -> Result<impl Responder, Error> {
-    use crate::orm::{posts, threads};
+    use crate::filesystem::{get_upload_response_from_field, UploadResponse};
+    use crate::orm::{posts, threads, ugc_attachments};
     use crate::ugc::{create_ugc, NewUgcPartial};
+    use futures::{future::try_join_all, StreamExt, TryStreamExt};
 
-    let db = get_db_pool();
+    let mut content: String = "".to_owned();
+    let mut uploads: Vec<(String, UploadResponse)> = Vec::new();
+
+    // interpret user input
+    // iterate over multipart stream
+    if let Some(mut fields) = mutipart {
+        while let Ok(Some(mut field)) = fields.try_next().await {
+            let disposition = field.content_disposition();
+            if let Some(field_name) = disposition.get_name() {
+                match field_name {
+                    "content" => {
+                        // Stream multipart data to string.
+                        // TODO: Cap this at a config option for post size.
+                        let mut buf: Vec<u8> = Vec::with_capacity(65536);
+
+                        while let Some(chunk) = field.next().await {
+                            let bytes = chunk.map_err(|e| {
+                                log::error!("create_reply: multipart read error: {}", e);
+                                actix_web::error::ErrorBadRequest("Error interpreting user input.")
+                            })?;
+
+                            buf.extend(bytes.to_owned());
+                        }
+
+                        content = str::from_utf8(&buf).unwrap().to_owned();
+                    }
+                    "attachment" => match disposition.get_filename() {
+                        Some(filename) => uploads.push((
+                            filename.to_owned(),
+                            get_upload_response_from_field(&mut field).await?,
+                        )),
+                        None => {
+                            return Err(error::ErrorBadRequest(
+                                "Did not supply filename for attachment.",
+                            ));
+                        }
+                    },
+                    _ => {
+                        return Err(error::ErrorBadRequest(format!(
+                            "Unrecognized field '{}'",
+                            field_name,
+                        )));
+                    }
+                }
+            }
+        }
+    }
 
     // Begin Transaction
+    let db = get_db_pool();
     let txn = db.begin().await.map_err(error::ErrorInternalServerError)?;
 
     let thread_id = path.into_inner().0;
@@ -242,7 +292,7 @@ pub async fn create_reply(
         NewUgcPartial {
             ip_id: None,
             user_id,
-            content: &form.content,
+            content: &content,
         },
     )
     .await
@@ -258,6 +308,22 @@ pub async fn create_reply(
         ..Default::default()
     }
     .insert(&txn)
+    .await
+    .map_err(error::ErrorInternalServerError)?;
+
+    // Insert attachments, if any.
+    let sneed = try_join_all(uploads.iter().map(|u| {
+        ugc_attachments::ActiveModel {
+            attachment_id: Set(u.1.id),
+            ugc_id: Set(ugc_revision.ugc_id),
+            ip_id: Set(None), // TODO
+            user_id: Set(ugc_revision.user_id),
+            created_at: Set(ugc_revision.created_at),
+            filename: Set(u.0.to_owned()),
+            ..Default::default()
+        }
+        .insert(&txn)
+    }))
     .await
     .map_err(error::ErrorInternalServerError)?;
 
