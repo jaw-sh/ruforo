@@ -31,6 +31,8 @@
     }
     .message-cell--main {
         flex: 5;
+        display: flex;
+        flex-direction: column;
     }
 
 .message-header {
@@ -51,6 +53,7 @@
     }
 
 .message-content {
+    flex: 1;
     padding: $padding;
 }
 
