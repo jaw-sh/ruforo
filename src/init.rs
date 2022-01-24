@@ -2,10 +2,7 @@ extern crate dotenv;
 extern crate ffmpeg_next;
 
 use crate::session::{get_sess, reload_session_cache};
-use crate::{
-    asset, auth_2fa, chat, create_user, filesystem, forum, global, index, login, logout, member,
-    middleware::ClientCtx, post, session, thread,
-};
+use crate::{chat, filesystem, global, middleware::ClientCtx, session};
 use actix::Actor;
 use actix_session::CookieSession;
 use actix_web::middleware::Logger;
@@ -79,31 +76,33 @@ pub async fn start() -> std::io::Result<()> {
                     .name("sneedessions"),
             )
             .wrap(Logger::new("%a %{User-Agent}i"))
-            .service(index::view_index)
-            .service(create_user::create_user_get)
-            .service(create_user::create_user_post)
-            .service(auth_2fa::user_enable_2fa)
-            .service(asset::view_file)
-            .service(login::view_login)
-            .service(login::post_login)
-            .service(logout::view_logout)
-            .service(member::view_members)
-            .service(filesystem::view_file_ugc)
-            .service(filesystem::view_file_canonical)
-            .service(filesystem::post_file_hash)
-            .service(filesystem::put_file)
-            .service(post::delete_post)
-            .service(post::destroy_post)
-            .service(post::edit_post)
-            .service(post::update_post)
-            .service(post::view_post_by_id)
-            .service(post::view_post_in_thread)
-            .service(forum::create_thread)
-            .service(forum::view_forum)
-            .service(thread::create_reply)
-            .service(thread::view_thread)
-            .service(thread::view_thread_page)
-            .service(session::view_task_expire_sessions)
+            .service(crate::index::view_index)
+            .service(crate::account::update_avatar)
+            .service(crate::account::view_account)
+            .service(crate::create_user::create_user_get)
+            .service(crate::create_user::create_user_post)
+            .service(crate::auth_2fa::user_enable_2fa)
+            .service(crate::asset::view_file)
+            .service(crate::login::view_login)
+            .service(crate::login::post_login)
+            .service(crate::logout::view_logout)
+            .service(crate::member::view_members)
+            .service(crate::filesystem::view_file_ugc)
+            .service(crate::filesystem::view_file_canonical)
+            .service(crate::filesystem::post_file_hash)
+            .service(crate::filesystem::put_file)
+            .service(crate::post::delete_post)
+            .service(crate::post::destroy_post)
+            .service(crate::post::edit_post)
+            .service(crate::post::update_post)
+            .service(crate::post::view_post_by_id)
+            .service(crate::post::view_post_in_thread)
+            .service(crate::forum::create_thread)
+            .service(crate::forum::view_forum)
+            .service(crate::thread::create_reply)
+            .service(crate::thread::view_thread)
+            .service(crate::thread::view_thread_page)
+            .service(crate::session::view_task_expire_sessions)
             .service(web::resource("/chat").to(crate::hub::chat_route))
     })
     // https://www.restapitutorial.com/lessons/httpmethods.html

@@ -1,0 +1,12 @@
+{% extends "container/public.html" %}
+
+{% block content %}
+<p>Welcome, {{ client.get_name() }}.</p>
+<p>You registered on {{ profile.created_at }}.</p>
+
+<form action="/account/avatar" method="post" enctype="multipart/form-data">
+    <h2>Avatar</h2>
+    <input type="file" name="avatar" />
+    <button>Upload</button><button>Delete</button>
+</form>
+{% endblock %}

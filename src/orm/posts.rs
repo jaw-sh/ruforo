@@ -49,6 +49,14 @@ pub enum Relation {
     )]
     Users,
     #[sea_orm(
+        belongs_to = "super::user_avatars::Entity",
+        from = "Column::UserId",
+        to = "super::user_avatars::Column::UserId",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    UserAvatar,
+    #[sea_orm(
         belongs_to = "super::user_names::Entity",
         from = "Column::UserId",
         to = "super::user_names::Column::UserId",
@@ -56,6 +64,16 @@ pub enum Relation {
         on_delete = "NoAction"
     )]
     UserName,
+}
+
+impl Related<super::attachments::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::user_avatars::Relation::Attachments.def()
+    }
+
+    fn via() -> Option<RelationDef> {
+        Some(super::user_avatars::Relation::Posts.def().rev())
+    }
 }
 
 impl Related<super::threads::Entity> for Entity {
@@ -73,6 +91,12 @@ impl Related<super::ugc::Entity> for Entity {
 impl Related<super::users::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Users.def()
+    }
+}
+
+impl Related<super::user_avatars::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserAvatar.def()
     }
 }
 
@@ -100,7 +124,7 @@ impl Related<super::ugc_revisions::Entity> for Entity {
 
 impl ActiveModelBehavior for ActiveModel {}
 
-#[derive(Debug)]
+// Special relation to UGC Revision
 pub struct PostToUgcRevision;
 
 impl Linked for PostToUgcRevision {
@@ -112,6 +136,22 @@ impl Linked for PostToUgcRevision {
         vec![
             super::posts::Relation::Ugc.def(),
             super::ugc::Relation::UgcRevisions.def(),
+        ]
+    }
+}
+
+// Special relation to Author Avatar
+pub struct PostToAvatarAttachment;
+
+impl Linked for PostToAvatarAttachment {
+    type FromEntity = super::posts::Entity;
+
+    type ToEntity = super::attachments::Entity;
+
+    fn link(&self) -> Vec<RelationDef> {
+        vec![
+            super::posts::Relation::UserAvatar.def(),
+            super::user_avatars::Relation::Attachments.def(),
         ]
     }
 }

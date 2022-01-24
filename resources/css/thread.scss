@@ -21,6 +21,13 @@
         border-right: 1px solid $border-color;
         padding: $padding;
         width: 144px;
+
+        .avatar {
+            height: auto;
+            width: auto;
+            max-width: 128px;
+            max-height: 256px;
+        }
     }
     .message-cell--main {
         flex: 5;

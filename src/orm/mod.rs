@@ -13,6 +13,7 @@ pub mod ugc_attachments;
 pub mod ugc_deletions;
 pub mod ugc_revisions;
 pub mod user_2fa;
+pub mod user_avatars;
 pub mod user_name_history;
 pub mod user_names;
 pub mod users;

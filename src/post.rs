@@ -27,6 +27,10 @@ pub struct PostForTemplate {
     pub deleted_reason: Option<String>,
     // join user
     pub username: Option<String>,
+    // join avatar
+    pub avatar_filename: Option<String>,
+    pub avatar_height: Option<i32>,
+    pub avatar_width: Option<i32>,
 }
 
 #[derive(Template)]
@@ -198,6 +202,21 @@ pub async fn view_post_by_id(path: web::Path<i32>) -> Result<HttpResponse, Error
 #[get("/threads/{thread_id}/post-{post_id}")]
 pub async fn view_post_in_thread(path: web::Path<(i32, i32)>) -> Result<HttpResponse, Error> {
     view_post(path.into_inner().1).await
+}
+
+pub fn get_avatar_html_for_post(post: &PostForTemplate) -> Option<String> {
+    if post.avatar_filename.is_some() && post.avatar_width.is_some() && post.avatar_height.is_some()
+    {
+        Some(crate::attachment::get_avatar_html(
+            &post.avatar_filename.to_owned().unwrap(),
+            (
+                &post.avatar_width.to_owned().unwrap(),
+                &post.avatar_height.to_owned().unwrap(),
+            ),
+        ))
+    } else {
+        None
+    }
 }
 
 /// Returns the result of a query selecting for a post by id with adjoined templating data.

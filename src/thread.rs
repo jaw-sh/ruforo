@@ -3,8 +3,8 @@ use crate::init::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
-use crate::orm::{posts, threads, ugc_deletions, ugc_revisions};
-use crate::post::{NewPostFormData, PostForTemplate};
+use crate::orm::{attachments, posts, threads, ugc_deletions, ugc_revisions};
+use crate::post::PostForTemplate;
 use crate::template::{Paginator, PaginatorToHtml};
 use actix_multipart::Multipart;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
@@ -110,6 +110,10 @@ async fn get_thread_and_replies_for_page(
     let posts: Vec<PostForTemplate> = Post::find()
         .left_join(user_names::Entity)
         .column_as(user_names::Column::Name, "username")
+        .left_join(attachments::Entity)
+        .column_as(attachments::Column::Filename, "avatar_filename")
+        .column_as(attachments::Column::FileHeight, "avatar_height")
+        .column_as(attachments::Column::FileWidth, "avatar_width")
         .left_join(ugc_revisions::Entity)
         .column_as(ugc_revisions::Column::Content, "content")
         .column_as(ugc_revisions::Column::IpId, "ip_id")
@@ -221,7 +225,7 @@ pub async fn create_reply(
     path: web::Path<(i32,)>,
     mutipart: Option<Multipart>,
 ) -> Result<impl Responder, Error> {
-    use crate::filesystem::{get_upload_response_from_field, UploadResponse};
+    use crate::filesystem::{insert_field_as_attachment, UploadResponse};
     use crate::orm::{posts, threads, ugc_attachments};
     use crate::ugc::{create_ugc, NewUgcPartial};
     use futures::{future::try_join_all, StreamExt, TryStreamExt};
@@ -255,7 +259,7 @@ pub async fn create_reply(
                     "attachment" => match disposition.get_filename() {
                         Some(filename) => uploads.push((
                             filename.to_owned(),
-                            get_upload_response_from_field(&mut field).await?,
+                            insert_field_as_attachment(&mut field).await?,
                         )),
                         None => {
                             return Err(error::ErrorBadRequest(

@@ -1,3 +1,4 @@
+pub mod account;
 pub mod asset;
 pub mod attachment;
 pub mod auth_2fa;

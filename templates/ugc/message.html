@@ -1,6 +1,7 @@
 {% if client.can_read_post(post) %}
 <div class="message">
     <div class="message-cell message-cell--author">
+        {% if let Some(avatar_html) = crate::post::get_avatar_html_for_post(post) %}{{ avatar_html|safe }}{% endif %}
         <div class="username">{% match post.username %}{% when Some with (username) %}{{ username }}{% when None %}Guest{% endmatch %}</div>
     </div>
     <div class="message-cell message-cell--main">

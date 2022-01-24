@@ -55,7 +55,7 @@
                 </ul>
                 <ul class="nav-side">
                     {% if client.is_user() %}
-                    <li><a href="/">{{ client.get_name() }}</a></li>
+                    <li><a href="/account">{{ client.get_name() }}</a></li>
                     <li><a href="/logout">Logout</a></li>
                     {% else %}
                     <li><a href="/create_user">Register</a></li>

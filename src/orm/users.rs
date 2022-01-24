@@ -37,6 +37,14 @@ pub enum Relation {
     #[sea_orm(has_many = "super::ugc_attachments::Entity")]
     UgcAttachments,
     #[sea_orm(
+        belongs_to = "super::user_avatars::Entity",
+        from = "Column::Id",
+        to = "super::user_avatars::Column::UserId",
+        on_update = "NoAction",
+        on_delete = "Cascade"
+    )]
+    UserAvatar,
+    #[sea_orm(
         belongs_to = "super::user_names::Entity",
         from = "Column::Id",
         to = "super::user_names::Column::UserId",
@@ -46,6 +54,16 @@ pub enum Relation {
     UserName,
     #[sea_orm(has_many = "super::user_2fa::Entity")]
     User2fa,
+}
+
+impl Related<super::attachments::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::user_avatars::Relation::Attachments.def()
+    }
+
+    fn via() -> Option<RelationDef> {
+        Some(super::user_avatars::Relation::Users.def().rev())
+    }
 }
 
 impl Related<super::threads::Entity> for Entity {
@@ -84,6 +102,12 @@ impl Related<super::ugc_attachments::Entity> for Entity {
     }
 }
 
+impl Related<super::user_avatars::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserAvatar.def()
+    }
+}
+
 impl Related<super::user_names::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserName.def()
@@ -97,3 +121,18 @@ impl Related<super::user_2fa::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+pub struct UserToAvatarAttachment;
+
+impl Linked for UserToAvatarAttachment {
+    type FromEntity = super::users::Entity;
+
+    type ToEntity = super::attachments::Entity;
+
+    fn link(&self) -> Vec<RelationDef> {
+        vec![
+            super::users::Relation::UserAvatar.def(),
+            super::user_avatars::Relation::Attachments.def(),
+        ]
+    }
+}

@@ -147,8 +147,8 @@ pub struct FileHashFormData {
 pub struct UploadPayload {
     data: Vec<u8>,
     filename: String,
-    tmp_path: PathBuf,
     hash: blake3::Hash,
+    tmp_path: PathBuf,
     mime: Mime,
 }
 
@@ -222,14 +222,38 @@ pub async fn view_file_ugc(file_id: web::Path<i32>) -> Result<impl Responder, Er
 #[post("/fs/upload-file")]
 pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> {
     // see: https://users.rust-lang.org/t/file-upload-in-actix-web/64871/3
-    let mut response: Vec<UploadResponse> = Vec::new();
+    let mut responses: Vec<UploadResponse> = Vec::new();
 
-    // iterate over multipart stream
+    // Iterate over multipart stream
     while let Ok(Some(mut field)) = mutipart.try_next().await {
-        response.push(get_upload_response_from_field(&mut field).await?);
+        match insert_field_as_attachment(&mut field).await {
+            Ok(response) => responses.push(response),
+            Err(err) => log::debug!("Threw out field: {}", err),
+        }
     }
 
-    Ok(web::Json(response))
+    Ok(web::Json(responses))
+}
+
+/// Accepts an upload payload and attempts to deduplicate it.
+pub async fn deduplicate_payload(payload: &UploadPayload) -> Option<UploadResponse> {
+    // Look for an existing database entry
+    let model = get_attachment_by_hash(payload.hash.to_string()).await;
+
+    match model {
+        // Attachment exists in storage and we can skip processing
+        Some(attachment) => {
+            // Bump last_seen date on new thread.
+            actix_web::rt::spawn(update_attachment_last_seen(attachment.id));
+            // Return response now.
+            Some(UploadResponse {
+                id: attachment.id,
+                hash: attachment.hash,
+            })
+        }
+        // Attachment is new and we need to process it
+        None => None,
+    }
 }
 
 fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
@@ -360,12 +384,12 @@ pub struct SelectFilename {
     pub filename: String,
 }
 
-pub fn get_file_url_by_hash(hash: &String, filename: &String) -> String {
+pub fn get_file_url_by_filename(filename: &String) -> String {
     format!(
         "http://{}/{}/{}/{}", // TODO something
         get_s3().pub_url,     // Is this legal? I think it's legal.
-        &hash[0..2],
-        &hash[2..4],
+        &filename[0..2],
+        &filename[2..4],
         filename
     )
 }
@@ -415,7 +439,140 @@ pub async fn get_file_url_by_ugc(s3: &S3Bucket, ugc_id: i32) -> Result<Option<St
         None => Ok(None),
     }
 }
-pub async fn get_upload_response_from_field(field: &mut Field) -> Result<UploadResponse, Error> {
+
+// Direct way of converting an actix_multipart field into an upload response.
+pub async fn insert_field_as_attachment(field: &mut Field) -> Result<UploadResponse, Error> {
+    // Save the file to a temporary location and get payload data.
+    let payload = save_field_as_temp_file(field).await?;
+    // Pass file through deduplication and receive a response..
+    match deduplicate_payload(&payload).await {
+        Some(response) => Ok(response),
+        None => insert_payload_as_attachment(payload, None).await,
+    }
+}
+
+/// Receives a request payload and inserts it into the database and the s3 bucket.
+pub async fn insert_payload_as_attachment(
+    payload: UploadPayload,
+    constraints: Option<fn(i64, (Option<i32>, Option<i32>)) -> Result<bool, Error>>,
+) -> Result<UploadResponse, Error> {
+    log::info!("Filename: {}", payload.filename);
+    log::info!("BLAKE3: {}", payload.hash);
+    log::info!("MIME: {}", payload.mime);
+
+    let dimensions: (Option<i32>, Option<i32>);
+    let extension: Option<String>;
+
+    match crate::ffmpeg::open_with_ffmpeg(&payload.tmp_path) {
+        Some(ffmpeg) => {
+            dimensions = match crate::ffmpeg::get_dimensions_from_input(&ffmpeg) {
+                Some(xy) => (Some(xy.0 as i32), Some(xy.1 as i32)),
+                None => (None, None),
+            };
+            extension = match crate::ffmpeg::get_extension_from_input(&ffmpeg) {
+                Some(ffext) => Some(ffext),
+                None => get_extension(&payload.filename, &payload.mime),
+            };
+        }
+        None => {
+            dimensions = (None, None);
+            extension = get_extension(&payload.filename, &payload.mime);
+        }
+    };
+
+    let s3_filename = match extension {
+        Some(extension) => format!("{}.{}", payload.hash, extension),
+        None => payload.hash.to_string(),
+    };
+
+    let filesize: i64 = payload.data.len().try_into().map_err(|e| {
+        log::error!(
+            "put_file: failed convert filesize from usize to i64, too big?: {}",
+            e
+        );
+        actix_web::error::ErrorInternalServerError("put_file: file too large")
+    })?;
+
+    // Custom constraint checks
+    // Before we insert into the database and save the file, ask the specific implementation
+    // if this file meets our requirements.
+    if let Some(constraint_fn) = constraints {
+        match constraint_fn(filesize, dimensions) {
+            Ok(_) => {}
+            Err(err) => {
+                log::error!("put_file constraints failed: {}", err);
+                return Err(actix_web::error::ErrorBadRequest(err));
+            }
+        }
+    }
+
+    let now = Utc::now().naive_utc();
+    let hash = &payload.hash.to_string();
+    let new_attachment = attachments::ActiveModel {
+        // This is our canonical filename, not the user's filename.
+        // User's filename belongs in ugc_attachments.
+        filename: Set(s3_filename.to_owned()),
+        hash: Set(hash.to_owned()),
+        first_seen_at: Set(now),
+        last_seen_at: Set(now),
+        filesize: Set(filesize),
+        file_width: Set(dimensions.0),
+        file_height: Set(dimensions.1),
+        mime: Set(payload.mime.to_string()),
+        meta: Set(JsonValue::Null),
+        ..Default::default()
+    };
+
+    // Insert the attachment into the database.
+    let res = attachments::Entity::insert(new_attachment)
+        .exec(get_db_pool())
+        .await
+        .map_err(|e| {
+            log::error!("put_file: failed to put_object: {}", e);
+            actix_web::error::ErrorInternalServerError("put_file: failed to store file")
+        })?;
+
+    let bucket = get_s3();
+    let list = bucket.list_objects_v2(&s3_filename).await.map_err(|e| {
+        log::error!("put_file: failed to list_objects_v2: {}", e);
+        actix_web::error::ErrorInternalServerError("put_file: failed to check if file exists")
+    })?;
+
+    // Check for existing s3 data.
+    let count = list.key_count.ok_or_else(|| {
+        log::error!("put_file: key_count, I don't think this should ever happen");
+        actix_web::error::ErrorInternalServerError("put_file: failed to check if file exists")
+    })?;
+
+    // s3 key count should only ever be 0 or 1, otherwise there's something wrong with the prefix
+    if count == 0 {
+        // Insert the file data into s3.
+        bucket
+            .put_object(payload.data, &s3_filename)
+            .await
+            .map_err(|e| {
+                log::error!("put_file: failed to put_object: {}", e);
+                actix_web::error::ErrorInternalServerError("put_file: failed to store file")
+            })?;
+    } else {
+        log::info!("put_file: duplicate upload, skipping S3 put_object");
+    }
+
+    // !!! WARNING !!! we delete a file, be mindful and don't fucking delete my porn folder
+    log::warn!("Deleting Tmp File: {:#?}", payload.tmp_path);
+    std::fs::remove_file(payload.tmp_path).map_err(|e| {
+        log::error!("put_file: delete tmp file error: {}", e);
+        actix_web::error::ErrorInternalServerError("put_file: failed to store file")
+    })?;
+
+    Ok(UploadResponse {
+        id: res.last_insert_id,
+        hash: hash.to_owned(),
+    })
+}
+
+/// Accepts a multipart field, stores it on the disk, and returns indetifying information about it.
+pub async fn save_field_as_temp_file(field: &mut Field) -> Result<UploadPayload, Error> {
     let content_type = field.content_disposition();
     let filename = content_type
         .get_filename()
@@ -491,133 +648,11 @@ pub async fn get_upload_response_from_field(field: &mut Field) -> Result<UploadR
             .unwrap()?;
     }
 
-    // deduplication check
-    let hash = hasher.finalize();
-    let model = get_attachment_by_hash(hash.to_string()).await;
-
-    Ok(match model {
-        // Attachment exists in storage and we can skip processing
-        Some(attachment) => {
-            actix_web::rt::spawn(update_attachment_last_seen(attachment.id));
-            UploadResponse {
-                id: attachment.id,
-                hash: attachment.hash,
-            }
-        }
-        // Attachment is new and we need to process it.
-        None => {
-            insert_payload_as_attachment(UploadPayload {
-                data: buf,
-                filename,
-                tmp_path: filepath, // WARNING we delete tmp_path at the end, don't screw up
-                hash: hasher.finalize(),
-                mime: field.content_type().to_owned(),
-            })
-            .await?
-        }
-    })
-}
-
-/// Receives a request payload and inserts it into the database and the s3 bucket.
-async fn insert_payload_as_attachment(payload: UploadPayload) -> Result<UploadResponse, Error> {
-    log::info!("Filename: {}", payload.filename);
-    log::info!("BLAKE3: {}", payload.hash);
-    log::info!("MIME: {}", payload.mime);
-
-    let dimensions: (Option<i32>, Option<i32>);
-    let extension: Option<String>;
-
-    match crate::ffmpeg::open_with_ffmpeg(&payload.tmp_path) {
-        Some(ffmpeg) => {
-            dimensions = match crate::ffmpeg::get_dimensions_from_input(&ffmpeg) {
-                Some(xy) => (Some(xy.0 as i32), Some(xy.1 as i32)),
-                None => (None, None),
-            };
-            extension = match crate::ffmpeg::get_extension_from_input(&ffmpeg) {
-                Some(ffext) => Some(ffext),
-                None => get_extension(&payload.filename, &payload.mime),
-            };
-        }
-        None => {
-            dimensions = (None, None);
-            extension = get_extension(&payload.filename, &payload.mime);
-        }
-    };
-
-    let s3_filename = match extension {
-        Some(extension) => format!("{}.{}", payload.hash, extension),
-        None => payload.hash.to_string(),
-    };
-
-    let filesize: i64 = payload.data.len().try_into().map_err(|e| {
-        log::error!(
-            "put_file: failed convert filesize from usize to i64, too big?: {}",
-            e
-        );
-        actix_web::error::ErrorInternalServerError("put_file: file too large")
-    })?;
-
-    let now = Utc::now().naive_utc();
-    let hash = &payload.hash.to_string();
-    let new_attachment = attachments::ActiveModel {
-        // This is our canonical filename, not the user's filename.
-        // User's filename belongs in ugc_attachments.
-        filename: Set(s3_filename.to_owned()),
-        hash: Set(hash.to_owned()),
-        first_seen_at: Set(now),
-        last_seen_at: Set(now),
-        filesize: Set(filesize),
-        file_width: Set(dimensions.0),
-        file_height: Set(dimensions.1),
-        mime: Set(payload.mime.to_string()),
-        meta: Set(JsonValue::Null),
-        ..Default::default()
-    };
-
-    // Insert the attachment into the database.
-    let res = attachments::Entity::insert(new_attachment)
-        .exec(get_db_pool())
-        .await
-        .map_err(|e| {
-            log::error!("put_file: failed to put_object: {}", e);
-            actix_web::error::ErrorInternalServerError("put_file: failed to store file")
-        })?;
-
-    let bucket = get_s3();
-    let list = bucket.list_objects_v2(&s3_filename).await.map_err(|e| {
-        log::error!("put_file: failed to list_objects_v2: {}", e);
-        actix_web::error::ErrorInternalServerError("put_file: failed to check if file exists")
-    })?;
-
-    // Check for existing s3 data.
-    let count = list.key_count.ok_or_else(|| {
-        log::error!("put_file: key_count, I don't think this should ever happen");
-        actix_web::error::ErrorInternalServerError("put_file: failed to check if file exists")
-    })?;
-
-    // s3 key count should only ever be 0 or 1, otherwise there's something wrong with the prefix
-    if count == 0 {
-        // Insert the file data into s3.
-        bucket
-            .put_object(payload.data, &s3_filename)
-            .await
-            .map_err(|e| {
-                log::error!("put_file: failed to put_object: {}", e);
-                actix_web::error::ErrorInternalServerError("put_file: failed to store file")
-            })?;
-    } else {
-        log::info!("put_file: duplicate upload, skipping S3 put_object");
-    }
-
-    // !!! WARNING !!! we delete a file, be mindful and don't fucking delete my porn folder
-    log::warn!("Deleting Tmp File: {:#?}", payload.tmp_path);
-    std::fs::remove_file(payload.tmp_path).map_err(|e| {
-        log::error!("put_file: delete tmp file error: {}", e);
-        actix_web::error::ErrorInternalServerError("put_file: failed to store file")
-    })?;
-
-    Ok(UploadResponse {
-        id: res.last_insert_id,
-        hash: hash.to_owned(),
+    Ok(UploadPayload {
+        data: buf,
+        filename,
+        tmp_path: filepath, // Warning: This is deleted at the end of processing.
+        hash: hasher.finalize(),
+        mime: field.content_type().to_owned(),
     })
 }

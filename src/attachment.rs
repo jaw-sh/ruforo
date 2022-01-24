@@ -1,4 +1,4 @@
-use crate::filesystem::get_file_url_by_hash;
+use crate::filesystem::get_file_url_by_filename;
 use crate::init::get_db_pool;
 use crate::orm::{attachments, ugc_attachments};
 use chrono::Utc;
@@ -24,7 +24,7 @@ pub struct AttachmentForTemplate {
 
 impl AttachmentForTemplate {
     pub fn get_download_url(&self) -> String {
-        get_file_url_by_hash(&self.hash, &self.local_filename)
+        get_file_url_by_filename(&self.local_filename)
     }
 
     pub fn to_html(&self) -> String {
@@ -117,6 +117,13 @@ pub async fn get_attachments_for_ugc_by_id(
     }
 
     result
+}
+
+pub fn get_avatar_html(filename: &String, dimensions: (&i32, &i32)) -> String {
+    format!(
+        "<img src=\"{}\" class=\"avatar\" />",
+        get_file_url_by_filename(&filename)
+    )
 }
 
 pub async fn update_attachment_last_seen(id: i32) {
