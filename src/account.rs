@@ -35,12 +35,24 @@ async fn update_avatar(client: ClientCtx, mutipart: Option<Multipart>) -> impl R
                 match field_name {
                     "avatar" => {
                         // Save the file to a temporary location and get payload data.
-                        let payload = save_field_as_temp_file(&mut field).await?;
+                        let payload = match save_field_as_temp_file(&mut field).await? {
+                            Some(payload) => payload,
+                            None => {
+                                return Err(error::ErrorBadRequest("Upload is empty or improper."))
+                            }
+                        };
 
                         // Pass file through deduplication and receive a response..
                         let response = match deduplicate_payload(&payload).await {
                             Some(response) => response,
-                            None => insert_payload_as_attachment(payload, None).await?,
+                            None => match insert_payload_as_attachment(payload, None).await? {
+                                Some(response) => response,
+                                None => {
+                                    return Err(error::ErrorBadRequest(
+                                        "Upload is empty or improper.",
+                                    ))
+                                }
+                            },
                         };
 
                         user_avatars::Entity::insert(user_avatars::ActiveModel {

@@ -231,14 +231,13 @@ pub async fn create_reply(
     use futures::{future::try_join_all, StreamExt, TryStreamExt};
 
     let mut content: String = "".to_owned();
-    let mut uploads: Vec<(String, UploadResponse)> = Vec::new();
+    let mut uploads: Vec<(_, UploadResponse)> = Vec::new();
 
     // interpret user input
     // iterate over multipart stream
     if let Some(mut fields) = mutipart {
         while let Ok(Some(mut field)) = fields.try_next().await {
-            let disposition = field.content_disposition();
-            if let Some(field_name) = disposition.get_name() {
+            if let Some(field_name) = field.content_disposition().get_name() {
                 match field_name {
                     "content" => {
                         // Stream multipart data to string.
@@ -256,17 +255,16 @@ pub async fn create_reply(
 
                         content = str::from_utf8(&buf).unwrap().to_owned();
                     }
-                    "attachment" => match disposition.get_filename() {
-                        Some(filename) => uploads.push((
-                            filename.to_owned(),
-                            insert_field_as_attachment(&mut field).await?,
-                        )),
-                        None => {
-                            return Err(error::ErrorBadRequest(
-                                "Did not supply filename for attachment.",
-                            ));
+                    "attachment" => {
+                        if let Some(payload) = insert_field_as_attachment(&mut field).await? {
+                            let filename = field
+                                .content_disposition()
+                                .get_filename()
+                                .unwrap_or(&payload.filename)
+                                .to_owned();
+                            uploads.push((filename, payload))
                         }
-                    },
+                    }
                     _ => {
                         return Err(error::ErrorBadRequest(format!(
                             "Unrecognized field '{}'",
@@ -316,20 +314,22 @@ pub async fn create_reply(
     .map_err(error::ErrorInternalServerError)?;
 
     // Insert attachments, if any.
-    let sneed = try_join_all(uploads.iter().map(|u| {
-        ugc_attachments::ActiveModel {
-            attachment_id: Set(u.1.id),
-            ugc_id: Set(ugc_revision.ugc_id),
-            ip_id: Set(None), // TODO
-            user_id: Set(ugc_revision.user_id),
-            created_at: Set(ugc_revision.created_at),
-            filename: Set(u.0.to_owned()),
-            ..Default::default()
-        }
-        .insert(&txn)
-    }))
-    .await
-    .map_err(error::ErrorInternalServerError)?;
+    if !uploads.is_empty() {
+        let sneed = try_join_all(uploads.iter().map(|u| {
+            ugc_attachments::ActiveModel {
+                attachment_id: Set(u.1.id),
+                ugc_id: Set(ugc_revision.ugc_id),
+                ip_id: Set(None), // TODO
+                user_id: Set(ugc_revision.user_id),
+                created_at: Set(ugc_revision.created_at),
+                filename: Set(u.0.to_owned()),
+                ..Default::default()
+            }
+            .insert(&txn)
+        }))
+        .await
+        .map_err(error::ErrorInternalServerError)?;
+    }
 
     // Commit transaction
     txn.commit()

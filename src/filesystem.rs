@@ -156,6 +156,7 @@ pub struct UploadPayload {
 pub struct UploadResponse {
     pub id: i32,
     pub hash: String,
+    pub filename: String,
 }
 
 #[post("/fs/check-file")]
@@ -172,6 +173,7 @@ pub async fn post_file_hash(form: web::Json<FileHashFormData>) -> Result<impl Re
     let file = attachments::Entity::find()
         .column(attachments::Column::Id)
         .column(attachments::Column::Hash)
+        .column(attachments::Column::Filename)
         .filter(attachments::Column::Hash.eq(form.hash.to_owned()))
         .into_model::<UploadResponse>()
         .one(get_db_pool())
@@ -227,7 +229,10 @@ pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> 
     // Iterate over multipart stream
     while let Ok(Some(mut field)) = mutipart.try_next().await {
         match insert_field_as_attachment(&mut field).await {
-            Ok(response) => responses.push(response),
+            Ok(response) => match response {
+                Some(response) => responses.push(response),
+                None => log::debug!("Threw out field: (empty)"),
+            },
             Err(err) => log::debug!("Threw out field: {}", err),
         }
     }
@@ -249,6 +254,7 @@ pub async fn deduplicate_payload(payload: &UploadPayload) -> Option<UploadRespon
             Some(UploadResponse {
                 id: attachment.id,
                 hash: attachment.hash,
+                filename: attachment.filename,
             })
         }
         // Attachment is new and we need to process it
@@ -441,13 +447,17 @@ pub async fn get_file_url_by_ugc(s3: &S3Bucket, ugc_id: i32) -> Result<Option<St
 }
 
 // Direct way of converting an actix_multipart field into an upload response.
-pub async fn insert_field_as_attachment(field: &mut Field) -> Result<UploadResponse, Error> {
+pub async fn insert_field_as_attachment(
+    field: &mut Field,
+) -> Result<Option<UploadResponse>, Error> {
     // Save the file to a temporary location and get payload data.
-    let payload = save_field_as_temp_file(field).await?;
-    // Pass file through deduplication and receive a response..
-    match deduplicate_payload(&payload).await {
-        Some(response) => Ok(response),
-        None => insert_payload_as_attachment(payload, None).await,
+    match save_field_as_temp_file(field).await? {
+        // Pass file through deduplication and receive a response..
+        Some(payload) => match deduplicate_payload(&payload).await {
+            Some(response) => Ok(Some(response)),
+            None => insert_payload_as_attachment(payload, None).await,
+        },
+        None => Ok(None),
     }
 }
 
@@ -455,7 +465,7 @@ pub async fn insert_field_as_attachment(field: &mut Field) -> Result<UploadRespo
 pub async fn insert_payload_as_attachment(
     payload: UploadPayload,
     constraints: Option<fn(i64, (Option<i32>, Option<i32>)) -> Result<bool, Error>>,
-) -> Result<UploadResponse, Error> {
+) -> Result<Option<UploadResponse>, Error> {
     log::info!("Filename: {}", payload.filename);
     log::info!("BLAKE3: {}", payload.hash);
     log::info!("MIME: {}", payload.mime);
@@ -565,14 +575,15 @@ pub async fn insert_payload_as_attachment(
         actix_web::error::ErrorInternalServerError("put_file: failed to store file")
     })?;
 
-    Ok(UploadResponse {
+    Ok(Some(UploadResponse {
         id: res.last_insert_id,
         hash: hash.to_owned(),
-    })
+        filename: s3_filename.to_owned(),
+    }))
 }
 
 /// Accepts a multipart field, stores it on the disk, and returns indetifying information about it.
-pub async fn save_field_as_temp_file(field: &mut Field) -> Result<UploadPayload, Error> {
+pub async fn save_field_as_temp_file(field: &mut Field) -> Result<Option<UploadPayload>, Error> {
     let content_type = field.content_disposition();
     let filename = content_type
         .get_filename()
@@ -641,18 +652,26 @@ pub async fn save_field_as_temp_file(field: &mut Field) -> Result<UploadPayload,
             log::error!("put_file: multipart read error: {}", e);
             actix_web::error::ErrorInternalServerError("put_file: error reading upload data")
         })?;
+
         hasher.update(&bytes);
         buf.extend(bytes.to_owned());
+
         f = web::block(move || f.write_all(&bytes.clone()).map(|_| f))
             .await
             .unwrap()?;
     }
 
-    Ok(UploadPayload {
+    if buf.is_empty() {
+        log::debug!("save_field_as_temp_file: empty file, aborting");
+        //std::fs::remove_file(filename); tmp file never created if there are no bytes saved
+        return Ok(None);
+    }
+
+    Ok(Some(UploadPayload {
         data: buf,
         filename,
         tmp_path: filepath, // Warning: This is deleted at the end of processing.
         hash: hasher.finalize(),
         mime: field.content_type().to_owned(),
-    })
+    }))
 }
