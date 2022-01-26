@@ -28,6 +28,8 @@ async fn update_avatar(client: ClientCtx, mutipart: Option<Multipart>) -> impl R
         ));
     }
 
+    // TODO: Button to delete avatars.
+
     if let Some(mut fields) = mutipart {
         while let Ok(Some(mut field)) = fields.try_next().await {
             let disposition = field.content_disposition();

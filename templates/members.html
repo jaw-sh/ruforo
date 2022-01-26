@@ -5,6 +5,7 @@
 <div>
     <table class="users-table">
         <tr>
+            <th></th>
             <th>ID</th>
             <th>Username</th>
             <th>Account Created</th>
@@ -13,6 +14,7 @@
 
     {% for user in users %}
         <tr>
+            <td>{% if let Some(avatar_html) = crate::user::get_avatar_html_for_user(user, crate::attachment::AttachmentSize::S) %}{{ avatar_html|safe }}{% endif %}</td>
             <td>{{ user.id }}</td>
             <td>{{ user.name }}</td>
             <td>{{ user.created_at.format("%v %r") }}</td>

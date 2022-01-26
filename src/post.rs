@@ -1,3 +1,4 @@
+use crate::attachment::AttachmentSize;
 use crate::init::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::{posts, ugc_deletions, ugc_revisions, user_names};
@@ -204,7 +205,7 @@ pub async fn view_post_in_thread(path: web::Path<(i32, i32)>) -> Result<HttpResp
     view_post(path.into_inner().1).await
 }
 
-pub fn get_avatar_html_for_post(post: &PostForTemplate) -> Option<String> {
+pub fn get_avatar_html_for_post(post: &PostForTemplate, size: AttachmentSize) -> Option<String> {
     if post.avatar_filename.is_some() && post.avatar_width.is_some() && post.avatar_height.is_some()
     {
         Some(crate::attachment::get_avatar_html(
@@ -213,6 +214,7 @@ pub fn get_avatar_html_for_post(post: &PostForTemplate) -> Option<String> {
                 &post.avatar_width.to_owned().unwrap(),
                 &post.avatar_height.to_owned().unwrap(),
             ),
+            size,
         ))
     } else {
         None

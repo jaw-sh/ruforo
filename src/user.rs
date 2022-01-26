@@ -1,3 +1,4 @@
+use crate::attachment::AttachmentSize;
 use crate::init::get_db_pool;
 use crate::orm::{attachments, user_names, users};
 use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult};
@@ -33,7 +34,7 @@ pub struct UserProfile {
     pub avatar_width: Option<i32>,
 }
 
-pub fn get_avatar_html_for_user(user: UserProfile) -> Option<String> {
+pub fn get_avatar_html_for_user(user: &UserProfile, size: AttachmentSize) -> Option<String> {
     if user.avatar_filename.is_some() && user.avatar_width.is_some() && user.avatar_height.is_some()
     {
         Some(crate::attachment::get_avatar_html(
@@ -42,6 +43,7 @@ pub fn get_avatar_html_for_user(user: UserProfile) -> Option<String> {
                 &user.avatar_width.to_owned().unwrap(),
                 &user.avatar_height.to_owned().unwrap(),
             ),
+            size,
         ))
     } else {
         None

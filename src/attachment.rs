@@ -22,6 +22,14 @@ pub struct AttachmentForTemplate {
     pub mime: String,
 }
 
+pub enum AttachmentSize {
+    Xs,
+    S,
+    M,
+    L,
+    Native,
+}
+
 impl AttachmentForTemplate {
     pub fn get_download_url(&self) -> String {
         get_file_url_by_filename(&self.local_filename)
@@ -119,10 +127,37 @@ pub async fn get_attachments_for_ugc_by_id(
     result
 }
 
-pub fn get_avatar_html(filename: &String, dimensions: (&i32, &i32)) -> String {
+pub fn get_avatar_html(
+    filename: &String,
+    dimensions: (&i32, &i32),
+    size: AttachmentSize,
+) -> String {
+    let constraint = match size {
+        xs => 24,
+        s => 48,
+        m => 96,
+        l => 144,
+        native => dimensions.0.to_owned().max(dimensions.1.to_owned()),
+    };
+
+    let x: i32;
+    let y: i32;
+    if dimensions.0 > dimensions.1 {
+        x = constraint;
+        y = constraint * (dimensions.1 / dimensions.0);
+    } else if dimensions.1 > dimensions.0 {
+        y = constraint;
+        x = constraint * (dimensions.0 / dimensions.1);
+    } else {
+        x = constraint;
+        y = constraint;
+    };
+
     format!(
-        "<img src=\"{}\" class=\"avatar\" />",
-        get_file_url_by_filename(&filename)
+        "<img src=\"{}\" class=\"avatar\" width=\"{}\" height=\"{}\" />",
+        get_file_url_by_filename(&filename),
+        x,
+        y
     )
 }
 

@@ -464,7 +464,7 @@ pub async fn insert_field_as_attachment(
 /// Receives a request payload and inserts it into the database and the s3 bucket.
 pub async fn insert_payload_as_attachment(
     payload: UploadPayload,
-    constraints: Option<fn(i64, (Option<i32>, Option<i32>)) -> Result<bool, Error>>,
+    constraints: Option<fn(&attachments::ActiveModel) -> Result<bool, Error>>,
 ) -> Result<Option<UploadResponse>, Error> {
     log::info!("Filename: {}", payload.filename);
     log::info!("BLAKE3: {}", payload.hash);
@@ -490,11 +490,6 @@ pub async fn insert_payload_as_attachment(
         }
     };
 
-    let s3_filename = match extension {
-        Some(extension) => format!("{}.{}", payload.hash, extension),
-        None => payload.hash.to_string(),
-    };
-
     let filesize: i64 = payload.data.len().try_into().map_err(|e| {
         log::error!(
             "put_file: failed convert filesize from usize to i64, too big?: {}",
@@ -503,18 +498,10 @@ pub async fn insert_payload_as_attachment(
         actix_web::error::ErrorInternalServerError("put_file: file too large")
     })?;
 
-    // Custom constraint checks
-    // Before we insert into the database and save the file, ask the specific implementation
-    // if this file meets our requirements.
-    if let Some(constraint_fn) = constraints {
-        match constraint_fn(filesize, dimensions) {
-            Ok(_) => {}
-            Err(err) => {
-                log::error!("put_file constraints failed: {}", err);
-                return Err(actix_web::error::ErrorBadRequest(err));
-            }
-        }
-    }
+    let s3_filename = match extension {
+        Some(extension) => format!("{}.{}", payload.hash, extension),
+        None => payload.hash.to_string(),
+    };
 
     let now = Utc::now().naive_utc();
     let hash = &payload.hash.to_string();
@@ -532,6 +519,19 @@ pub async fn insert_payload_as_attachment(
         meta: Set(JsonValue::Null),
         ..Default::default()
     };
+
+    // Custom constraint checks
+    // Before we insert into the database and save the file, ask the specific implementation
+    // if this file meets our requirements.
+    if let Some(constraint_fn) = constraints {
+        match constraint_fn(&new_attachment) {
+            Ok(_) => {}
+            Err(err) => {
+                log::error!("put_file constraints failed: {}", err);
+                return Err(actix_web::error::ErrorBadRequest(err));
+            }
+        }
+    }
 
     // Insert the attachment into the database.
     let res = attachments::Entity::insert(new_attachment)
