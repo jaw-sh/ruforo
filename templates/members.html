@@ -16,7 +16,7 @@
         <tr>
             <td>{% if let Some(avatar_html) = crate::user::get_avatar_html_for_user(user, crate::attachment::AttachmentSize::S) %}{{ avatar_html|safe }}{% endif %}</td>
             <td>{{ user.id }}</td>
-            <td>{{ user.name }}</td>
+            <td>{{ user.get_url_token()|safe }}</td>
             <td>{{ user.created_at.format("%v %r") }}</td>
             <td>{{ "{:?}"|format(user.password_cipher) }}</td>
         </tr>

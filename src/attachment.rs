@@ -22,6 +22,7 @@ pub struct AttachmentForTemplate {
     pub mime: String,
 }
 
+/// Enum of standarized attachment thumbnailing sizes.
 pub enum AttachmentSize {
     Xs,
     S,
@@ -127,17 +128,18 @@ pub async fn get_attachments_for_ugc_by_id(
     result
 }
 
+/// Constructs an HTML image tag at a specific dimension.
 pub fn get_avatar_html(
     filename: &String,
     dimensions: (&i32, &i32),
     size: AttachmentSize,
 ) -> String {
     let constraint = match size {
-        xs => 24,
-        s => 48,
-        m => 96,
-        l => 144,
-        native => dimensions.0.to_owned().max(dimensions.1.to_owned()),
+        AttachmentSize::Xs => 24,
+        AttachmentSize::S => 48,
+        AttachmentSize::M => 96,
+        AttachmentSize::L => 144,
+        AttachmentSize::Native => dimensions.0.to_owned().max(dimensions.1.to_owned()),
     };
 
     let x: i32;

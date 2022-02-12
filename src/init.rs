@@ -86,6 +86,7 @@ pub async fn start() -> std::io::Result<()> {
             .service(crate::login::view_login)
             .service(crate::login::post_login)
             .service(crate::logout::view_logout)
+            .service(crate::member::view_member)
             .service(crate::member::view_members)
             .service(crate::filesystem::view_file_ugc)
             .service(crate::filesystem::view_file_canonical)

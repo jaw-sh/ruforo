@@ -3,6 +3,7 @@ use crate::init::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::{posts, ugc_deletions, ugc_revisions, user_names};
 use crate::thread::get_url_for_pos;
+use crate::url::UrlToken;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::{Template, TemplateToResponse};
 use chrono::prelude::Utc;
@@ -32,6 +33,21 @@ pub struct PostForTemplate {
     pub avatar_filename: Option<String>,
     pub avatar_height: Option<i32>,
     pub avatar_width: Option<i32>,
+}
+
+impl PostForTemplate {
+    pub fn get_url_token_for_author(&self) -> UrlToken {
+        UrlToken {
+            id: self.user_id,
+            name: match &self.username {
+                Some(name) => name,
+                None => "Guest", // TODO: l10n
+            }
+            .to_owned(),
+            base_url: crate::user::RESOURCE_URL,
+            class: "username author",
+        }
+    }
 }
 
 #[derive(Template)]
