@@ -1,18 +1,14 @@
+use ffmpeg_next::codec::context::Context;
 use ffmpeg_next::codec::id::Id::{AV1, OPUS, VORBIS, VP8, VP9};
 use ffmpeg_next::format::context::Input;
 use ffmpeg_next::media::Type;
 use std::path::Path;
 
 pub fn get_dimensions_from_input(ctx: &Input) -> Option<(u32, u32)> {
-    for stream in ctx.streams() {
-        let codec = stream.codec();
-        if codec.medium() == Type::Video {
-            if let Ok(video) = codec.decoder().video() {
-                return Some((video.width(), video.height()));
-            }
-        }
-    }
-    None
+    let stream = ctx.streams().best(Type::Video)?;
+    let context_decoder = Context::from_parameters(stream.parameters()).ok()?;
+    let decoder = context_decoder.decoder().video().ok()?;
+    Some((decoder.width(), decoder.height()))
 }
 
 pub fn get_extension_from_input(ctx: &Input) -> Option<String> {
@@ -26,7 +22,7 @@ pub fn get_extension_from_input(ctx: &Input) -> Option<String> {
         log::error!("{}: {}", k, v);
     }
     for stream in ctx.streams() {
-        let codec = stream.codec();
+        let codec = stream.parameters();
         log::error!("\tmedium: {:?}", codec.medium());
         log::error!("\tid: {:?}", codec.id());
     }
@@ -40,10 +36,10 @@ pub fn get_extension_from_input(ctx: &Input) -> Option<String> {
                 return Some("mkv".to_owned());
             }
             let mut streams = ctx.streams();
-            let video_id = streams.next().unwrap().codec().id(); // we already counted the streams, unwrapping should be fine
+            let video_id = streams.next().unwrap().parameters().id(); // we already counted the streams, unwrapping should be fine
             match video_id {
                 VP8 | VP9 | AV1 => {
-                    let audio_id = streams.next().unwrap().codec().id();
+                    let audio_id = streams.next().unwrap().parameters().id();
                     match audio_id {
                         OPUS | VORBIS => {
                             log::info!("validated webm");

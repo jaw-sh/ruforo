@@ -10,7 +10,7 @@ use argon2::{
 };
 use askama_actix::TemplateToResponse;
 use chrono::Utc;
-use sea_orm::{entity::*, DbErr, InsertResult};
+use sea_orm::{entity::*, DbErr, InsertResult, TransactionTrait};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -25,7 +25,6 @@ async fn insert_new_user(
 ) -> Result<InsertResult<users::ActiveModel>, DbErr> {
     use crate::orm::{user_name_history, user_names};
     use futures::join;
-    use sea_orm::ConnectionTrait;
 
     let db = get_db_pool();
     let txn = db.begin().await?;

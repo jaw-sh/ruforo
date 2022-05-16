@@ -4,14 +4,14 @@ extern crate ffmpeg_next;
 use crate::session::{get_sess, reload_session_cache};
 use crate::{chat, filesystem, global, middleware::ClientCtx, session};
 use actix::Actor;
-use actix_session::CookieSession;
 use actix_web::middleware::Logger;
-use actix_web::{web, App, HttpServer};
+use actix_web::{cookie::Key, web, App, HttpServer};
 use env_logger::Env;
 use once_cell::sync::OnceCell;
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use std::path::Path;
 use std::time::Duration;
+use actix_session::{SessionMiddleware, storage::CookieSessionStore};
 
 static DB_POOL: OnceCell<DatabaseConnection> = OnceCell::new();
 
@@ -63,6 +63,8 @@ pub fn init() {
 /// TODO break up into chunks
 pub async fn start() -> std::io::Result<()> {
     let chat = web::Data::new(chat::ChatServer::new().start());
+    let secret_key = Key::generate(); // TODO: Should be from .env file
+
     HttpServer::new(move || {
         // Order of middleware IS IMPORTANT and is in REVERSE EXECUTION ORDER.
         // However, services are read top->down, higher traffic routes should be
@@ -71,9 +73,10 @@ pub async fn start() -> std::io::Result<()> {
             .app_data(chat.clone())
             .wrap(ClientCtx::new())
             .wrap(
-                CookieSession::signed(&[0; 32])
-                    .secure(false) // TODO make some sort of debug toggle for this
-                    .name("sneedessions"),
+                SessionMiddleware::new(
+                    CookieSessionStore::default(),
+                    secret_key.clone()
+                ),
             )
             .wrap(Logger::new("%a %{User-Agent}i"))
             .service(crate::index::view_index)

@@ -18,7 +18,7 @@ pub async fn create_ugc<'a, C>(
     revision: NewUgcPartial<'a>,
 ) -> Result<ugc_revisions::Model, Error>
 where
-    C: ConnectionTrait<'a>,
+    C: ConnectionTrait,
 {
     // Insert new UGC reference with only default values.
     let new_ugc = ugc::ActiveModel {
@@ -39,7 +39,7 @@ pub async fn create_ugc_revision<'a, C>(
     revision: NewUgcPartial<'a>,
 ) -> Result<ugc_revisions::Model, Error>
 where
-    C: ConnectionTrait<'a>,
+    C: ConnectionTrait,
 {
     // Run model through validator.
     let revision = validate_ugc(revision).map_err(|err| err)?;
