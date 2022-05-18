@@ -54,7 +54,7 @@ impl PermissionSet {
 
     // Combines permission sets at the same depth.
     // Explicit YES permissions override explicit NO permissions.
-    fn join(self, left: PermissionSet) -> PermissionSet {
+    fn join(&self, left: &PermissionSet) -> PermissionSet {
         let mut i: usize = 0;
         let mut groups: [PermissionGroupValues; GROUP_LIMIT] = Default::default();
 
@@ -77,6 +77,50 @@ pub enum PermissionValue {
 
 mod test {
     use super::*;
+
+    #[test]
+    fn test_set_join()
+    {
+        let group1a = PermissionGroupValues {
+            yes:   0b0011u64,
+            no:    0b0000u64,
+            never: 0b0000u64,
+        };
+        let group1b = PermissionGroupValues {
+            yes:   0b0000u64,
+            no:    0b1000u64,
+            never: 0b0100u64,
+        };
+        let group2a = PermissionGroupValues {
+            yes:   0b0000u64,
+            no:    0b0010u64,
+            never: 0b0001u64,
+        };
+        let group2b = PermissionGroupValues {
+            yes:   0b1100u64,
+            no:    0b0000u64,
+            never: 0b0000u64,
+        };
+
+        let mut set1 = PermissionSet {
+            groups: Default::default(),
+        };
+        set1.groups[0] = group1a;
+        set1.groups[1] = group1b;
+
+        let mut set2 = PermissionSet {
+            groups: Default::default(),
+        };
+        set2.groups[0] = group2a;
+        set2.groups[1] = group2b;
+
+        let set3 = set1.join(&set2);
+
+        assert_eq!(set1.groups[0].yes, 0b0011u64);
+        assert_eq!(set2.groups[1].yes, 0b1100u64);
+        assert_eq!(set3.groups[0].yes, 0b0010u64);
+        assert_eq!(set3.groups[1].yes, 0b1000u64);
+    }
 
     #[test]
     fn test_values_join_combines_never()
@@ -113,8 +157,8 @@ mod test {
         };
         let group3 = group1.join(&group2);
 
-        assert_eq!(group3.yes, 0b111u64);
-        assert_eq!(group3.no, 0b0u64);
+        assert_eq!(group3.yes,   0b0111u64);
+        assert_eq!(group3.no,    0b0000u64);
         assert_eq!(group3.never, 0b1000u64);
     }
 }
