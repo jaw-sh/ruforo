@@ -36,13 +36,19 @@ impl PermissionGroupValues {
     }
 }
 
-bitflags::bitflags! {
-    // 8 byte / 64 bit binary mask.
-    #[derive(Default)]
-    pub struct PermissionValues: u64 { }
+#[derive(Default)]
+pub struct PermissionMask {
+    groups: [u64; GROUP_LIMIT]
+}
+
+impl PermissionMask {
+    fn can(&self, group: usize, permission: i32) -> bool {
+        self.groups[group] & (1 << permission) > 0
+    }
 }
 
 // Set of permission values organized by permission group.
+#[derive(Default)]
 pub struct PermissionSet {
     // Group ID -> PermissionGroupValues
     groups: [PermissionGroupValues; GROUP_LIMIT]
@@ -75,8 +81,32 @@ pub enum PermissionValue {
     NEVER = -2,  // Never permitted, cannot be re-permitted.
 }
 
+bitflags::bitflags! {
+    // 8 byte / 64 bit binary mask.
+    #[derive(Default)]
+    pub struct PermissionValues: u64 { }
+}
+
 mod test {
     use super::*;
+
+    #[test]
+    fn test_mask_can()
+    {
+        let mut mask: PermissionMask = Default::default();
+        mask.groups[0] = 0b0101u64;
+        
+        assert_eq!(mask.can(0, 0), true);
+        assert_eq!(mask.can(0, 1), false);
+        assert_eq!(mask.can(0, 2), true);
+        assert_eq!(mask.can(0, 3), false);
+        assert_eq!(mask.can(0, 4), false);
+        
+        assert_eq!(mask.can(1, 0), false);
+        assert_eq!(mask.can(2, 1), false);
+        assert_eq!(mask.can(3, 2), false);
+        assert_eq!(mask.can(4, 3), false);
+    }
 
     #[test]
     fn test_set_join()
@@ -102,15 +132,11 @@ mod test {
             never: 0b0000u64,
         };
 
-        let mut set1 = PermissionSet {
-            groups: Default::default(),
-        };
+        let mut set1: PermissionSet = Default::default();
         set1.groups[0] = group1a;
         set1.groups[1] = group1b;
 
-        let mut set2 = PermissionSet {
-            groups: Default::default(),
-        };
+        let mut set2: PermissionSet = Default::default();
         set2.groups[0] = group2a;
         set2.groups[1] = group2b;
 
