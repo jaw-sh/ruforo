@@ -19,6 +19,7 @@ askama_actix = { git = "https://github.com/djc/askama" }
 #askama = { path = "../askama/askama", default-features = false, features = ["with-actix-web", "mime", "mime_guess"] }
 async-std = "1.10.0"
 #askama_actix = { path = "../askama/askama_actix" }
+bitflags = "^1"
 blake3 = "1.3.0"
 chrono = { version = "0.4.19", features = ["serde"] }
 dotenv = "0.15.0"

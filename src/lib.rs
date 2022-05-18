@@ -17,6 +17,7 @@ pub mod logout;
 pub mod member;
 pub mod middleware;
 mod orm;
+pub mod permission;
 pub mod post;
 mod s3;
 pub mod session;
