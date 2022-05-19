@@ -1,10 +1,10 @@
-use super::*;
-use rand::Rng;
 
 #[test]
 fn test_mask_can()
 {
-    let mut mask: PermissionMask = Default::default();
+    use super::mask::Mask;
+
+    let mut mask: Mask = Default::default();
     mask.groups[0] = 0b0101u64;
     
     assert_eq!(mask.can(0, 0), true);
@@ -22,69 +22,78 @@ fn test_mask_can()
 #[test]
 fn test_permission_add()
 {
-    let mut cat = PermissionCategory::default();
+    use super::PERM_LIMIT;
+    use super::category::Category;
+    use rand::Rng;
+
+    let mut cat = Category::default();
 
     for i in 0..PERM_LIMIT {
-        match cat.add_permission(rand::thread_rng().gen_range(1..999) as i32) {
+        match cat.add_item(rand::thread_rng().gen_range(1..999) as i32) {
             Ok(p) => assert_eq!(p.position as u32, i),
             Err(_) => assert!(false, "Unexpected overflowing permission category"),
         }
         
     }
 
-    let pr = cat.add_permission((PERM_LIMIT + 1) as i32);
+    let pr = cat.add_item((PERM_LIMIT + 1) as i32);
     assert!(pr.is_err(), "Did not contain an error.");
 }
 
 #[test]
 fn test_set_join()
 {
-    let group1a = PermissionGroupValues {
+    use super::category_values::CategoryValues;
+    use super::collection_values::CollectionValues;
+    
+    let group1a = CategoryValues {
         yes:   0b0011u64,
         no:    0b0000u64,
         never: 0b0000u64,
     };
-    let group1b = PermissionGroupValues {
+    let group1b = CategoryValues {
         yes:   0b0000u64,
         no:    0b1000u64,
         never: 0b0100u64,
     };
-    let group2a = PermissionGroupValues {
+    let group2a = CategoryValues {
         yes:   0b0000u64,
         no:    0b0010u64,
         never: 0b0001u64,
     };
-    let group2b = PermissionGroupValues {
+    let group2b = CategoryValues {
         yes:   0b1100u64,
         no:    0b0000u64,
         never: 0b0000u64,
     };
 
-    let mut set1: PermissionSet = Default::default();
-    set1.groups[0] = group1a;
-    set1.groups[1] = group1b;
+    let mut set1 = CollectionValues::default();
+    set1.categories[0] = group1a;
+    set1.categories[1] = group1b;
 
-    let mut set2: PermissionSet = Default::default();
-    set2.groups[0] = group2a;
-    set2.groups[1] = group2b;
+    let mut set2 = CollectionValues::default();
+    set2.categories[0] = group2a;
+    set2.categories[1] = group2b;
 
     let set3 = set1.join(&set2);
 
-    assert_eq!(set1.groups[0].yes, 0b0011u64);
-    assert_eq!(set2.groups[1].yes, 0b1100u64);
-    assert_eq!(set3.groups[0].yes, 0b0010u64);
-    assert_eq!(set3.groups[1].yes, 0b1000u64);
+    assert_eq!(set1.categories[0].yes, 0b0011u64);
+    assert_eq!(set2.categories[1].yes, 0b1100u64);
+    assert_eq!(set3.categories[0].yes, 0b0010u64);
+    assert_eq!(set3.categories[1].yes, 0b1000u64);
 }
 
 #[test]
 fn test_values_join_combines_never()
 {
-    let group1 = PermissionGroupValues {
+    use super::category_values::CategoryValues;
+
+    let group1 = CategoryValues {
         yes:   0b100u64,
         no:    0b000u64,
         never: 0b010u64,
     };
-    let group2 = PermissionGroupValues {
+    let group2 = CategoryValues {
         yes:   0b011u64,
         no:    0b000u64,
         never: 0b100u64,
@@ -99,12 +108,14 @@ fn test_values_join_combines_never()
 #[test]
 fn test_values_join_overwrites_no()
 {
-    let group1 = PermissionGroupValues {
+    use super::category_values::CategoryValues;
+
+    let group1 = CategoryValues {
         yes:   0b111u64,
         no:    0b000u64,
         never: 0b000u64,
     };
-    let group2 = PermissionGroupValues {
+    let group2 = CategoryValues {
         yes:   0b0000u64,
         no:    0b0010u64,
         never: 0b1000u64,
@@ -119,12 +130,14 @@ fn test_values_join_overwrites_no()
 #[test]
 fn test_values_stack_negatives()
 {
-    let group1 = PermissionGroupValues {
+    use super::category_values::CategoryValues;
+
+    let group1 = CategoryValues {
         yes:   0b01100u64,
         no:    0b00010u64,
         never: 0b00001u64,
     };
-    let group2 = PermissionGroupValues {
+    let group2 = CategoryValues {
         yes:   0b10011u64,
         no:    0b01111u64,
         never: 0b01000u64,
