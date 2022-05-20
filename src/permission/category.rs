@@ -1,6 +1,6 @@
-use super::PERM_LIMIT;
-use super::item::Item;
 use super::error::Error;
+use super::item::Item;
+use super::PERM_LIMIT;
 
 /// Organization struct.
 /// Permission category which may catalogue up to 64 permission items.
@@ -17,7 +17,7 @@ impl Default for Category {
         Category {
             id: 0,
             position: 0,
-            items: [Item::default(); PERM_LIMIT as usize]
+            items: [Item::default(); PERM_LIMIT as usize],
         }
     }
 }

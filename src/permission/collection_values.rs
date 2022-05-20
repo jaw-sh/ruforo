@@ -1,5 +1,5 @@
-use super::GROUP_LIMIT;
 use super::category_values::CategoryValues;
+use super::GROUP_LIMIT;
 
 /// Data struct.
 /// Collection of permission Values, organized by Category.
@@ -7,7 +7,7 @@ use super::category_values::CategoryValues;
 #[derive(Default)]
 pub struct CollectionValues {
     /// Group ID -> CategoryValues
-    pub categories: [CategoryValues; GROUP_LIMIT as usize]
+    pub categories: [CategoryValues; GROUP_LIMIT as usize],
 }
 
 impl CollectionValues {

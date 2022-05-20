@@ -17,7 +17,7 @@ impl CategoryValues {
         let no = (self.no | left.no) & !(self.yes | left.yes);
         // Combine YES, remove NO and NEVER
         let yes = (self.yes | left.yes) & !(no | never);
-        Self { yes, no, never, }
+        Self { yes, no, never }
     }
 
     /// Combines values vertically.
@@ -29,6 +29,6 @@ impl CategoryValues {
         let no = self.no;
         // Combine YES, remove NO and NEVER
         let yes = (self.yes | below.yes) & !(no | never);
-        Self { yes, no, never, }
+        Self { yes, no, never }
     }
 }

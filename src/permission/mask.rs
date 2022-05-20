@@ -3,7 +3,7 @@ use super::GROUP_LIMIT;
 /// Data struct containing all permission categories as final, evaluated masks.
 #[derive(Default)]
 pub struct Mask {
-    pub groups: [u64; GROUP_LIMIT as usize]
+    pub groups: [u64; GROUP_LIMIT as usize],
 }
 
 impl Mask {
