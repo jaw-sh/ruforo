@@ -1,9 +1,21 @@
+-- ************************************** forums
+
+CREATE TABLE forums
+(
+    id serial NOT NULL PRIMARY KEY,
+    label text NOT NULL,
+    description text NULL,
+    last_post_id int NULL,
+    last_thread_id int NULL
+);
+
 -- ************************************** threads
 
 CREATE TABLE threads
 (
-    id serial     NOT NULL,
-    user_id       int NULL,
+    id            serial NOT NULL PRIMARY KEY,
+    user_id       int NULL REFERENCES users ( id ) ON DELETE SET NULL,
+    forum_id      int NOT NULL REFERENCES forums ( id ) ON DELETE CASCADE,
     created_at    timestamp NOT NULL,
     title         text NOT NULL,
     subtitle      text NULL,
@@ -11,35 +23,33 @@ CREATE TABLE threads
     post_count    int NOT NULL,
     first_post_id int NULL,
     last_post_id  int NULL,
-    last_post_at  timestamp NULL,
-    CONSTRAINT pk_thread_id PRIMARY KEY ( id ),
-    CONSTRAINT fk_thread_user_id FOREIGN KEY ( user_id ) REFERENCES users ( id )
+    last_post_at  timestamp NULL
 );
 
-CREATE INDEX index_thread_user_id ON threads ( user_id );
-CREATE INDEX index_thread_last_post_at ON threads ( last_post_at DESC);
+CREATE INDEX ON threads ( forum_id );
+CREATE INDEX ON threads ( user_id );
+CREATE INDEX ON threads ( last_post_at DESC);
 
 
 -- ************************************** posts
 
 CREATE TABLE posts
 (
-    id        serial NOT NULL,
-    thread_id int NOT NULL,
+    id        serial NOT NULL PRIMARY KEY,
+    thread_id int NOT NULL REFERENCES threads ( id ) ON DELETE CASCADE,
     position  int NOT NULL,
-    ugc_id    int NOT NULL,
-    user_id   int NULL,
-    created_at timestamp NOT NULL,
-    CONSTRAINT pk_post_id PRIMARY KEY ( id ),
-    CONSTRAINT fk_post_thread_id FOREIGN KEY ( thread_id ) REFERENCES threads ( id ),
-    CONSTRAINT fk_post_ugc_id FOREIGN KEY ( ugc_id ) REFERENCES ugc ( id ),
-    CONSTRAINT fk_post_user_id FOREIGN KEY ( user_id ) REFERENCES users ( id )
+    ugc_id    int NOT NULL REFERENCES ugc ( id ),
+    user_id   int NULL REFERENCES users ( id ) ON DELETE SET NULL,
+    created_at timestamp NOT NULL
 );
 
-CREATE INDEX index_post_thread_id ON posts ( thread_id );
-CREATE INDEX index_post_ugc_id ON posts ( ugc_id );
-CREATE INDEX index_post_user_id ON posts ( user_id );
-CREATE INDEX index_post_position ON posts ( position );
+CREATE INDEX ON posts ( thread_id );
+CREATE INDEX ON posts ( ugc_id );
+CREATE INDEX ON posts ( user_id );
+CREATE INDEX ON posts ( position );
 
-ALTER TABLE threads ADD CONSTRAINT fk_thread_first_post_id FOREIGN KEY ( first_post_id ) REFERENCES posts ( id );
-ALTER TABLE threads ADD CONSTRAINT fk_thread_last_post_id FOREIGN KEY ( last_post_id ) REFERENCES posts ( id );
+ALTER TABLE threads ADD CONSTRAINT threads_first_post_id_fkey FOREIGN KEY ( first_post_id ) REFERENCES posts ( id ) ON DELETE SET NULL;
+ALTER TABLE threads ADD CONSTRAINT threads_last_post_id_fkey FOREIGN KEY ( last_post_id ) REFERENCES posts ( id ) ON DELETE SET NULL;
+
+ALTER TABLE forums ADD CONSTRAINT forums_last_thread_id_fkey FOREIGN KEY ( last_thread_id ) REFERENCES threads ( id ) ON DELETE SET NULL;
+ALTER TABLE forums ADD CONSTRAINT forums_last_post_id_fkey FOREIGN KEY ( last_post_id ) REFERENCES posts ( id ) ON DELETE SET NULL;
