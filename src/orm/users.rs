@@ -66,15 +66,13 @@ impl Related<super::attachments::Entity> for Entity {
     }
 }
 
-impl Related<super::threads::Entity> for Entity {
+impl Related<super::groups::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Threads.def()
+        super::user_groups::Relation::Groups.def()
     }
-}
 
-impl Related<super::ugc_revisions::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::UgcRevisions.def()
+    fn via() -> Option<RelationDef> {
+        Some(super::user_groups::Relation::Users.def().rev())
     }
 }
 
@@ -90,9 +88,21 @@ impl Related<super::sessions::Entity> for Entity {
     }
 }
 
+impl Related<super::threads::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Threads.def()
+    }
+}
+
 impl Related<super::ugc_deletions::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UgcDeletions.def()
+    }
+}
+
+impl Related<super::user_2fa::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::User2fa.def()
     }
 }
 
@@ -114,9 +124,9 @@ impl Related<super::user_names::Entity> for Entity {
     }
 }
 
-impl Related<super::user_2fa::Entity> for Entity {
+impl Related<super::ugc_revisions::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::User2fa.def()
+        Relation::UgcRevisions.def()
     }
 }
 
