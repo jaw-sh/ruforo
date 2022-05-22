@@ -4,10 +4,23 @@ use super::GROUP_LIMIT;
 /// Data struct.
 /// Collection of permission Values, organized by Category.
 /// This represents all permissions set for a user or group on a resource.
-#[derive(Default)]
+#[derive(Clone)]
 pub struct CollectionValues {
     /// Group ID -> CategoryValues
     pub categories: [CategoryValues; GROUP_LIMIT as usize],
+}
+
+impl Default for CollectionValues {
+    /// Default is manually implemented for generic types up to a length of 32
+    /// See: https://doc.rust-lang.org/std/default/trait.Default.html#impl-Default-71
+    fn default() -> Self {
+        CollectionValues {
+            // TODO: This should be changed after release.
+            // https://doc.rust-lang.org/nightly/core/array/fn.from_fn.html
+            //categories: [(); GROUP_LIMIT as usize].map(|_| CategoryValues::default()),
+            categories: [CategoryValues::default(); GROUP_LIMIT as usize],
+        }
+    }
 }
 
 impl CollectionValues {

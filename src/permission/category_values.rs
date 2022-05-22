@@ -1,6 +1,6 @@
 /// Data struct.
 /// Yes, no, and never masks for a single Category.
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 pub struct CategoryValues {
     pub yes: u64,
     pub no: u64,

@@ -9,3 +9,7 @@ pub struct Collection {
     /// Group ID -> CategoryValues
     pub categories: [Category; GROUP_LIMIT as usize],
 }
+
+impl Collection {
+    
+}
