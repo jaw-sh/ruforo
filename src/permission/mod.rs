@@ -21,7 +21,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct PermissionData {
     collection: Arc<collection::Collection>,
-    collection_values: DashMap<i32, collection_values::CollectionValues>,
+    collection_values: DashMap<(i32, i32), collection_values::CollectionValues>,
 }
 
 pub fn init() {}

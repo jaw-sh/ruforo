@@ -1,10 +1,43 @@
 #[test]
-fn test_init() {
-    use super::category::Category;
+fn test_init_data() {
+    use super::collection_values::CollectionValues;
+    use super::flag::Flag;
+    use super::mask::Mask;
+
+    let mut cv = CollectionValues::default();
+
+    {
+        let values: Vec<(u8, u8, Flag)> = vec![
+            (0, 0, Flag::YES),
+            (0, 1, Flag::YES),
+            (0, 2, Flag::YES),
+            (0, 3, Flag::YES),
+            (1, 0, Flag::YES),
+            (2, 1, Flag::DEFAULT),
+            (3, 2, Flag::NO),
+            (4, 3, Flag::NEVER),
+        ];
+
+        for datum in values.iter() {
+            cv.set_flag(&datum.0, &datum.1, &datum.2);
+        }
+    }
+
+    let mask = Mask::from(cv);
+
+    assert_eq!(mask.can(0, 0), true);
+    assert_eq!(mask.can(0, 1), true);
+    assert_eq!(mask.can(0, 2), true);
+    assert_eq!(mask.can(0, 3), true);
+    assert_eq!(mask.can(1, 0), true);
+    assert_eq!(mask.can(1, 1), false);
+    assert_eq!(mask.can(1, 2), false);
+    assert_eq!(mask.can(1, 3), false);
+}
+
+#[test]
+fn test_init_structure() {
     use super::collection::Collection;
-    use super::item::Item;
-    use super::PERM_LIMIT;
-    use std::collections::HashMap;
 
     let mut col = Collection::default();
 
@@ -65,7 +98,7 @@ fn test_mask_can() {
     use super::mask::Mask;
 
     let mut mask: Mask = Default::default();
-    mask.groups[0] = 0b0101u64;
+    mask.categories[0] = 0b0101u64;
 
     assert_eq!(mask.can(0, 0), true);
     assert_eq!(mask.can(0, 1), false);
@@ -79,24 +112,29 @@ fn test_mask_can() {
     assert_eq!(mask.can(4, 3), false);
 }
 
-//#[test]
-//fn test_permission_add() {
-//    use super::category::Category;
-//    use super::PERM_LIMIT;
-//    use rand::Rng;
-//
-//    let mut cat = Category::default();
-//
-//    for i in 0..PERM_LIMIT {
-//        match cat.add_item(rand::thread_rng().gen_range(1..999) as i32) {
-//            Ok(p) => assert_eq!(p.position as u32, i),
-//            Err(_) => assert!(false, "Unexpected overflowing permission category"),
-//        }
-//    }
-//
-//    let pr = cat.add_item((PERM_LIMIT + 1) as i32);
-//    assert!(pr.is_err(), "Did not contain an error.");
-//}
+#[test]
+fn test_permission_add() {
+    use super::category::Category;
+    use super::PERM_LIMIT;
+    use rand::Rng;
+
+    let mut rng = rand::thread_rng();
+    let mut cat = Category::default();
+
+    for i in 0..PERM_LIMIT {
+        let id: i32 = rng.gen_range(1..999);
+        let label: String = String::from(rng.gen_range(b'A'..b'Z') as char);
+        match cat.add_item(&id, &label) {
+            Ok(p) => assert_eq!(p.position as u32, i),
+            Err(_) => assert!(false, "Unexpected overflowing permission category"),
+        }
+    }
+
+    let id = (PERM_LIMIT + 1) as i32;
+    let label: &str = "foo";
+    let pr = cat.add_item(&id, label);
+    assert!(pr.is_err(), "Did not contain an error.");
+}
 
 #[test]
 fn test_set_join() {

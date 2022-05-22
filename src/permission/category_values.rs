@@ -1,3 +1,5 @@
+use super::flag::Flag;
+
 /// Data struct.
 /// Yes, no, and never masks for a single Category.
 #[derive(Clone, Copy, Default)]
@@ -5,6 +7,12 @@ pub struct CategoryValues {
     pub yes: u64,
     pub no: u64,
     pub never: u64,
+}
+
+impl From<CategoryValues> for u64 {
+    fn from(item: CategoryValues) -> Self {
+        item.yes & !(item.no | item.never)
+    }
 }
 
 impl CategoryValues {
@@ -30,5 +38,33 @@ impl CategoryValues {
         // Combine YES, remove NO and NEVER
         let yes = (self.yes | below.yes) & !(no | never);
         Self { yes, no, never }
+    }
+
+    pub fn set_flag(&mut self, item: &u8, flag: &Flag) {
+        let bit: u64 = 1 << item; // 0b0001
+        let not: u64 = !bit; // 0b1110
+
+        match flag {
+            Flag::YES => {
+                self.yes |= bit;
+                self.no &= not;
+                self.never &= not;
+            }
+            Flag::DEFAULT => {
+                self.yes &= not;
+                self.no &= not;
+                self.never &= not;
+            }
+            Flag::NO => {
+                self.yes &= not;
+                self.no |= bit;
+                self.never &= not;
+            }
+            Flag::NEVER => {
+                self.yes &= not;
+                self.no &= not;
+                self.never |= not;
+            }
+        }
     }
 }
