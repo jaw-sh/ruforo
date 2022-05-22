@@ -14,6 +14,8 @@ mod test;
 const GROUP_LIMIT: u32 = 16;
 /// Maximum number of permissions per category (64 bits)
 const PERM_LIMIT: u32 = u64::BITS;
+/// Total maximum number of permissions defined as GROUP_LIMIT*PERM_LIMIT
+const MAX_PERMS: u32 = GROUP_LIMIT * PERM_LIMIT;
 
 use dashmap::DashMap;
 use std::sync::Arc;

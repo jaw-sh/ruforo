@@ -91,6 +91,10 @@ fn test_init_structure() {
 
     assert_eq!(col.categories[0].items[5].id, 0);
     assert_eq!(col.categories[2].items[0].id, 0);
+
+    assert_eq!(col.get_item_pos("a").unwrap_or((0, 1)), (0, 0));
+    assert_ne!(col.get_item_pos("b").unwrap_or((0, 0)), (0, 0));
+    assert_eq!(col.get_item_pos("h").unwrap_or((0, 0)), (1, 3));
 }
 
 #[test]
