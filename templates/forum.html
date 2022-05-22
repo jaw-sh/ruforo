@@ -10,13 +10,20 @@
             <a href="/threads/{{ thread.id }}/">{{ thread.title }}</a><br />
             {% if let Some(subtitle) = thread.subtitle %}{{ subtitle }}<br />{% endif %}
             <small>
-                {% match thread.username %}{% when Some with (username) %}{{ username }}{% when None %}Guest{% endmatch %}
+                {% match thread.username %}{% when Some with (username) %}{{ username }}{% when None %}Guest{% endmatch
+                %}
                 · <time datetime="{{ thread.created_at }}">{{ thread.created_at.format("%v %r") }}</time>
             </small>
         </div>
         <div class="struct-item-cell struct-item-cell--meta">
-            <dl><dt>Replies:</dt><dd>{{ thread.post_count }}</dd></dl>
-            <dl><dt>Views:</dt><dd>{{ thread.view_count }}</dd></dl>
+            <dl>
+                <dt>Replies:</dt>
+                <dd>{{ thread.post_count }}</dd>
+            </dl>
+            <dl>
+                <dt>Views:</dt>
+                <dd>{{ thread.view_count }}</dd>
+            </dl>
         </div>
         <div class="struct-item-cell struct-item-cell--latest"></div>
         <div class="struct-item-cell struct-item-cell--icon struct-item-cell--iconEnd"></div>
@@ -25,7 +32,7 @@
 </div>
 
 {% if client.can_post_in_forum() %}
-<form action="/forums/post-thread" method="post">
+<form action="/forums/{{ forum.id }}/post-thread" method="post">
     <h2>New Thread</h2>
     <input type="text" name="title" placeholder="Title" />
     <input type="text" name="subtitle" placeholder="Subtitle (optional)" />

@@ -7,6 +7,7 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
+    pub forum_id: i32,
     pub user_id: Option<i32>,
     pub created_at: DateTime,
     #[sea_orm(column_type = "Text")]
@@ -46,6 +47,14 @@ pub enum Relation {
         on_delete = "NoAction"
     )]
     Users,
+    #[sea_orm(
+        belongs_to = "super::forums::Entity",
+        from = "Column::ForumId",
+        to = "super::forums::Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    Forum,
     #[sea_orm(has_many = "super::posts::Entity")]
     Posts,
     #[sea_orm(
@@ -61,6 +70,12 @@ pub enum Relation {
 impl Related<super::posts::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Posts.def()
+    }
+}
+
+impl Related<super::forums::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Forum.def()
     }
 }
 

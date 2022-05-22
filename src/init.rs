@@ -100,6 +100,7 @@ pub async fn start() -> std::io::Result<()> {
             .service(crate::post::view_post_by_id)
             .service(crate::post::view_post_in_thread)
             .service(crate::forum::create_thread)
+            .service(crate::forum::view_forums)
             .service(crate::forum::view_forum)
             .service(crate::thread::create_reply)
             .service(crate::thread::view_thread)

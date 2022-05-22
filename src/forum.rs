@@ -2,23 +2,34 @@ use crate::init::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::{posts, threads, user_names};
 use crate::thread::{validate_thread_form, NewThreadFormData, ThreadForTemplate};
-use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
+use actix_web::{error, get, post, web, Error, HttpRequest, HttpResponse, Responder};
 use askama_actix::{Template, TemplateToResponse};
+use sea_orm::DbErr;
 use sea_orm::{entity::*, query::*, sea_query::Expr};
 
 #[derive(Template)]
 #[template(path = "forum.html")]
 pub struct ForumTemplate<'a> {
     pub client: ClientCtx,
+    pub forum: &'a crate::orm::forums::Model,
     pub threads: &'a Vec<ThreadForTemplate>,
 }
 
-#[post("/forums/post-thread")]
+#[derive(Template)]
+#[template(path = "forums.html")]
+pub struct ForumIndexTemplate<'a> {
+    pub client: ClientCtx,
+    pub forums: &'a Vec<crate::orm::forums::Model>,
+}
+
+#[post("/forums/{forum}/post-thread")]
 pub async fn create_thread(
     client: ClientCtx,
     form: web::Form<NewThreadFormData>,
+    path: web::Path<i32>,
 ) -> Result<impl Responder, Error> {
     use crate::ugc::{create_ugc, NewUgcPartial};
+    let forum_id = path.into_inner();
 
     // Run form data through validator.
     let form = validate_thread_form(form).map_err(|err| err)?;
@@ -44,6 +55,7 @@ pub async fn create_thread(
     // Step 2. Create a thread.
     let thread = threads::ActiveModel {
         user_id: Set(client.get_id()),
+        forum_id: Set(forum_id),
         created_at: Set(revision.created_at),
         title: Set(form.title.trim().to_owned()),
         subtitle: Set(form
@@ -100,9 +112,18 @@ pub async fn create_thread(
         .finish())
 }
 
-#[get("/forums")]
-pub async fn view_forum(client: ClientCtx) -> Result<impl Responder, Error> {
-    let threads: Vec<ThreadForTemplate> = threads::Entity::find()
+#[get("/forums/{forum}/")]
+pub async fn view_forum(client: ClientCtx, path: web::Path<i32>) -> Result<impl Responder, Error> {
+    use crate::orm::forums;
+
+    let forum_id = path.into_inner();
+    let forum = forums::Entity::find_by_id(forum_id)
+        .one(get_db_pool())
+        .await
+        .map_err(|_| error::ErrorInternalServerError("Could not look up forum."))?
+        .ok_or_else(|| error::ErrorNotFound("Forum not found."))?;
+
+    let threads: Vec<ThreadForTemplate> = match threads::Entity::find()
         // Authoring User
         .left_join(user_names::Entity)
         .column_as(user_names::Column::Name, "username")
@@ -111,15 +132,40 @@ pub async fn view_forum(client: ClientCtx) -> Result<impl Responder, Error> {
         //.join_join(JoinType::LeftJoin, threads::Relations::::to(), threads::Relation::LastPost<posts::Entity>::via())
         //.column_as(users::Column::Name, "username")
         // Execute
+        .filter(threads::Column::ForumId.eq(forum_id))
         .order_by_desc(threads::Column::LastPostAt)
         .into_model::<ThreadForTemplate>()
         .all(get_db_pool())
         .await
-        .map_err(error::ErrorNotFound)?;
+    {
+        Ok(threads) => threads,
+        Err(_) => Default::default(),
+    };
 
     Ok(ForumTemplate {
         client: client.to_owned(),
+        forum: &forum,
         threads: &threads,
+    }
+    .to_response())
+}
+
+#[get("/forums")]
+pub async fn view_forums(client: ClientCtx) -> Result<impl Responder, Error> {
+    render_forum_list(client).await
+}
+
+pub async fn render_forum_list(client: ClientCtx) -> Result<impl Responder, Error> {
+    use crate::orm::forums;
+
+    let forums = match forums::Entity::find().all(get_db_pool()).await {
+        Ok(forums) => forums,
+        Err(_) => Default::default(),
+    };
+
+    Ok(ForumIndexTemplate {
+        client: client.to_owned(),
+        forums: &forums,
     }
     .to_response())
 }

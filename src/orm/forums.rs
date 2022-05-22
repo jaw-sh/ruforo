@@ -24,7 +24,7 @@ pub enum Relation {
         on_update = "NoAction",
         on_delete = "SetNull"
     )]
-    Posts,
+    LastPost,
     #[sea_orm(
         belongs_to = "super::threads::Entity",
         from = "Column::LastThreadId",
@@ -37,7 +37,7 @@ pub enum Relation {
 
 impl Related<super::posts::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Posts.def()
+        Relation::LastPost.def()
     }
 }
 
