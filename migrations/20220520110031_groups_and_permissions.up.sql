@@ -43,10 +43,13 @@ CREATE TABLE permission_collections
 CREATE INDEX ON permission_collections ( group_id );
 CREATE INDEX ON permission_collections ( user_id );
 
+CREATE TYPE PERMISSION_FLAG AS ENUM ('yes', 'no', 'default', 'never');
+
 CREATE TABLE permission_values
 (
     permission_id integer NOT NULL REFERENCES permissions ( id ) ON DELETE CASCADE,
     collection_id integer NOT NULL REFERENCES permission_collections ( id ) ON DELETE CASCADE,
+    value PERMISSION_FLAG NOT NULL DEFAULT 'default'::PERMISSION_FLAG,
     PRIMARY KEY (permission_id, collection_id)
 );
 

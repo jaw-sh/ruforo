@@ -1,4 +1,3 @@
-use super::category_values::CategoryValues;
 use super::collection_values::CollectionValues;
 use super::GROUP_LIMIT;
 

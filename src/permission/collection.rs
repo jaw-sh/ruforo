@@ -11,8 +11,10 @@ use dashmap::DashMap;
 pub struct Collection {
     /// Group ID -> Category
     pub categories: [Category; GROUP_LIMIT as usize],
-    /// Item Label -> Tuple
+    /// Item Label -> Tuple (category index, permission index)
     pub dictionary: DashMap<String, (u8, u8)>,
+    /// Item ID -> Tuple (category index, permission index)
+    pub lookup: DashMap<i32, (u8, u8)>,
 }
 
 impl Default for Collection {
@@ -23,6 +25,7 @@ impl Default for Collection {
             categories: [(); GROUP_LIMIT as usize].map(|_| Category::default()),
             //categories: [Category::default(); GROUP_LIMIT as usize],
             dictionary: DashMap::with_capacity(MAX_PERMS as usize),
+            lookup: DashMap::with_capacity(MAX_PERMS as usize),
         }
     }
 }

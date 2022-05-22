@@ -1,6 +1,5 @@
 use super::category_values::CategoryValues;
 use super::flag::Flag;
-use super::mask::Mask;
 use super::GROUP_LIMIT;
 
 /// Data struct.

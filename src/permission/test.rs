@@ -1,3 +1,12 @@
+#[actix_web::test]
+async fn test_init_from_db() {
+    // TODO: Atomize init more so that this isn't such a broad net.
+    crate::init::init();
+    crate::init::init_db().await;
+
+    let r = super::init().await;
+}
+
 #[test]
 fn test_init_data() {
     use super::collection_values::CollectionValues;
