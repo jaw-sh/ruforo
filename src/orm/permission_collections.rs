@@ -14,13 +14,13 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::permission_categories::Entity",
+        belongs_to = "super::groups::Entity",
         from = "Column::GroupId",
-        to = "super::permission_categories::Column::Id",
+        to = "super::groups::Column::Id",
         on_update = "NoAction",
-        on_delete = "Cascade"
+        on_delete = "NoAction"
     )]
-    PermissionCategories,
+    Groups,
     #[sea_orm(
         belongs_to = "super::users::Entity",
         from = "Column::UserId",
@@ -31,19 +31,11 @@ pub enum Relation {
     Users,
     #[sea_orm(has_many = "super::permission_values::Entity")]
     PermissionValues,
-    #[sea_orm(has_many = "super::forum_permissions::Entity")]
-    ForumPermissions,
 }
 
-impl Related<super::permission_categories::Entity> for Entity {
+impl Related<super::groups::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::PermissionCategories.def()
-    }
-}
-
-impl Related<super::users::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Users.def()
+        Relation::Groups.def()
     }
 }
 
@@ -53,9 +45,9 @@ impl Related<super::permission_values::Entity> for Entity {
     }
 }
 
-impl Related<super::forum_permissions::Entity> for Entity {
+impl Related<super::users::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::ForumPermissions.def()
+        Relation::Users.def()
     }
 }
 

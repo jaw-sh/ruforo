@@ -16,8 +16,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::permissions::Entity")]
     Permissions,
-    #[sea_orm(has_many = "super::permission_collections::Entity")]
-    PermissionCollections,
+    #[sea_orm(has_many = "super::permission_categories::Entity")]
+    PermissionCategories,
 }
 
 impl Related<super::permissions::Entity> for Entity {
@@ -26,9 +26,9 @@ impl Related<super::permissions::Entity> for Entity {
     }
 }
 
-impl Related<super::permission_collections::Entity> for Entity {
+impl Related<super::permission_categories::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::PermissionCollections.def()
+        Relation::PermissionCategories.def()
     }
 }
 

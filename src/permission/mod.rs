@@ -17,6 +17,7 @@ const PERM_LIMIT: u32 = u64::BITS;
 /// Total maximum number of permissions defined as GROUP_LIMIT*PERM_LIMIT
 const MAX_PERMS: u32 = GROUP_LIMIT * PERM_LIMIT;
 
+use crate::user::ClientUser;
 use dashmap::DashMap;
 use std::sync::Arc;
 
@@ -26,6 +27,12 @@ pub struct PermissionData {
     collection: collection::Collection,
     /// (Group, User) -> CollectionValues Relationship
     collection_values: DashMap<(i32, i32), collection_values::CollectionValues>,
+}
+
+impl PermissionData {
+    pub fn can(&self, client: &Option<ClientUser>) -> bool {
+        true
+    }
 }
 
 pub async fn new() -> Result<Arc<PermissionData>, sea_orm::error::DbErr> {
@@ -74,11 +81,12 @@ pub async fn new() -> Result<Arc<PermissionData>, sea_orm::error::DbErr> {
 
     // Import data
     let vals: DashMap<(i32, i32), CollectionValues> = Default::default();
-    let perm_collections: Vec<(permission_collections::Model, Vec<permission_values::Model>)> =
-        permission_collections::Entity::find()
-            .find_with_related(permission_values::Entity)
-            .all(get_db_pool())
-            .await?;
+    let perm_collections = permission_collections::Entity::find()
+        .find_with_related(permission_values::Entity)
+        .all(get_db_pool())
+        .await?;
+
+    //println!("{:?}", perm_collections);
 
     // convert ORM data into permission system structs
     // loop through the collection-<values relations
@@ -105,9 +113,17 @@ pub async fn new() -> Result<Arc<PermissionData>, sea_orm::error::DbErr> {
             perm_collection.group_id.unwrap_or(0),
             perm_collection.user_id.unwrap_or(0),
         );
-        // Add to values lookup.
-        vals.insert(val_key, cv);
+
+        if vals.contains_key(&val_key) {
+            // Join permission with same key.
+            vals.alter(&val_key, |_, v| cv.join(&v));
+        } else {
+            // Add to values lookup.
+            vals.insert(val_key, cv);
+        }
     }
+
+    println!("{:?}", vals);
 
     Ok(Arc::new(PermissionData {
         collection: col,

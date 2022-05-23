@@ -10,6 +10,7 @@ pub struct Model {
     pub permission_id: i32,
     #[sea_orm(primary_key, auto_increment = false)]
     pub collection_id: i32,
+    #[sea_orm(rs_type = "i32", db_type = "Enum")]
     pub value: Flag,
 }
 

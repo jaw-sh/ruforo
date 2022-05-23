@@ -38,7 +38,7 @@ CREATE INDEX ON permissions ( category_id );
 CREATE TABLE permission_collections
 (
     id serial NOT NULL PRIMARY KEY,
-    group_id integer REFERENCES permission_categories ( id ) ON DELETE CASCADE,
+    group_id integer REFERENCES groups ( id ) ON DELETE CASCADE,
     user_id integer REFERENCES users ( id ) ON DELETE CASCADE,
     UNIQUE (group_id, user_id)
 );

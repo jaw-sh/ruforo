@@ -75,6 +75,10 @@ impl ClientCtx {
         self.0.borrow().client.is_some()
     }
 
+    pub fn can(&self, tag: &str) -> bool {
+        true
+    }
+
     pub fn can_post_in_thread(&self, _thread: &crate::orm::threads::Model) -> bool {
         self.can_post_in_forum()
     }
