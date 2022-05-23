@@ -1,8 +1,11 @@
+CREATE TYPE GROUP_TYPE AS ENUM ('normal', 'system_guest', 'system_anon', 'system_user');
+CREATE TYPE PERMISSION_FLAG AS ENUM ('yes', 'no', 'default', 'never');
 
 CREATE TABLE groups
 (
     id serial NOT NULL PRIMARY KEY,
-    label text NOT NULL
+    label text NOT NULL,
+    group_type GROUP_TYPE NOT NULL DEFAULT 'normal'::GROUP_TYPE
 );
 
 CREATE TABLE user_groups
@@ -43,7 +46,6 @@ CREATE TABLE permission_collections
 CREATE INDEX ON permission_collections ( group_id );
 CREATE INDEX ON permission_collections ( user_id );
 
-CREATE TYPE PERMISSION_FLAG AS ENUM ('yes', 'no', 'default', 'never');
 
 CREATE TABLE permission_values
 (

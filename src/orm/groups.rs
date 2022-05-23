@@ -9,6 +9,7 @@ pub struct Model {
     pub id: i32,
     #[sea_orm(column_type = "Text")]
     pub label: String,
+    pub group_type: crate::group::GroupType,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

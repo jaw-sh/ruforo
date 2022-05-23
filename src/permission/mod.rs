@@ -17,7 +17,6 @@ const PERM_LIMIT: u32 = u64::BITS;
 /// Total maximum number of permissions defined as GROUP_LIMIT*PERM_LIMIT
 const MAX_PERMS: u32 = GROUP_LIMIT * PERM_LIMIT;
 
-use actix::fut::stream::Collect;
 use dashmap::DashMap;
 use std::sync::Arc;
 
@@ -74,8 +73,8 @@ pub async fn init() -> Result<PermissionData, sea_orm::error::DbErr> {
     }
 
     // Import data
-    let mut vals: DashMap<(i32, i32), CollectionValues> = Default::default();
-    let perms: Vec<(permission_collections::Model, Vec<permission_values::Model>)> =
+    let vals: DashMap<(i32, i32), CollectionValues> = Default::default();
+    let perm_collections: Vec<(permission_collections::Model, Vec<permission_values::Model>)> =
         permission_collections::Entity::find()
             .find_with_related(permission_values::Entity)
             .all(get_db_pool())
@@ -83,9 +82,7 @@ pub async fn init() -> Result<PermissionData, sea_orm::error::DbErr> {
 
     // convert ORM data into permission system structs
     // loop through the collection-<values relations
-    for pt in perms.iter() {
-        // Split ORMs into Collection -> Values
-        let (pc, pvs) = pt;
+    for (perm_collection, pvs) in perm_collections.iter() {
         // Create collection values record to set flags on
         let mut cv = CollectionValues::default();
 
@@ -103,8 +100,13 @@ pub async fn init() -> Result<PermissionData, sea_orm::error::DbErr> {
             }
         }
 
-        //let val_key: (i32, i32) = (pc.group_id.unwrap_or(0), pc.user_id.unwrap_or(0));
-        //let cvs = vals.insert(val_key, cv);
+        // Resolve (group,user) tuple key
+        let val_key: (i32, i32) = (
+            perm_collection.group_id.unwrap_or(0),
+            perm_collection.user_id.unwrap_or(0),
+        );
+        // Add to values lookup.
+        vals.insert(val_key, cv);
     }
 
     Ok(PermissionData {

@@ -9,6 +9,7 @@ mod ffmpeg;
 pub mod filesystem;
 pub mod forum;
 pub mod global;
+pub mod group;
 pub mod hub;
 pub mod index;
 pub mod init;
