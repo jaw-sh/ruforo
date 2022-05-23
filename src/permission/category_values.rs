@@ -2,7 +2,7 @@ use super::flag::Flag;
 
 /// Data struct.
 /// Yes, no, and never masks for a single Category.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct CategoryValues {
     pub yes: u64,
     pub no: u64,

@@ -8,6 +8,7 @@ use dashmap::DashMap;
 /// Organiztion struct.
 /// Collection of Categories which each contain Items.
 /// This represents all possible permissions.
+#[derive(Clone, Debug)]
 pub struct Collection {
     /// Group ID -> Category
     pub categories: [Category; GROUP_LIMIT as usize],

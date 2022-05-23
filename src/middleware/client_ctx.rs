@@ -1,58 +1,70 @@
+use crate::permission::PermissionData;
 use crate::session::authenticate_client_ctx;
-use crate::user::Client;
+use crate::user::ClientUser;
 use actix_session::Session;
 use actix_utils::future::{ok, Ready};
-use actix_web::{
-    dev::{
-        forward_ready, Extensions, Payload, Service, ServiceRequest, ServiceResponse, Transform,
-    },
-    Error, FromRequest, HttpMessage, HttpRequest,
+use actix_web::dev::{
+    forward_ready, Extensions, Payload, Service, ServiceRequest, ServiceResponse, Transform,
 };
+use actix_web::{web::Data, Error, FromRequest, HttpMessage, HttpRequest};
 use futures_util::future::{FutureExt as _, LocalBoxFuture};
 use std::time::{Duration, Instant};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
+/// Client data stored for a single request cycle.
+/// Distinct from ClientCtx because it is defined through request data.
 #[derive(Clone, Debug)]
-pub struct ClientCtx(Rc<RefCell<ClientInner>>);
-
-#[derive(Clone, Debug)]
-pub struct ClientInner {
+pub struct ClientCtxInner {
+    pub client: Option<ClientUser>,
+    pub permission: Option<Arc<PermissionData>>,
     pub request_start: Instant,
-    pub client: Client,
 }
 
-impl ClientInner {
+impl ClientCtxInner {
     fn new() -> Self {
         Self {
+            client: None,
+            permission: None,
             request_start: Instant::now(),
-            client: Client::new(),
         }
     }
 }
+
+/// Client context passed to routes.
+/// Wraps ClientCtxInner, which is set at the beginning of the request.
+#[derive(Clone, Debug)]
+pub struct ClientCtx(Rc<RefCell<ClientCtxInner>>);
 
 impl ClientCtx {
     pub fn new() -> Self {
-        Self(Rc::new(RefCell::new(ClientInner::new())))
+        Self(Rc::new(RefCell::new(ClientCtxInner::new())))
     }
 
-    fn get_client_ctx(extensions: &mut Extensions) -> Self {
-        if let Some(s_impl) = extensions.get::<Rc<RefCell<ClientInner>>>() {
-            return Self(Rc::clone(s_impl));
-        }
-        let inner = Rc::new(RefCell::new(ClientInner::new()));
-        extensions.insert(inner.clone());
-        Self(inner)
+    fn get_client_ctx(extensions: &mut Extensions, permissions: &Arc<PermissionData>) -> Self {
+        let ctx = match extensions.get::<Rc<RefCell<ClientCtxInner>>>() {
+            // Existing record in extensions; pull it.
+            Some(s_impl) => Self(Rc::clone(s_impl)),
+            // No existing record; create and insert it.
+            None => {
+                let inner = Rc::new(RefCell::new(ClientCtxInner::new()));
+                extensions.insert(inner.clone());
+                Self(inner)
+            }
+        };
+        // Add permission Arc reference to our inner value.
+        ctx.0.borrow_mut().permission = Some(permissions.clone());
+        ctx
     }
 
     /// Returns either the user's id or None.
     pub fn get_id(&self) -> Option<i32> {
-        self.0.borrow().client.user.as_ref().map(|u| u.id)
+        self.0.borrow().client.as_ref().map(|u| u.id)
     }
 
     /// Returns either the user's name or the word for guest.
     /// TODO: l10n "Guest"
     pub fn get_name(&self) -> String {
-        let user = &self.0.borrow().client.user;
+        let user = &self.0.borrow().client;
         match user {
             Some(user) => user.name.to_owned(),
             None => "Guest".to_owned(),
@@ -60,7 +72,7 @@ impl ClientCtx {
     }
 
     pub fn is_user(&self) -> bool {
-        self.0.borrow().client.user.is_some()
+        self.0.borrow().client.is_some()
     }
 
     pub fn can_post_in_thread(&self, _thread: &crate::orm::threads::Model) -> bool {
@@ -101,22 +113,6 @@ impl ClientCtx {
     }
 }
 
-pub trait ClientSession {
-    fn get_client_ctx(&self) -> ClientCtx;
-}
-
-impl ClientSession for HttpRequest {
-    fn get_client_ctx(&self) -> ClientCtx {
-        ClientCtx::get_client_ctx(&mut *self.extensions_mut())
-    }
-}
-
-impl ClientSession for ServiceRequest {
-    fn get_client_ctx(&self) -> ClientCtx {
-        ClientCtx::get_client_ctx(&mut *self.extensions_mut())
-    }
-}
-
 impl FromRequest for ClientCtx {
     /// The associated error which can be returned.
     type Error = Error;
@@ -125,7 +121,13 @@ impl FromRequest for ClientCtx {
 
     /// Create a Self from request parts asynchronously.
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        ok(ClientCtx::get_client_ctx(&mut req.extensions_mut()))
+        let perm_arc = req
+            .app_data::<Data<Arc<PermissionData>>>()
+            .expect("No PermissionData in FromRequest.");
+        ok(ClientCtx::get_client_ctx(
+            &mut req.extensions_mut(),
+            perm_arc,
+        ))
     }
 }
 
@@ -149,10 +151,11 @@ where
     }
 }
 
+/// Client context middleware
 pub struct ClientCtxMiddleware<S> {
     service: S,
     #[allow(dead_code)]
-    inner: Rc<RefCell<ClientInner>>,
+    inner: Rc<RefCell<ClientCtxInner>>,
 }
 
 impl<S, B> Service<ServiceRequest> for ClientCtxMiddleware<S>
@@ -171,16 +174,20 @@ where
         let (httpreq, payload) = req.into_parts();
         let cookies = Session::extract(&httpreq).into_inner();
         let req = ServiceRequest::from_parts(httpreq, payload);
-        let ctx = ClientCtx::get_client_ctx(&mut *req.extensions_mut());
+        let perm_arc = req
+            .app_data::<Data<Arc<PermissionData>>>()
+            .expect("No permission data available.");
+        let ctx = ClientCtx::get_client_ctx(&mut *req.extensions_mut(), perm_arc);
         let fut = self.service.call(req);
+
         async move {
             match cookies {
                 Ok(cookies) => {
                     let result = authenticate_client_ctx(&cookies).await;
 
-                    // we could just naively assign it, but borrow_mut sounds expensive
+                    // Assign the user to our ClientCtx struct.
                     if let Some(user) = result {
-                        ctx.0.borrow_mut().client.user = Some(user);
+                        ctx.0.borrow_mut().client = Some(user);
                     }
                 }
                 Err(e) => {

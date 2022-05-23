@@ -62,7 +62,8 @@ pub fn init() {
 ///
 /// TODO break up into chunks
 pub async fn start() -> std::io::Result<()> {
-    let chat = web::Data::new(chat::ChatServer::new().start());
+    let chat = chat::ChatServer::new().start();
+    let permissions = crate::permission::new().await.unwrap();
     let secret_key = Key::generate(); // TODO: Should be from .env file
 
     HttpServer::new(move || {
@@ -70,7 +71,8 @@ pub async fn start() -> std::io::Result<()> {
         // However, services are read top->down, higher traffic routes should be
         // placed higher
         App::new()
-            .app_data(chat.clone())
+            .app_data(web::Data::new(chat.clone()))
+            .app_data(web::Data::new(permissions.clone()))
             .wrap(ClientCtx::new())
             .wrap(SessionMiddleware::new(
                 CookieSessionStore::default(),

@@ -4,6 +4,7 @@ use super::PERM_LIMIT;
 
 /// Organization struct.
 /// Permission category which may catalogue up to 64 permission items.
+#[derive(Clone, Debug)]
 pub struct Category {
     pub id: i32,
     pub position: u8,

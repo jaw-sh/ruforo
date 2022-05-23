@@ -20,21 +20,21 @@ const MAX_PERMS: u32 = GROUP_LIMIT * PERM_LIMIT;
 use dashmap::DashMap;
 use std::sync::Arc;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PermissionData {
     /// Threadsafe Data Structure
-    collection: Arc<collection::Collection>,
+    collection: collection::Collection,
     /// (Group, User) -> CollectionValues Relationship
     collection_values: DashMap<(i32, i32), collection_values::CollectionValues>,
 }
 
-pub async fn init() -> Result<PermissionData, sea_orm::error::DbErr> {
+pub async fn new() -> Result<Arc<PermissionData>, sea_orm::error::DbErr> {
     use crate::init::get_db_pool;
     use crate::orm::permission_collections;
     use crate::orm::permission_values;
     use crate::orm::permissions;
     use collection_values::CollectionValues;
-    use sea_orm::{entity::*, query::*};
+    use sea_orm::entity::*;
 
     // Build structure tree
     let mut col = collection::Collection::default();
@@ -109,8 +109,8 @@ pub async fn init() -> Result<PermissionData, sea_orm::error::DbErr> {
         vals.insert(val_key, cv);
     }
 
-    Ok(PermissionData {
-        collection: Arc::new(col),
+    Ok(Arc::new(PermissionData {
+        collection: col,
         collection_values: vals,
-    })
+    }))
 }

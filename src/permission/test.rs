@@ -4,7 +4,7 @@ async fn test_init_from_db() {
     crate::init::init();
     crate::init::init_db().await;
 
-    let r = super::init().await;
+    let r = super::new().await;
 }
 
 #[test]

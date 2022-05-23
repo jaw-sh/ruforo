@@ -5,7 +5,7 @@ use super::GROUP_LIMIT;
 /// Data struct.
 /// Collection of permission Values, organized by Category.
 /// This represents all permissions set for a user or group on a resource.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CollectionValues {
     /// Group ID -> CategoryValues
     pub categories: [CategoryValues; GROUP_LIMIT as usize],

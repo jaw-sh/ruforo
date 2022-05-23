@@ -7,19 +7,7 @@ use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult};
 /// Base URL fragment for resource.
 pub static RESOURCE_URL: &str = "members";
 
-/// Represents information about this request's client.
-#[derive(Clone, Debug)]
-pub struct Client {
-    pub user: Option<ClientUser>,
-}
-
-impl Client {
-    pub fn new() -> Self {
-        Self { user: None }
-    }
-}
-
-/// A mini struct for holding only what information we need about a client.
+/// ORM user data for the request cycle.
 #[derive(Clone, Debug, FromQueryResult)]
 pub struct ClientUser {
     pub id: i32,
