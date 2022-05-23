@@ -62,14 +62,11 @@ pub async fn new() -> Result<Arc<PermissionData>, sea_orm::error::DbErr> {
         // Add permissions belonging to this category.
         for item in items.iter() {
             if *cid == item.category_id {
-                match col.categories[i].add_item(&item.category_id, &item.label) {
+                match col.categories[i].add_item(&item.id, &item.label) {
                     Ok(item) => {
-                        col.dictionary.insert(
-                            item.label.to_owned(),
-                            (item.category as u8, item.position as u8),
-                        );
-                        col.lookup
-                            .insert(item.id, (item.category as u8, item.position as u8));
+                        col.dictionary
+                            .insert(item.label.to_owned(), (i as u8, item.position as u8));
+                        col.lookup.insert(item.id, (i as u8, item.position as u8));
                     }
                     Err(_) => {
                         println!("Category overflow adding {:?}", item);
