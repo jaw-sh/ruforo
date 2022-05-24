@@ -30,8 +30,55 @@ pub struct PermissionData {
 }
 
 impl PermissionData {
-    pub fn can(&self, client: &Option<ClientUser>) -> bool {
-        true
+    /// Accepts Client/Guest and Permission Name for permission check.
+    pub fn can(&self, client: &Option<ClientUser>, permission: &str) -> bool {
+        // Look up the permissions's indices by name.
+        if let Some(pindices) = self.collection.dictionary.get(permission) {
+            self.can_by_indices(client, &pindices)
+        } else {
+            log::warn!(
+                "Bad permission check on name '{:?}', which is not present in our dictionary.",
+                permission
+            );
+            return false;
+        }
+    }
+
+    /// Accepts Client/Guest and Permission ID for permission check.
+    pub fn can_by_id(&self, client: &Option<ClientUser>, permission_id: i32) -> bool {
+        // Look up the permissions's indices by id.
+        if let Some(pindices) = self.collection.lookup.get(&permission_id) {
+            self.can_by_indices(client, &pindices)
+        } else {
+            log::warn!(
+                "Bad permission check on id {:?}, which is not present in our dictionary.",
+                permission_id
+            );
+            false
+        }
+    }
+
+    /// Accepts Client/Guest and specific permission indices for permission check.
+    pub fn can_by_indices(&self, client: &Option<ClientUser>, indices: &(u8, u8)) -> bool {
+        let groups: Vec<i32> = vec![1, 2, 3];
+        let mask = mask::Mask::from(self.join_for_groups(groups));
+        mask.can(indices.0 as usize, indices.1 as i32)
+    }
+
+    pub fn join_for_groups(&self, groups: Vec<i32>) -> collection_values::CollectionValues {
+        use collection_values::CollectionValues;
+        let mut return_values = CollectionValues::default();
+
+        for group in groups {
+            let val_key = (group, 0);
+
+            if let Some(group_values) = self.collection_values.get(&val_key) {
+                //println!("GROUP_VALUES: {:?}", group_values.value());
+                return_values = return_values.join(&group_values);
+            }
+        }
+
+        return_values
     }
 }
 
@@ -117,8 +164,6 @@ pub async fn new() -> Result<Arc<PermissionData>, sea_orm::error::DbErr> {
             vals.insert(val_key, cv);
         }
     }
-
-    println!("{:?}", vals);
 
     Ok(Arc::new(PermissionData {
         collection: col,

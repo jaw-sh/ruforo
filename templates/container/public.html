@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" class="no-js">
+
 <head>
     {% block head %}
     <meta charset="UTF-8" />
@@ -14,7 +15,8 @@
 
     {% block stylesheets %}
     <link rel="stylesheet" type="text/css" href="/assets/style.css" />
-    {# <link rel="stylesheet" type="text/css" href="/assets/print.css" media="print" /> #}
+    {#
+    <link rel="stylesheet" type="text/css" href="/assets/print.css" media="print" /> #}
     {% endblock %}
 
     {# These are very important for SEO.
@@ -39,6 +41,7 @@
     <meta name="theme-color" content="#B7410E" />
     {% endblock %}
 </head>
+
 <body>
     <header>
         {% block header %}
@@ -74,6 +77,13 @@
     <footer class="container">
         <div class="footer-inner">
             {% block footer %}
+            <p>
+                {% if client.can("a") %}a{% endif %}
+                {% if client.can("b") %}b{% endif %}
+                {% if client.can("c") %}c{% endif %}
+                {% if client.can("d") %}d{% endif %}
+                {% if !client.can("a") %}!a{% endif %}
+            </p>
             <p>🐍 Live Free or Die</p>
             <p>Generated in {{ client.request_time_as_string() }}</p>
             {% endblock %}
@@ -84,4 +94,5 @@
     <script src="/assets/main.js" type="module"></script>
     {% endblock %}
 </body>
+
 </html>

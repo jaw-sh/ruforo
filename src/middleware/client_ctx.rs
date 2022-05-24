@@ -16,7 +16,7 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 #[derive(Clone, Debug)]
 pub struct ClientCtxInner {
     pub client: Option<ClientUser>,
-    pub permission: Option<Arc<PermissionData>>,
+    pub permissions: Option<Arc<PermissionData>>,
     pub request_start: Instant,
 }
 
@@ -24,7 +24,7 @@ impl ClientCtxInner {
     fn new() -> Self {
         Self {
             client: None,
-            permission: None,
+            permissions: None,
             request_start: Instant::now(),
         }
     }
@@ -52,7 +52,7 @@ impl ClientCtx {
             }
         };
         // Add permission Arc reference to our inner value.
-        ctx.0.borrow_mut().permission = Some(permissions.clone());
+        ctx.0.borrow_mut().permissions = Some(permissions.clone());
         ctx
     }
 
@@ -76,7 +76,19 @@ impl ClientCtx {
     }
 
     pub fn can(&self, tag: &str) -> bool {
-        true
+        let inner = self.0.borrow();
+        match &inner.permissions {
+            // Permission data present, evaluate
+            Some(permissions) => permissions.can(&inner.client, tag),
+            // Permission data not present?
+            None => {
+                log::warn!(
+                    "Bad client permission check for {:?} - no permission data!?",
+                    &inner.client
+                );
+                false
+            }
+        }
     }
 
     pub fn can_post_in_thread(&self, _thread: &crate::orm::threads::Model) -> bool {
