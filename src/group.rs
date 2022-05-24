@@ -3,11 +3,6 @@ use crate::user::ClientUser;
 use sea_orm::entity::prelude::{DeriveActiveEnum, EnumIter};
 use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult};
 
-#[derive(FromQueryResult)]
-pub struct GroupId {
-    pub id: i32,
-}
-
 /// Value set for a single permission.
 /// Compatible with sea_orm enum type.
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum)]
@@ -32,16 +27,22 @@ pub async fn get_group_ids_for_client(
     db: &DatabaseConnection,
     client: &Option<ClientUser>,
 ) -> Vec<i32> {
+    #[derive(FromQueryResult)]
+    pub struct GroupId {
+        pub id: i32,
+    }
+
     match client {
         // Select `user_groups` where user_id is our client user.
         Some(user) => match user_groups::Entity::find()
             .select_only()
             .column_as(user_groups::Column::GroupId, "id")
             .filter(user_groups::Column::UserId.eq(user.id))
+            .into_model::<GroupId>()
             .all(db)
             .await
         {
-            Ok(group_result) => group_result.iter().map(|group| group.group_id).collect(),
+            Ok(group_result) => group_result.iter().map(|group| group.id).collect(),
             Err(e) => {
                 log::warn!("DbErr pulling user_groups for client: {:?}", e);
                 Vec::new()
