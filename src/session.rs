@@ -1,8 +1,6 @@
 use crate::global::get_session_time;
 use crate::init::get_db_pool;
-use crate::orm;
-use crate::orm::sessions::Entity as Sessions;
-use crate::orm::{user_names, users};
+use crate::orm::sessions;
 use crate::user::ClientUser;
 use actix_web::{get, HttpResponse, Responder};
 use argon2::{
@@ -106,11 +104,15 @@ pub async fn authenticate_by_cookie(cookies: &actix_session::Session) -> Option<
         .map(|session| (uuid, session))
 }
 
-pub async fn authenticate_client_ctx(cookies: &actix_session::Session) -> Option<ClientUser> {
+pub async fn authenticate_client_by_session(
+    cookies: &actix_session::Session,
+) -> Option<ClientUser> {
+    let db = get_db_pool();
     let token = match cookies.get::<String>("token") {
         Ok(Some(token)) => token,
         _ => return None,
     };
+
     let uuid = match Uuid::parse_str(&token) {
         Ok(uuid) => uuid,
         Err(e) => {
@@ -118,18 +120,11 @@ pub async fn authenticate_client_ctx(cookies: &actix_session::Session) -> Option
             return None;
         }
     };
+
     let result = authenticate_by_uuid(get_sess(), &uuid).await;
 
     match result {
-        Some(session) => users::Entity::find_by_id(session.user_id)
-            .select_only()
-            .column(users::Column::Id)
-            .left_join(user_names::Entity)
-            .column(user_names::Column::Name)
-            .into_model::<ClientUser>()
-            .one(get_db_pool())
-            .await
-            .unwrap_or(None),
+        Some(session) => ClientUser::fetch_by_user_id(db, session.user_id).await,
         None => None,
     }
 }
@@ -191,12 +186,14 @@ pub async fn new_session(ses_map: &SessionMap, user_id: i32) -> Result<Uuid, DbE
         }
     }
 
-    let session = orm::sessions::ActiveModel {
+    let session = sessions::ActiveModel {
         id: Set(uuid.to_string()),
         user_id: Set(user_id),
         expires_at: Set(expires_at),
     };
-    Sessions::insert(session).exec(get_db_pool()).await?;
+    sessions::Entity::insert(session)
+        .exec(get_db_pool())
+        .await?;
 
     Ok(uuid)
 }
@@ -211,14 +208,14 @@ pub fn get_session(ses_map: &SessionMap, uuid: &Uuid) -> Option<Session> {
 }
 
 /// use get_session() instead unless you have a really good reason to talk to the DB
-pub async fn get_session_from_db(uuid: &Uuid) -> Result<Option<orm::sessions::Model>, DbErr> {
-    Sessions::find_by_id(uuid.to_string())
+pub async fn get_session_from_db(uuid: &Uuid) -> Result<Option<sessions::Model>, DbErr> {
+    sessions::Entity::find_by_id(uuid.to_string())
         .one(get_db_pool())
         .await
 }
 
 pub async fn reload_session_cache(ses_map: &SessionMap) -> Result<(), DbErr> {
-    let results = Sessions::find().all(get_db_pool()).await?;
+    let results = sessions::Entity::find().all(get_db_pool()).await?;
     let mut ses_map = ses_map.write().unwrap();
     for result in results {
         ses_map.insert(
@@ -242,8 +239,8 @@ pub async fn remove_session(ses_map: &SessionMap, uuid: Uuid) -> Result<Option<S
     match result {
         Some(_) => {
             log::info!("remove_session: deleting {}", uuid);
-            orm::sessions::Entity::delete_many()
-                .filter(orm::sessions::Column::Id.eq(uuid.to_string()))
+            sessions::Entity::delete_many()
+                .filter(sessions::Column::Id.eq(uuid.to_string()))
                 .exec(get_db_pool())
                 .await?;
             Ok(result)
@@ -281,11 +278,11 @@ pub async fn task_expire_sessions(
         0 => 0,
         _ => {
             // Delete sessions from DB
-            let result = orm::sessions::Entity::delete_many()
+            let result = sessions::Entity::delete_many()
                 .filter({
                     let mut cond = Condition::any();
                     for v in &deleted_sessions {
-                        cond = cond.add(orm::sessions::Column::Id.eq(v.to_string()))
+                        cond = cond.add(sessions::Column::Id.eq(v.to_string()))
                     }
                     cond
                 })

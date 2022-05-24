@@ -14,6 +14,20 @@ pub struct ClientUser {
     pub name: String,
 }
 
+impl ClientUser {
+    pub async fn fetch_by_user_id(db: &DatabaseConnection, id: i32) -> Option<Self> {
+        users::Entity::find_by_id(id)
+            .select_only()
+            .column(users::Column::Id)
+            .left_join(user_names::Entity)
+            .column(user_names::Column::Name)
+            .into_model::<ClientUser>()
+            .one(db)
+            .await
+            .unwrap_or(None)
+    }
+}
+
 /// A struct to hold all information for a user, including relational information.
 #[derive(Clone, Debug, FromQueryResult)]
 pub struct UserProfile {

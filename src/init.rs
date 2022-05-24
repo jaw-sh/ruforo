@@ -71,6 +71,7 @@ pub async fn start() -> std::io::Result<()> {
         // However, services are read top->down, higher traffic routes should be
         // placed higher
         App::new()
+            .app_data(web::Data::new(get_db_pool()))
             .app_data(web::Data::new(chat.clone()))
             .app_data(web::Data::new(permissions.clone()))
             .wrap(ClientCtx::new())

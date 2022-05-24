@@ -1,5 +1,5 @@
+use crate::init::get_db_pool;
 use crate::permission::PermissionData;
-use crate::session::authenticate_client_ctx;
 use crate::user::ClientUser;
 use actix_session::Session;
 use actix_utils::future::{ok, Ready};
@@ -16,6 +16,7 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 #[derive(Clone, Debug)]
 pub struct ClientCtxInner {
     pub client: Option<ClientUser>,
+    pub groups: Vec<i32>,
     pub permissions: Option<Arc<PermissionData>>,
     pub request_start: Instant,
 }
@@ -24,6 +25,7 @@ impl ClientCtxInner {
     fn new() -> Self {
         Self {
             client: None,
+            groups: Vec::new(),
             permissions: None,
             request_start: Instant::now(),
         }
@@ -54,6 +56,10 @@ impl ClientCtx {
         // Add permission Arc reference to our inner value.
         ctx.0.borrow_mut().permissions = Some(permissions.clone());
         ctx
+    }
+
+    pub fn get_groups(&self) -> Vec<i32> {
+        self.0.borrow().groups.to_owned()
     }
 
     /// Returns either the user's id or None.
@@ -129,6 +135,7 @@ impl ClientCtx {
     }
 }
 
+/// This implementation is what actually provides the `client: ClientCtx` in the parameters of route functions.
 impl FromRequest for ClientCtx {
     /// The associated error which can be returned.
     type Error = Error;
@@ -187,31 +194,38 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
+        // Borrows of `req` must be done in a precise way to avoid conflcits. This order is important.
         let (httpreq, payload) = req.into_parts();
         let cookies = Session::extract(&httpreq).into_inner();
         let req = ServiceRequest::from_parts(httpreq, payload);
+        //let db = req
+        //    .app_data::<&'static sea_orm::DatabaseConnection>()
+        //    .expect("No database connection available through web server.");
         let perm_arc = req
             .app_data::<Data<Arc<PermissionData>>>()
-            .expect("No permission data available.");
+            .expect("No permission data available through web server.");
         let ctx = ClientCtx::get_client_ctx(&mut *req.extensions_mut(), perm_arc);
         let fut = self.service.call(req);
 
         async move {
+            use crate::group::get_group_ids_for_client;
+            use crate::session::authenticate_client_by_session;
+
             match cookies {
                 Ok(cookies) => {
-                    let result = authenticate_client_ctx(&cookies).await;
+                    let mut inner = ctx.0.borrow_mut();
 
                     // Assign the user to our ClientCtx struct.
-                    if let Some(user) = result {
-                        ctx.0.borrow_mut().client = Some(user);
-                    }
+                    inner.client = authenticate_client_by_session(&cookies).await;
+
+                    // Add permission groups used by this connection.
+                    inner.groups = get_group_ids_for_client(get_db_pool(), &inner.client).await;
                 }
                 Err(e) => {
                     log::error!("ClientCtxMiddleware: Session::extract(): {}", e);
                 }
             };
-            let result = fut.await?;
-            Ok(result)
+            Ok(fut.await?)
         }
         .boxed_local()
     }
