@@ -16,6 +16,8 @@ fn test_init_data() {
     let mut cv = CollectionValues::default();
 
     {
+        // set flags in a block so this data is dropped
+        // just to make sure it is retained correctly.
         let values: Vec<(u8, u8, Flag)> = vec![
             (0, 0, Flag::YES),
             (0, 1, Flag::YES),
@@ -32,6 +34,18 @@ fn test_init_data() {
         }
     }
 
+    // test actual category values
+    assert_eq!(cv.categories[0].yes, 15);
+    assert_eq!(cv.categories[0].no, 0);
+    assert_eq!(cv.categories[0].never, 0);
+    assert_eq!(cv.categories[1].yes, 1);
+    assert_eq!(cv.categories[2].yes, 0);
+    assert_eq!(cv.categories[2].no, 0);
+    assert_eq!(cv.categories[2].never, 0);
+    assert_eq!(cv.categories[3].no, 4);
+    assert_eq!(cv.categories[4].never, 8);
+
+    // test bitmask operations
     let mask = Mask::from(cv);
 
     assert_eq!(mask.can(0, 0), true);

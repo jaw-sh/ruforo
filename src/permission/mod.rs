@@ -83,8 +83,6 @@ pub async fn new() -> Result<Arc<PermissionData>, sea_orm::error::DbErr> {
         .all(get_db_pool())
         .await?;
 
-    //println!("{:?}", perm_collections);
-
     // convert ORM data into permission system structs
     // loop through the collection-<values relations
     for (perm_collection, pvs) in perm_collections.iter() {

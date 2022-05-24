@@ -63,7 +63,7 @@ impl CategoryValues {
             Flag::NEVER => {
                 self.yes &= not;
                 self.no &= not;
-                self.never |= not;
+                self.never |= bit;
             }
         }
     }
