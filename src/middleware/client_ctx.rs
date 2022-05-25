@@ -85,7 +85,7 @@ impl ClientCtx {
         let inner = self.0.borrow();
         match &inner.permissions {
             // Permission data present, evaluate
-            Some(permissions) => permissions.can(&inner.client, tag),
+            Some(permissions) => permissions.can(&self, tag),
             // Permission data not present?
             None => {
                 log::warn!(

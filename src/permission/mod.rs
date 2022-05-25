@@ -17,7 +17,7 @@ const PERM_LIMIT: u32 = u64::BITS;
 /// Total maximum number of permissions defined as GROUP_LIMIT*PERM_LIMIT
 const MAX_PERMS: u32 = GROUP_LIMIT * PERM_LIMIT;
 
-use crate::user::ClientUser;
+use crate::middleware::ClientCtx;
 use dashmap::DashMap;
 use std::sync::Arc;
 
@@ -31,7 +31,7 @@ pub struct PermissionData {
 
 impl PermissionData {
     /// Accepts Client/Guest and Permission Name for permission check.
-    pub fn can(&self, client: &Option<ClientUser>, permission: &str) -> bool {
+    pub fn can(&self, client: &ClientCtx, permission: &str) -> bool {
         // Look up the permissions's indices by name.
         if let Some(pindices) = self.collection.dictionary.get(permission) {
             self.can_by_indices(client, &pindices)
@@ -45,7 +45,7 @@ impl PermissionData {
     }
 
     /// Accepts Client/Guest and Permission ID for permission check.
-    pub fn can_by_id(&self, client: &Option<ClientUser>, permission_id: i32) -> bool {
+    pub fn can_by_id(&self, client: &ClientCtx, permission_id: i32) -> bool {
         // Look up the permissions's indices by id.
         if let Some(pindices) = self.collection.lookup.get(&permission_id) {
             self.can_by_indices(client, &pindices)
@@ -59,23 +59,43 @@ impl PermissionData {
     }
 
     /// Accepts Client/Guest and specific permission indices for permission check.
-    pub fn can_by_indices(&self, client: &Option<ClientUser>, indices: &(u8, u8)) -> bool {
-        let groups: Vec<i32> = vec![1, 2, 3];
-        let mask = mask::Mask::from(self.join_for_groups(groups));
+    pub fn can_by_indices(&self, client: &ClientCtx, indices: &(u8, u8)) -> bool {
+        let groups = client.get_groups();
+        let values = match client.get_id() {
+            Some(id) => {
+                let group_values = self.join_for_groups(&groups);
+                let user_values = self.join_for_user(id);
+                group_values.join(&user_values)
+            }
+            None => self.join_for_groups(&groups),
+        };
+
+        let mask = mask::Mask::from(values);
         mask.can(indices.0 as usize, indices.1 as i32)
     }
 
-    pub fn join_for_groups(&self, groups: Vec<i32>) -> collection_values::CollectionValues {
+    pub fn join_for_groups(&self, groups: &Vec<i32>) -> collection_values::CollectionValues {
         use collection_values::CollectionValues;
         let mut return_values = CollectionValues::default();
 
         for group in groups {
-            let val_key = (group, 0);
+            let val_key = (group.to_owned(), 0);
 
             if let Some(group_values) = self.collection_values.get(&val_key) {
-                //println!("GROUP_VALUES: {:?}", group_values.value());
                 return_values = return_values.join(&group_values);
             }
+        }
+
+        return_values
+    }
+
+    pub fn join_for_user(&self, id: i32) -> collection_values::CollectionValues {
+        use collection_values::CollectionValues;
+        let mut return_values = CollectionValues::default();
+        let val_key = (0, id);
+
+        if let Some(group_values) = self.collection_values.get(&val_key) {
+            return_values = return_values.join(&group_values);
         }
 
         return_values
