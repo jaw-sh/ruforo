@@ -13,7 +13,7 @@ pub struct S3Bucket {
 
 impl S3Bucket {
     pub fn new(region: Region, bucket_name: String, pub_url: String) -> S3Bucket {
-        log::info!("New S3Bucket");
+        log::info!("Initializing new S3 Bucket.");
 
         S3Bucket {
             s3: S3Client::new(region),

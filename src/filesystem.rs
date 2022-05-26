@@ -62,11 +62,11 @@ pub fn init() {
     if S3BUCKET
         .set(S3Bucket::new(
             rusoto_core::Region::Custom {
-                name: "localhost".to_owned(),
-                endpoint: "http://localhost:9000".to_owned(),
+                name: std::env::var("S3_REGION_NAME").expect(".env missing S3_REGION_NAME"),
+                endpoint: std::env::var("S3_API_ENDPOINT").expect(".env missing S3_API_ENDPOINT."),
             },
-            "test0".to_owned(),
-            "localhost:9000/test0".to_owned(),
+            std::env::var("S3_BUCKET_NAME").expect(".env missing S3_BUCKET_NAME."),
+            std::env::var("S3_PUBLIC_URL").expect(".env missing S3_PUBLIC_URL."),
         ))
         .is_err()
     {
