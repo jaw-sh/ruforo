@@ -1,5 +1,5 @@
+use crate::get_db_pool;
 use crate::global::get_session_time;
-use crate::init::get_db_pool;
 use crate::orm::sessions;
 use crate::user::ClientUser;
 use actix_web::{get, HttpResponse, Responder};

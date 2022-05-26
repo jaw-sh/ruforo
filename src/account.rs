@@ -1,4 +1,4 @@
-use crate::init::get_db_pool;
+use crate::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::user::{get_profile_by_id, UserProfile};
 use actix_multipart::Multipart;

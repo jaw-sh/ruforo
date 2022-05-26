@@ -1,5 +1,5 @@
 use crate::attachment::AttachmentSize;
-use crate::init::get_db_pool;
+use crate::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::{posts, ugc_deletions, ugc_revisions, user_names};
 use crate::thread::get_url_for_pos;

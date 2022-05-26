@@ -1,4 +1,4 @@
-use crate::init::get_db_pool;
+use crate::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::users;
 use crate::session::get_argon2;

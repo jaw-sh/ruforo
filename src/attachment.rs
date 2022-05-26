@@ -1,5 +1,5 @@
 use crate::filesystem::get_file_url_by_filename;
-use crate::init::get_db_pool;
+use crate::get_db_pool;
 use crate::orm::{attachments, ugc_attachments};
 use chrono::Utc;
 use sea_orm::{entity::*, query::*, sea_query::Expr, FromQueryResult};

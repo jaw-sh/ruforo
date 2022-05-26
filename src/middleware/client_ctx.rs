@@ -1,4 +1,4 @@
-use crate::init::get_db_pool;
+use crate::get_db_pool;
 use crate::permission::PermissionData;
 use crate::user::ClientUser;
 use actix_session::Session;

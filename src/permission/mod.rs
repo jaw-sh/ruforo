@@ -103,7 +103,7 @@ impl PermissionData {
 }
 
 pub async fn new() -> Result<Arc<PermissionData>, sea_orm::error::DbErr> {
-    use crate::init::get_db_pool;
+    use crate::get_db_pool;
     use crate::orm::permission_collections;
     use crate::orm::permission_values;
     use crate::orm::permissions;

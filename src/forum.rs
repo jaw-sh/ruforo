@@ -1,10 +1,9 @@
-use crate::init::get_db_pool;
+use crate::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::{posts, threads, user_names};
 use crate::thread::{validate_thread_form, NewThreadFormData, ThreadForTemplate};
-use actix_web::{error, get, post, web, Error, HttpRequest, HttpResponse, Responder};
+use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::{Template, TemplateToResponse};
-use sea_orm::DbErr;
 use sea_orm::{entity::*, query::*, sea_query::Expr};
 
 #[derive(Template)]

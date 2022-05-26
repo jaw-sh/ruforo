@@ -9,6 +9,7 @@ use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult};
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "group_type")]
 pub enum GroupType {
     /// Not a system group (may be deleted).
+    #[allow(unused_variables)]
     #[sea_orm(string_value = "normal")]
     NORMAL,
     /// System group for any anonymous connection (i.e. Tor)

@@ -1,5 +1,5 @@
 use crate::attachment::{get_attachment_by_hash, update_attachment_last_seen};
-use crate::init::get_db_pool;
+use crate::get_db_pool;
 use crate::orm::{attachments, ugc_attachments};
 use crate::s3::S3Bucket;
 use actix_multipart::{Field, Multipart};
