@@ -23,6 +23,7 @@ pub struct AttachmentForTemplate {
 }
 
 /// Enum of standarized attachment thumbnailing sizes.
+#[allow(dead_code)]
 pub enum AttachmentSize {
     Xs,
     S,

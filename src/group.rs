@@ -5,7 +5,6 @@ use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult};
 
 /// Value set for a single permission.
 /// Compatible with sea_orm enum type.
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "group_type")]
 pub enum GroupType {
