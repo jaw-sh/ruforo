@@ -207,7 +207,7 @@ where
         let ctx = ClientCtx::get_client_ctx(&mut *req.extensions_mut(), perm_arc);
         let fut = self.service.call(req);
 
-        async move {
+        Box::pin(async move {
             use crate::group::get_group_ids_for_client;
             use crate::session::authenticate_client_by_session;
 
@@ -226,7 +226,6 @@ where
                 }
             };
             Ok(fut.await?)
-        }
-        .boxed_local()
+        })
     }
 }

@@ -2606,6 +2606,7 @@ dependencies = [
  "blake3",
  "chrono",
  "dashmap",
+ "derive_more",
  "dotenv",
  "env_logger",
  "ffmpeg-next",

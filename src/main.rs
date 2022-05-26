@@ -37,7 +37,8 @@ async fn main() -> std::io::Result<()> {
     init_db(std::env::var("DATABASE_URL").expect("DATABASE_URL must be set.")).await;
 
     use actix_web::cookie::Key;
-    use actix_web::middleware::Logger;
+    use actix_web::http::StatusCode;
+    use actix_web::middleware::{ErrorHandlers, Logger};
     use actix_web::web::Data;
     use actix_web::{App, HttpServer};
 
@@ -59,6 +60,10 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(Data::new(get_db_pool()))
             .app_data(Data::new(permissions.clone()))
+            .wrap(ErrorHandlers::new().handler(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                crate::web::error::render_500,
+            ))
             .wrap(ClientCtx::new())
             .wrap(SessionMiddleware::new(
                 CookieSessionStore::default(),
@@ -108,8 +113,8 @@ async fn init_db(database_url: String) -> &'static DatabaseConnection {
     let mut opt = ConnectOptions::new(database_url);
     opt.max_connections(100)
         .min_connections(5)
-        .connect_timeout(Duration::from_secs(8))
-        .idle_timeout(Duration::from_secs(8))
+        .connect_timeout(Duration::from_secs(1))
+        .idle_timeout(Duration::from_secs(1))
         .sqlx_logging(true);
 
     let pool = Database::connect(opt)
