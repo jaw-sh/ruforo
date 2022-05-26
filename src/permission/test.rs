@@ -1,12 +1,3 @@
-#[actix_web::test]
-async fn test_init_from_db() {
-    // TODO: Atomize init more so that this isn't such a broad net.
-    crate::init();
-    crate::init_db().await;
-
-    let r = super::new().await;
-}
-
 #[test]
 fn test_init_data() {
     use super::collection_values::CollectionValues;
@@ -115,9 +106,9 @@ fn test_init_structure() {
     assert_eq!(col.categories[0].items[5].id, 0);
     assert_eq!(col.categories[2].items[0].id, 0);
 
-    assert_eq!(col.get_item_pos("a").unwrap_or((0, 1)), (0, 0));
-    assert_ne!(col.get_item_pos("b").unwrap_or((0, 0)), (0, 0));
-    assert_eq!(col.get_item_pos("h").unwrap_or((0, 0)), (1, 3));
+    assert_eq!(col.get_item_pos("a").unwrap_or((9, 9)), (0, 0));
+    assert_ne!(col.get_item_pos("b").unwrap_or((9, 9)), (0, 0));
+    assert_eq!(col.get_item_pos("h").unwrap_or((9, 9)), (1, 3));
 }
 
 #[test]

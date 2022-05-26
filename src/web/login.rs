@@ -1,8 +1,6 @@
 use crate::get_db_pool;
 use crate::middleware::ClientCtx;
-use crate::orm::user_2fa;
-use crate::orm::user_names;
-use crate::orm::users;
+use crate::orm::{user_2fa, user_names, users};
 use crate::session;
 use crate::session::{authenticate_by_cookie, get_argon2, get_sess};
 use crate::template::LoginTemplate;
@@ -12,6 +10,10 @@ use askama_actix::TemplateToResponse;
 use google_authenticator::GoogleAuthenticator;
 use sea_orm::{entity::*, query::*, DbErr, FromQueryResult, QueryFilter};
 use serde::Deserialize;
+
+pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
+    conf.service(post_login).service(view_login);
+}
 
 #[derive(Deserialize)]
 pub struct FormData {

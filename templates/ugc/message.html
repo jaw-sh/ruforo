@@ -1,7 +1,8 @@
 {% if client.can_read_post(post) %}
 <div class="message">
     <div class="message-cell message-cell--author">
-        {% if let Some(avatar_html) = crate::post::get_avatar_html_for_post(post, crate::attachment::AttachmentSize::L) %}{{ avatar_html|safe }}{% endif %}
+        {% if let Some(avatar_html) = crate::web::post::get_avatar_html_for_post(post,
+        crate::attachment::AttachmentSize::L) %}{{ avatar_html|safe }}{% endif %}
         <div class="username">{{ post.get_url_token_for_author()|safe }}</div>
     </div>
     <div class="message-cell message-cell--main">
@@ -9,10 +10,12 @@
         <div class="message-header">
             <div class="message-header--left">
                 <time datetime="{{ post.created_at }}">{{ post.created_at.format("%v %r") }}</time>
-                {% if post.created_at != post.updated_at %}updated  at <time datetime="{{ post.updated_at }}">{{ post.updated_at.format("%v %r") }}</time>{% endif %}
+                {% if post.created_at != post.updated_at %}updated at <time datetime="{{ post.updated_at }}">{{
+                    post.updated_at.format("%v %r") }}</time>{% endif %}
             </div>
             <div class="message-header--right">
-                <a href="/threads/{{ post.thread_id }}/post-{{ post.id }}" title="Permanent link">#{{ post.position }}</a>
+                <a href="/threads/{{ post.thread_id }}/post-{{ post.id }}" title="Permanent link">#{{ post.position
+                    }}</a>
             </div>
         </div>
 
@@ -25,7 +28,8 @@
         {% match post_attachments %}{% when Some with (post_attachments) %}
         <div class="message-attachments">
             {% for attachment in post_attachments %}
-            <div class="attachment">📎 <a href="{{ attachment.get_download_url() }}">{{ attachment.ugc_filename }}</a></div>
+            <div class="attachment">📎 <a href="{{ attachment.get_download_url() }}">{{ attachment.ugc_filename }}</a>
+            </div>
             {% endfor %}
         </div>
         {% when None %}{% endmatch %}

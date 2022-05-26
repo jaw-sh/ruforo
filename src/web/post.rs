@@ -1,14 +1,23 @@
+use super::thread::get_url_for_pos;
 use crate::attachment::AttachmentSize;
 use crate::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::{posts, ugc_deletions, ugc_revisions, user_names};
-use crate::thread::get_url_for_pos;
 use crate::url::UrlToken;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::{Template, TemplateToResponse};
 use chrono::prelude::Utc;
 use sea_orm::{entity::*, query::*, sea_query::Expr, DatabaseConnection, DbErr, FromQueryResult};
 use serde::Deserialize;
+
+pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
+    conf.service(delete_post)
+        .service(destroy_post)
+        .service(edit_post)
+        .service(update_post)
+        .service(view_post_by_id)
+        .service(view_post_in_thread);
+}
 
 /// A fully joined struct representing the post model and its relational data.
 #[derive(Debug, FromQueryResult)]
@@ -126,7 +135,7 @@ pub async fn destroy_post(
 
         // Spawn a thread to handle post-deletion work.
         actix_web::rt::spawn(async move {
-            use crate::thread::update_thread_after_reply_is_deleted;
+            use super::thread::update_thread_after_reply_is_deleted;
 
             // Update subsequent posts's position.
             let _post_res = posts::Entity::update_many()

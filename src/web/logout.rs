@@ -4,6 +4,10 @@ use actix_web::{get, Error, Responder};
 use askama_actix::{Template, TemplateToResponse};
 use uuid::Uuid;
 
+pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
+    conf.service(view_logout);
+}
+
 #[derive(Template)]
 #[template(path = "logout.html")]
 struct LogoutTemplate {

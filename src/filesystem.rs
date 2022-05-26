@@ -41,6 +41,17 @@ fn get_s3() -> &'static S3Bucket {
 
 /// MUST be called ONCE before using functions in this module
 pub fn init() {
+    // Check Cache Dir
+    let cache_dir = std::env::var("DIR_TMP")
+        .expect("missing DIR_TMP environment variable (hint: 'DIR_TMP=./tmp')");
+    let cache_path = Path::new(&cache_dir);
+    if !cache_path.exists() {
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .create(cache_path)
+            .expect("failed to create DIR_TMP");
+    }
+
     DIR_TMP
         .set(
             std::env::var("DIR_TMP")

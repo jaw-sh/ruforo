@@ -7,6 +7,10 @@ use askama_actix::{Template, TemplateToResponse};
 use chrono::Utc;
 use sea_orm::entity::*;
 
+pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
+    conf.service(update_avatar).service(view_account);
+}
+
 #[derive(Template)]
 #[template(path = "account.html")]
 pub struct AccountTemplate {

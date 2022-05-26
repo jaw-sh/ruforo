@@ -1,10 +1,10 @@
+use super::post::PostForTemplate;
 use crate::attachment::AttachmentForTemplate;
 use crate::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
 use crate::orm::{attachments, posts, threads, ugc_deletions, ugc_revisions};
-use crate::post::PostForTemplate;
 use crate::template::{Paginator, PaginatorToHtml};
 use actix_multipart::Multipart;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
@@ -12,6 +12,12 @@ use askama_actix::{Template, TemplateToResponse};
 use sea_orm::{entity::*, query::*, sea_query::Expr, DbErr, FromQueryResult, QueryFilter};
 use serde::Deserialize;
 use std::{collections::HashMap, str};
+
+pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
+    conf.service(create_reply)
+        .service(view_thread)
+        .service(view_thread_page);
+}
 
 #[derive(Debug, FromQueryResult)]
 pub struct ThreadForTemplate {

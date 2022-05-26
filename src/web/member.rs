@@ -6,6 +6,10 @@ use actix_web::{error, get, web, Error, Responder};
 use askama_actix::{Template, TemplateToResponse};
 use sea_orm::{entity::*, query::*};
 
+pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
+    conf.service(view_member).service(view_members);
+}
+
 #[get("/members/{user_id}/")]
 pub async fn view_member(
     client: ClientCtx,

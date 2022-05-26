@@ -1,10 +1,16 @@
+use super::thread::{validate_thread_form, NewThreadFormData, ThreadForTemplate};
 use crate::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::{posts, threads, user_names};
-use crate::thread::{validate_thread_form, NewThreadFormData, ThreadForTemplate};
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::{Template, TemplateToResponse};
 use sea_orm::{entity::*, query::*, sea_query::Expr};
+
+pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
+    conf.service(create_thread)
+        .service(view_forums)
+        .service(view_forum);
+}
 
 #[derive(Template)]
 #[template(path = "forum.html")]
