@@ -5,22 +5,22 @@ use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult};
 
 /// Value set for a single permission.
 /// Compatible with sea_orm enum type.
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, EnumIter, DeriveActiveEnum)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "group_type")]
 pub enum GroupType {
     /// Not a system group (may be deleted).
-    #[allow(unused_variables)]
     #[sea_orm(string_value = "normal")]
-    NORMAL,
+    Normal,
     /// System group for any anonymous connection (i.e. Tor)
     #[sea_orm(string_value = "system_anon")]
-    SYSTEM_ANON,
+    SystemAnon,
     /// System group for guests and unconfirmed accounts.
     #[sea_orm(string_value = "system_guest")]
-    SYSTEM_GUEST,
+    SystemGuest,
     /// System group for signed-in, confirmed users.
     #[sea_orm(string_value = "system_user")]
-    SYSTEM_USER,
+    SystemUser,
 }
 
 /// Returns groups which apply to user/guest based on the connection.
@@ -53,7 +53,7 @@ pub async fn get_group_ids_for_client(
         None => match groups::Entity::find()
             .select_only()
             .column(groups::Column::Id)
-            .filter(groups::Column::GroupType.eq(GroupType::SYSTEM_GUEST))
+            .filter(groups::Column::GroupType.eq(GroupType::SystemGuest))
             .into_model::<GroupId>()
             .all(db)
             .await
