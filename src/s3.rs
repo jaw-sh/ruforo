@@ -1,8 +1,8 @@
 use rusoto_core::Region;
 use rusoto_core::RusotoError;
 use rusoto_s3::{
-    ListObjectsV2Error, ListObjectsV2Output, ListObjectsV2Request, PutObjectError, PutObjectOutput,
-    PutObjectRequest, S3Client, S3,
+    GetObjectError, GetObjectOutput, GetObjectRequest, ListObjectsV2Error, ListObjectsV2Output,
+    ListObjectsV2Request, PutObjectError, PutObjectOutput, PutObjectRequest, S3Client, S3,
 };
 
 pub struct S3Bucket {
@@ -37,6 +37,21 @@ impl S3Bucket {
         };
 
         self.s3.list_objects_v2(list_request).await
+    }
+
+    pub async fn get_object(
+        &self,
+        hash: &str,
+        range: Option<String>,
+    ) -> Result<GetObjectOutput, RusotoError<GetObjectError>> {
+        self.s3
+            .get_object(GetObjectRequest {
+                bucket: self.bucket_name.to_owned(),
+                key: format!("{}/{}/{}", &hash[0..2], &hash[2..4], hash),
+                range,
+                ..Default::default()
+            })
+            .await
     }
 
     pub async fn put_object(

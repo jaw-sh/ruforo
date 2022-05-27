@@ -34,7 +34,7 @@ pub enum AttachmentSize {
 
 impl AttachmentForTemplate {
     pub fn get_download_url(&self) -> String {
-        get_file_url_by_filename(&self.local_filename)
+        get_file_url_by_filename(&self.hash, &self.ugc_filename)
     }
 
     pub fn to_html(&self) -> String {
@@ -158,7 +158,7 @@ pub fn get_avatar_html(
 
     format!(
         "<img src=\"{}\" class=\"avatar\" width=\"{}\" height=\"{}\" />",
-        get_file_url_by_filename(&filename),
+        get_file_url_by_filename(&filename, &filename),
         x,
         y
     )

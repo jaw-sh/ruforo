@@ -35,7 +35,7 @@ fn get_dir_tmp() -> &'static str {
     unsafe { DIR_TMP.get_unchecked() }
 }
 #[inline(always)]
-fn get_s3() -> &'static S3Bucket {
+pub fn get_s3() -> &'static S3Bucket {
     unsafe { S3BUCKET.get_unchecked() }
 }
 
@@ -252,7 +252,7 @@ pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> 
     Ok(web::Json(responses))
 }
 
-/// Accepts an upload payload and attempts to deduplicate it.
+/// Attempts to locate existing copies of an upload.
 pub async fn deduplicate_payload(payload: &UploadPayload) -> Option<UploadResponse> {
     // Look for an existing database entry
     let model = get_attachment_by_hash(payload.hash.to_string()).await;
@@ -402,14 +402,9 @@ pub struct SelectFilename {
     pub filename: String,
 }
 
-pub fn get_file_url_by_filename(filename: &String) -> String {
-    format!(
-        "{}/{}/{}/{}",    // TODO something
-        get_s3().pub_url, // Is this legal? I think it's legal.
-        &filename[0..2],
-        &filename[2..4],
-        filename
-    )
+#[inline(always)]
+pub fn get_file_url_by_filename(key: &str, filename: &str) -> String {
+    format!("/content/{}/{}", &key[0..=63], filename)
 }
 
 pub async fn get_filename_by_id(id: i32) -> Result<Option<SelectFilename>, DbErr> {
@@ -434,12 +429,9 @@ pub async fn get_filename_by_ugc(ugc_id: i32) -> Result<Option<SelectFilename>, 
 
 pub async fn get_file_url(s3: &S3Bucket, id: i32) -> Result<Option<String>, DbErr> {
     match get_filename_by_id(id).await? {
-        Some(result) => Ok(Some(format!(
-            "http://{}/{}/{}/{}", // TODO something
-            s3.pub_url,
-            &result.filename[0..2],
-            &result.filename[2..4],
-            result.filename
+        Some(result) => Ok(Some(get_file_url_by_filename(
+            &result.filename,
+            &result.filename,
         ))),
         None => Ok(None),
     }
@@ -447,12 +439,9 @@ pub async fn get_file_url(s3: &S3Bucket, id: i32) -> Result<Option<String>, DbEr
 
 pub async fn get_file_url_by_ugc(s3: &S3Bucket, ugc_id: i32) -> Result<Option<String>, DbErr> {
     match get_filename_by_ugc(ugc_id).await? {
-        Some(result) => Ok(Some(format!(
-            "http://{}/{}/{}/{}", // TODO something
-            s3.pub_url,
-            &result.filename[0..2],
-            &result.filename[2..4],
-            result.filename
+        Some(result) => Ok(Some(get_file_url_by_filename(
+            &result.filename,
+            &result.filename,
         ))),
         None => Ok(None),
     }
