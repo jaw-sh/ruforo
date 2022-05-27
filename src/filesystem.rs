@@ -62,11 +62,12 @@ pub fn init() {
     if S3BUCKET
         .set(S3Bucket::new(
             rusoto_core::Region::Custom {
-                name: std::env::var("S3_REGION_NAME").expect(".env missing S3_REGION_NAME"),
-                endpoint: std::env::var("S3_API_ENDPOINT").expect(".env missing S3_API_ENDPOINT."),
+                name: std::env::var("AWS_REGION_NAME").expect(".env missing AWS_REGION_NAME"),
+                endpoint: std::env::var("AWS_API_ENDPOINT")
+                    .expect(".env missing AWS_API_ENDPOINT."),
             },
-            std::env::var("S3_BUCKET_NAME").expect(".env missing S3_BUCKET_NAME."),
-            std::env::var("S3_PUBLIC_URL").expect(".env missing S3_PUBLIC_URL."),
+            std::env::var("AWS_BUCKET_NAME").expect(".env missing AWS_BUCKET_NAME."),
+            std::env::var("AWS_PUBLIC_URL").expect(".env missing AWS_PUBLIC_URL."),
         ))
         .is_err()
     {
@@ -403,8 +404,8 @@ pub struct SelectFilename {
 
 pub fn get_file_url_by_filename(filename: &String) -> String {
     format!(
-        "http://{}/{}/{}/{}", // TODO something
-        get_s3().pub_url,     // Is this legal? I think it's legal.
+        "{}/{}/{}/{}",    // TODO something
+        get_s3().pub_url, // Is this legal? I think it's legal.
         &filename[0..2],
         &filename[2..4],
         filename
