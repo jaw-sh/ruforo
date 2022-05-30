@@ -18,6 +18,8 @@ mod url;
 mod user;
 mod web;
 
+mod compat;
+
 extern crate dotenv;
 extern crate ffmpeg_next;
 

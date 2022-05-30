@@ -1,6 +1,7 @@
-pub mod chat;
 pub mod hub;
+pub mod server;
 
+use crate::compat::xf::session::get_user_from_request;
 use actix::Addr;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
@@ -15,11 +16,11 @@ pub const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 pub async fn service(
     req: HttpRequest,
     stream: web::Payload,
-    srv: web::Data<Addr<chat::ChatServer>>,
+    srv: web::Data<Addr<server::ChatServer>>,
 ) -> Result<HttpResponse, Error> {
     ws::start(
         hub::WsChatSession {
-            id: 0,
+            id: get_user_from_request(&req),
             hb: Instant::now(),
             room: "Main".to_owned(),
             name: None,

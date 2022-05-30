@@ -18,6 +18,8 @@ mod url;
 mod user;
 mod web;
 
+mod compat;
+
 extern crate dotenv;
 extern crate ffmpeg_next;
 
@@ -29,11 +31,18 @@ async fn main() -> std::io::Result<()> {
     use actix_web::web::{resource, Data};
     use actix_web::{App, HttpServer};
 
-    let chat = crate::web::chat::chat::ChatServer::new().start();
-
     HttpServer::new(move || {
+        let redis = match redis::Client::open("redis://127.0.0.1/") {
+            Ok(client) => client,
+            Err(err) => {
+                panic!("{:?}", err);
+            }
+        };
+        let chat = crate::web::chat::server::ChatServer::new().start();
+
         App::new()
-            .app_data(Data::new(chat.clone()))
+            .app_data(Data::new(redis))
+            .app_data(Data::new(chat))
             .service(resource("/chat").to(crate::web::chat::service))
     })
     .bind("127.0.0.1:8080")?
