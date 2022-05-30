@@ -1,6 +1,6 @@
 use super::thread::get_url_for_pos;
 use crate::attachment::AttachmentSize;
-use crate::get_db_pool;
+use crate::db::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::{posts, ugc_deletions, ugc_revisions, user_names};
 use crate::url::UrlToken;

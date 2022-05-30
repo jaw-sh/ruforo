@@ -1,4 +1,4 @@
-use crate::get_db_pool;
+use crate::db::get_db_pool;
 use crate::global::get_session_time;
 use crate::orm::sessions;
 use crate::user::ClientUser;

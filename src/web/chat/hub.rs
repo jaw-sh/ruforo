@@ -1,48 +1,21 @@
-use crate::chat;
-use crate::chat::ChatServer;
-use std::time::{Duration, Instant};
-
+use super::chat;
+use super::chat::ChatServer;
+use super::{CLIENT_TIMEOUT, HEARTBEAT_INTERVAL};
 use actix::*;
-use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
-
-/// How often heartbeat pings are sent
-const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
-/// How long before lack of client response causes a timeout
-const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
-
-/// Entry point for our websocket route
-pub async fn chat_route(
-    req: HttpRequest,
-    stream: web::Payload,
-    srv: web::Data<Addr<ChatServer>>,
-) -> Result<HttpResponse, Error> {
-    eprintln!("Chat Route");
-    ws::start(
-        WsChatSession {
-            id: 0,
-            hb: Instant::now(),
-            room: "Main".to_owned(),
-            name: None,
-            addr: srv.get_ref().clone(),
-        },
-        &req,
-        stream,
-    )
-}
-
-struct WsChatSession {
+use std::time::Instant;
+pub struct WsChatSession {
     /// unique session id
-    id: usize,
+    pub id: usize,
     /// Client must send ping at least once per 10 seconds (CLIENT_TIMEOUT),
     /// otherwise we drop connection.
-    hb: Instant,
+    pub hb: Instant,
     /// joined room
-    room: String,
+    pub room: String,
     /// peer name
-    name: Option<String>,
+    pub name: Option<String>,
     /// Chat server
-    addr: Addr<ChatServer>,
+    pub addr: Addr<ChatServer>,
 }
 
 impl Actor for WsChatSession {
@@ -81,6 +54,32 @@ impl Actor for WsChatSession {
         // notify chat server
         self.addr.do_send(chat::Disconnect { id: self.id });
         Running::Stop
+    }
+}
+
+impl WsChatSession {
+    /// helper method that sends ping to client every second.
+    ///
+    /// also this method checks heartbeats from client
+    fn hb(&self, ctx: &mut ws::WebsocketContext<Self>) {
+        ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
+            // check client heartbeats
+            if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
+                // heartbeat timed out
+                println!("Websocket Client heartbeat failed, disconnecting!");
+
+                // notify chat server
+                act.addr.do_send(chat::Disconnect { id: act.id });
+
+                // stop actor
+                ctx.stop();
+
+                // don't try to send a ping
+                return;
+            }
+
+            ctx.ping(b"");
+        });
     }
 }
 
@@ -188,31 +187,5 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
             }
             ws::Message::Nop => (),
         }
-    }
-}
-
-impl WsChatSession {
-    /// helper method that sends ping to client every second.
-    ///
-    /// also this method checks heartbeats from client
-    fn hb(&self, ctx: &mut ws::WebsocketContext<Self>) {
-        ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
-            // check client heartbeats
-            if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
-                // heartbeat timed out
-                println!("Websocket Client heartbeat failed, disconnecting!");
-
-                // notify chat server
-                act.addr.do_send(chat::Disconnect { id: act.id });
-
-                // stop actor
-                ctx.stop();
-
-                // don't try to send a ping
-                return;
-            }
-
-            ctx.ping(b"");
-        });
     }
 }

@@ -1,4 +1,4 @@
-use crate::get_db_pool;
+use crate::db::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::user_2fa;
 use actix_web::{error, get, http::header::ContentType, Error, HttpResponse, Responder};

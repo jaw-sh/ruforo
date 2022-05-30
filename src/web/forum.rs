@@ -1,5 +1,5 @@
 use super::thread::{validate_thread_form, NewThreadFormData, ThreadForTemplate};
-use crate::get_db_pool;
+use crate::db::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::{posts, threads, user_names};
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};

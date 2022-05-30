@@ -1,4 +1,4 @@
-use crate::get_db_pool;
+use crate::db::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::{user_2fa, user_names, users};
 use crate::session;

@@ -1,4 +1,4 @@
-use crate::get_db_pool;
+use crate::db::get_db_pool;
 use crate::permission::PermissionData;
 use crate::user::ClientUser;
 use actix_session::Session;
@@ -7,7 +7,7 @@ use actix_web::dev::{
     forward_ready, Extensions, Payload, Service, ServiceRequest, ServiceResponse, Transform,
 };
 use actix_web::{web::Data, Error, FromRequest, HttpMessage, HttpRequest};
-use futures_util::future::{FutureExt as _, LocalBoxFuture};
+use futures_util::future::LocalBoxFuture;
 use std::time::{Duration, Instant};
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 

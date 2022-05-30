@@ -27,7 +27,7 @@ dependencies = [
  "once_cell",
  "parking_lot 0.12.0",
  "pin-project-lite",
- "smallvec",
+ "smallvec 1.8.0",
  "tokio",
  "tokio-util",
 ]
@@ -105,7 +105,7 @@ dependencies = [
  "pin-project-lite",
  "rand 0.8.5",
  "sha-1",
- "smallvec",
+ "smallvec 1.8.0",
  "zstd",
 ]
 
@@ -319,7 +319,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
- "smallvec",
+ "smallvec 1.8.0",
  "socket2",
  "time 0.3.9",
  "url",
@@ -1239,6 +1239,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "212d0f5754cb6769937f4501cc0e67f4f4483c8d2c3e1e922ee9edbe4ab4c7c0"
 
 [[package]]
+name = "displaydoc"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adc2ab4d5a16117f9029e9a6b5e4e79f4c67f6519bc134210d4d4a04ba31f41b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "dotenv"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1958,6 +1969,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3e378b66a060d48947b590737b30a1be76706c8dd7b8ba0f2fe3989c68a853f"
 
 [[package]]
+name = "maybe-uninit"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
+
+[[package]]
 name = "md-5"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2243,7 +2260,7 @@ dependencies = [
  "instant",
  "libc",
  "redox_syscall",
- "smallvec",
+ "smallvec 1.8.0",
  "winapi",
 ]
 
@@ -2256,7 +2273,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "redox_syscall",
- "smallvec",
+ "smallvec 1.8.0",
  "windows-sys",
 ]
 
@@ -2625,6 +2642,7 @@ dependencies = [
  "sea-orm",
  "serde",
  "serde_json",
+ "serde_php",
  "uuid",
 ]
 
@@ -2994,6 +3012,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_php"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4dc2d929957a1b3f11267fe809e1fe39712b8705ba24b60c0916144850b76cd"
+dependencies = [
+ "displaydoc",
+ "serde",
+ "smallvec 0.6.14",
+]
+
+[[package]]
 name = "serde_urlencoded"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3090,6 +3119,15 @@ checksum = "eb703cfe953bccee95685111adeedb76fabe4e97549a58d16f03ea7b9367bb32"
 
 [[package]]
 name = "smallvec"
+version = "0.6.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b97fcaeba89edba30f044a10c6a3cc39df9c3f17d7cd829dd1446cab35f890e0"
+dependencies = [
+ "maybe-uninit",
+]
+
+[[package]]
+name = "smallvec"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2dd574626839106c320a323308629dcb1acfc96e32a8cba364ddc61ac23ee83"
@@ -3174,7 +3212,7 @@ dependencies = [
  "serde_json",
  "sha-1",
  "sha2 0.10.2",
- "smallvec",
+ "smallvec 1.8.0",
  "sqlformat",
  "sqlx-rt",
  "stringprep",

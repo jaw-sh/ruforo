@@ -1,6 +1,6 @@
 use super::post::PostForTemplate;
 use crate::attachment::AttachmentForTemplate;
-use crate::get_db_pool;
+use crate::db::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;

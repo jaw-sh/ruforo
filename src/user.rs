@@ -1,5 +1,5 @@
 use crate::attachment::AttachmentSize;
-use crate::get_db_pool;
+use crate::db::get_db_pool;
 use crate::orm::{attachments, user_names, users};
 use crate::url::UrlToken;
 use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult};

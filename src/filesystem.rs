@@ -1,14 +1,14 @@
 use crate::attachment::{get_attachment_by_hash, update_attachment_last_seen};
-use crate::get_db_pool;
-use crate::orm::{attachments, ugc_attachments};
+use crate::db::get_db_pool;
+use crate::orm::attachments;
 use crate::s3::S3Bucket;
 use actix_multipart::{Field, Multipart};
-use actix_web::{error, get, http::header::ContentType, post, web, Error, HttpResponse, Responder};
+use actix_web::{error, post, web, Error, Responder};
 use chrono::Utc;
 use futures::{StreamExt, TryStreamExt};
 use mime::Mime;
 use once_cell::sync::OnceCell;
-use sea_orm::{entity::*, query::*, DbErr, FromQueryResult, JsonValue, QueryFilter};
+use sea_orm::{entity::*, query::*, FromQueryResult, JsonValue, QueryFilter};
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -195,44 +195,6 @@ pub async fn post_file_hash(form: web::Json<FileHashFormData>) -> Result<impl Re
     Ok(web::Json(file))
 }
 
-#[get("/fs/{file_id}")]
-pub async fn view_file_canonical(file_id: web::Path<i32>) -> Result<impl Responder, Error> {
-    let result = get_file_url(get_s3(), *file_id).await.map_err(|e| {
-        log::error!("view_file: get_filename_by_id: {}", e);
-        actix_web::error::ErrorInternalServerError("view_file: bad ID")
-    })?;
-    let content = match result {
-        Some(result) => result,
-        None => "None".to_owned(),
-    };
-    let body = format!(
-        "<html><body><div>{:?} - {}</div><div><img src=\"{}\"></div></body></html>",
-        file_id, content, content
-    );
-    Ok(HttpResponse::Ok()
-        .content_type(ContentType::html())
-        .body(body))
-}
-
-#[get("/fs/ugc/{file_id}")]
-pub async fn view_file_ugc(file_id: web::Path<i32>) -> Result<impl Responder, Error> {
-    let result = get_file_url_by_ugc(get_s3(), *file_id).await.map_err(|e| {
-        log::error!("view_file: get_filename_by_id: {}", e);
-        error::ErrorInternalServerError("view_file: bad ID")
-    })?;
-    let content = match result {
-        Some(result) => result,
-        None => "None".to_owned(),
-    };
-    let body = format!(
-        "<html><body><div>{:?} - {}</div><div><img src=\"{}\"></div></body></html>",
-        file_id, content, content
-    );
-    Ok(HttpResponse::Ok()
-        .content_type(ContentType::html())
-        .body(body))
-}
-
 #[post("/fs/upload-file")]
 pub async fn put_file(mut mutipart: Multipart) -> Result<impl Responder, Error> {
     // see: https://users.rust-lang.org/t/file-upload-in-actix-web/64871/3
@@ -286,37 +248,6 @@ fn get_extension(filename: &str, mime: &Mime) -> Option<String> {
         }
         None => get_extension_guess(filename),
     }
-
-    // Old Method, static hashmap is probably faster than a jump table
-    //
-    // match mime.type_() {
-    //     mime::IMAGE => match mime.subtype().as_str() {
-    //         "apng" => Some("apng".to_owned()),
-    //         "avif" => Some("avif".to_owned()),
-    //         "bmp" => Some("bmp".to_owned()),
-    //         "gif" => Some("gif".to_owned()),
-    //         "jpeg" => Some("jpeg".to_owned()),
-    //         "png" => Some("png".to_owned()),
-    //         "svg+xml" => Some("svg".to_owned()),
-    //         "webp" => Some("webp".to_owned()),
-    //         _ => get_extension_guess(filename),
-    //     },
-    //     mime::VIDEO => match mime.subtype().as_str() {
-    //         "x-msvideo" => Some("avi".to_owned()),
-    //         "ogg" => Some("ogv".to_owned()),
-    //         "webm" => Some("webm".to_owned()),
-    //         "x-matroska" => Some("mkv".to_owned()),
-    //         _ => get_extension_guess(filename),
-    //     },
-    //     mime::AUDIO => match mime.subtype().as_str() {
-    //         "m4a" => Some("m4a".to_owned()),
-    //         "ogg" => Some("ogg".to_owned()),
-    //         "webm" => Some("webm".to_owned()),
-    //         "x-matroska" => Some("mka".to_owned()),
-    //         _ => get_extension_guess(filename),
-    //     },
-    //     _ => get_extension_guess(filename),
-    // }
 }
 
 /// this is my fancy intelligent extension extractor
@@ -405,46 +336,6 @@ pub struct SelectFilename {
 #[inline(always)]
 pub fn get_file_url_by_filename(key: &str, filename: &str) -> String {
     format!("/content/{}/{}", &key[0..=63], filename)
-}
-
-pub async fn get_filename_by_id(id: i32) -> Result<Option<SelectFilename>, DbErr> {
-    Ok(attachments::Entity::find_by_id(id)
-        .select_only()
-        .column(attachments::Column::Filename)
-        .into_model::<SelectFilename>()
-        .one(get_db_pool())
-        .await?)
-}
-
-pub async fn get_filename_by_ugc(ugc_id: i32) -> Result<Option<SelectFilename>, DbErr> {
-    Ok(ugc_attachments::Entity::find()
-        .select_only()
-        .column(attachments::Column::Filename)
-        .inner_join(attachments::Entity)
-        .filter(ugc_attachments::Column::Id.eq(ugc_id))
-        .into_model::<SelectFilename>()
-        .one(get_db_pool())
-        .await?)
-}
-
-pub async fn get_file_url(s3: &S3Bucket, id: i32) -> Result<Option<String>, DbErr> {
-    match get_filename_by_id(id).await? {
-        Some(result) => Ok(Some(get_file_url_by_filename(
-            &result.filename,
-            &result.filename,
-        ))),
-        None => Ok(None),
-    }
-}
-
-pub async fn get_file_url_by_ugc(s3: &S3Bucket, ugc_id: i32) -> Result<Option<String>, DbErr> {
-    match get_filename_by_ugc(ugc_id).await? {
-        Some(result) => Ok(Some(get_file_url_by_filename(
-            &result.filename,
-            &result.filename,
-        ))),
-        None => Ok(None),
-    }
 }
 
 // Direct way of converting an actix_multipart field into an upload response.
