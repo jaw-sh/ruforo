@@ -1,4 +1,4 @@
-pub mod hub;
+pub mod client;
 pub mod server;
 
 use crate::compat::xf::session::get_user_from_request;
@@ -19,7 +19,7 @@ pub async fn service(
     srv: web::Data<Addr<server::ChatServer>>,
 ) -> Result<HttpResponse, Error> {
     ws::start(
-        hub::WsChatSession {
+        client::WsChatSession {
             id: get_user_from_request(&req),
             hb: Instant::now(),
             room: "Main".to_owned(),

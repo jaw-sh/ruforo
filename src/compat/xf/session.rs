@@ -4,7 +4,7 @@ use actix_web::{web::Data, HttpRequest};
 use redis::Commands;
 use serde::Deserialize;
 use serde_php::from_bytes;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Eq, PartialEq)]
