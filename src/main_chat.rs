@@ -30,7 +30,20 @@ async fn main() -> std::io::Result<()> {
     use actix::Actor;
     use actix_web::web::{resource, Data};
     use actix_web::{App, HttpServer};
+    use sea_orm::{ConnectOptions, Database};
+    use std::time::Duration;
 
+    let mysql = {
+        let mut options = ConnectOptions::new("mysql://john:john@localhost/xenforo".to_owned());
+        options
+            .max_connections(100)
+            .min_connections(5)
+            .connect_timeout(Duration::from_secs(1))
+            .idle_timeout(Duration::from_secs(8))
+            .max_lifetime(Duration::from_secs(8))
+            .sqlx_logging(true);
+        Database::connect(options).await.unwrap()
+    };
     let redis = match redis::Client::open("redis://127.0.0.1/") {
         Ok(client) => client,
         Err(err) => {
@@ -42,6 +55,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(Data::new(redis.clone()))
+            .app_data(Data::new(mysql.clone()))
             .app_data(chat.clone())
             .service(resource("/chat").to(crate::web::chat::service))
             .service(crate::web::chat::view_chat)

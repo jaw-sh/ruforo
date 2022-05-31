@@ -1,11 +1,15 @@
 use actix::prelude::*;
 
+// Note: There is ambiguous referencing to 'id'.
+// An usize id represents the connection actor addr.
+// An u32 id is pulled from the db and is a user id.
+
 /// Send message to specific room
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct ClientMessage {
-    /// Client ID of sender
-    pub id: usize,
+    /// User ID
+    pub id: u32,
     /// Peer message
     pub msg: String,
 }
@@ -21,6 +25,7 @@ pub struct Connect {
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct Disconnect {
+    /// Conn Id
     pub id: usize,
 }
 
@@ -28,7 +33,7 @@ pub struct Disconnect {
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct Join {
-    /// Client id
+    /// Conn Id
     pub id: usize,
     /// Room name
     pub name: String,

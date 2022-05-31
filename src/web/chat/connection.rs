@@ -7,6 +7,8 @@ use actix_web_actors::ws;
 use std::time::Instant;
 
 pub struct Connection {
+    /// connection id
+    pub id: usize,
     /// peer session
     pub session: XfSession,
     /// Last Heartbeat
@@ -30,7 +32,7 @@ impl Connection {
                 println!("Websocket Client heartbeat failed, disconnecting!");
 
                 // notify chat server
-                act.addr.do_send(message::Disconnect { id: act.session.id });
+                act.addr.do_send(message::Disconnect { id: act.id });
 
                 // stop actor
                 ctx.stop();
@@ -67,9 +69,12 @@ impl Actor for Connection {
             .into_actor(self)
             .then(|res, act, ctx| {
                 match res {
-                    Ok(res) => act.session.id = res,
-                    // something is wrong with chat server
-                    _ => ctx.stop(),
+                    Ok(res) => act.id = res,
+                    _ => {
+                        // something is wrong with chat server
+                        println!("Failed to assign conection id");
+                        ctx.stop();
+                    }
                 }
                 fut::ready(())
             })
@@ -78,9 +83,7 @@ impl Actor for Connection {
 
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
         // notify chat server
-        self.addr.do_send(message::Disconnect {
-            id: self.session.id,
-        });
+        self.addr.do_send(message::Disconnect { id: self.id });
         Running::Stop
     }
 }
@@ -147,7 +150,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                             if v.len() == 2 {
                                 self.room = v[1].to_owned();
                                 self.addr.do_send(message::Join {
-                                    id: self.session.id,
+                                    id: self.id,
                                     name: self.room.clone(),
                                 });
 

@@ -1,15 +1,19 @@
 // This is dark magic which interprets the XF2 PHP-serialized session keys.
 
+use super::orm::user;
 use actix_web::{web::Data, HttpRequest};
 use redis::Commands;
+use sea_orm::entity::prelude::*;
+use sea_orm::{DatabaseConnection, FromQueryResult, QuerySelect};
 use serde::Deserialize;
 use serde_php::from_bytes;
 use std::time::Duration;
 
+#[derive(Clone, Debug, FromQueryResult)]
 pub struct XfSession {
-    pub id: usize,
+    pub id: u32,
     pub username: String,
-    pub avatar_date: i32,
+    pub avatar_date: u32,
 }
 
 impl XfSession {
@@ -26,10 +30,10 @@ impl XfSession {
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Eq, PartialEq)]
 struct XfSessionData {
-    userId: usize,
+    userId: u32,
 }
 
-pub fn get_user_from_request(req: &HttpRequest) -> XfSession {
+pub async fn get_user_from_request(db: &DatabaseConnection, req: &HttpRequest) -> XfSession {
     let id = match req.cookie("xf_session") {
         Some(cookie) => {
             let session_value: redis::RedisResult<String> = {
@@ -62,7 +66,30 @@ pub fn get_user_from_request(req: &HttpRequest) -> XfSession {
         None => 0,
     };
 
-    if id > 0 {}
+    println!("Session id: {:?}", id);
+
+    if id > 0 {
+        match user::Entity::find_by_id(id)
+            .select_only()
+            .column_as(user::Column::UserId, "id")
+            .column(user::Column::Username)
+            .column(user::Column::AvatarDate)
+            .filter(user::Column::UserId.eq(id))
+            .into_model::<XfSession>()
+            .one(db)
+            .await
+        {
+            Ok(res) => match res {
+                Some(session) => return session,
+                None => {
+                    println!("No result for user id {:?}", id);
+                }
+            },
+            Err(err) => {
+                println!("MySQL Error: {:?}", err);
+            }
+        };
+    }
 
     XfSession {
         id: 0,
