@@ -31,18 +31,18 @@ async fn main() -> std::io::Result<()> {
     use actix_web::web::{resource, Data};
     use actix_web::{App, HttpServer};
 
-    HttpServer::new(move || {
-        let redis = match redis::Client::open("redis://127.0.0.1/") {
-            Ok(client) => client,
-            Err(err) => {
-                panic!("{:?}", err);
-            }
-        };
-        let chat = crate::web::chat::server::ChatServer::new().start();
+    let redis = match redis::Client::open("redis://127.0.0.1/") {
+        Ok(client) => client,
+        Err(err) => {
+            panic!("{:?}", err);
+        }
+    };
+    let chat = crate::web::chat::server::ChatServer::new().start();
 
+    HttpServer::new(move || {
         App::new()
-            .app_data(Data::new(redis))
-            .app_data(Data::new(chat))
+            .app_data(Data::new(redis.clone()))
+            .app_data(chat.clone())
             .service(resource("/chat").to(crate::web::chat::service))
             .service(crate::web::chat::view_chat)
     })

@@ -6,14 +6,31 @@ use serde::Deserialize;
 use serde_php::from_bytes;
 use std::time::Duration;
 
+pub struct XfSession {
+    pub id: usize,
+    pub username: String,
+    pub avatar_date: i32,
+}
+
+impl XfSession {
+    fn get_avatar_uri(&self) -> String {
+        format!(
+            "http://xf.localhost/data/avatars/m/{}/{}.jpg?{}",
+            self.id / 1000,
+            self.id,
+            self.avatar_date
+        )
+    }
+}
+
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Eq, PartialEq)]
-struct XfSession {
+struct XfSessionData {
     userId: usize,
 }
 
-pub fn get_user_from_request(req: &HttpRequest) -> usize {
-    match req.cookie("xf_session") {
+pub fn get_user_from_request(req: &HttpRequest) -> XfSession {
+    let id = match req.cookie("xf_session") {
         Some(cookie) => {
             let session_value: redis::RedisResult<String> = {
                 let mut client = req
@@ -26,7 +43,7 @@ pub fn get_user_from_request(req: &HttpRequest) -> usize {
             };
 
             match session_value {
-                Ok(session) => match from_bytes::<XfSession>(session.as_bytes()) {
+                Ok(session) => match from_bytes::<XfSessionData>(session.as_bytes()) {
                     Ok(deser) => {
                         log::debug!("Client authorized as User {:?}", deser);
                         deser.userId
@@ -43,5 +60,13 @@ pub fn get_user_from_request(req: &HttpRequest) -> usize {
             }
         }
         None => 0,
+    };
+
+    if id > 0 {}
+
+    XfSession {
+        id: 0,
+        username: "Guest".to_owned(),
+        avatar_date: 0,
     }
 }

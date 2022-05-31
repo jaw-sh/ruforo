@@ -1,8 +1,8 @@
-pub mod client;
+pub mod connection;
+pub mod message;
 pub mod server;
 
 use crate::compat::xf::session::get_user_from_request;
-use crate::middleware::ClientCtx;
 use actix::Addr;
 use actix_web::{get, web, Error, HttpRequest, HttpResponse, Responder};
 use actix_web_actors::ws;
@@ -15,18 +15,18 @@ pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 pub const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Entry point for our websocket route
-pub async fn service(
-    req: HttpRequest,
-    stream: web::Payload,
-    srv: web::Data<Addr<server::ChatServer>>,
-) -> Result<HttpResponse, Error> {
+pub async fn service(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
+    let session = get_user_from_request(&req);
+
     ws::start(
-        client::WsChatSession {
-            id: get_user_from_request(&req),
+        connection::Connection {
+            session,
             hb: Instant::now(),
             room: "Main".to_owned(),
-            name: None,
-            addr: srv.get_ref().clone(),
+            addr: req
+                .app_data::<Addr<server::ChatServer>>()
+                .expect("No chat server.")
+                .clone(),
         },
         &req,
         stream,

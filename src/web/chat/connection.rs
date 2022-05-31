@@ -1,25 +1,24 @@
-use super::server;
+use super::message;
 use super::server::ChatServer;
 use super::{CLIENT_TIMEOUT, HEARTBEAT_INTERVAL};
+use crate::compat::xf::session::XfSession;
 use actix::*;
 use actix_web_actors::ws;
 use std::time::Instant;
 
-pub struct WsChatSession {
-    /// unique session id
-    pub id: usize,
-    /// Client must send ping at least once per 10 seconds (CLIENT_TIMEOUT),
-    /// otherwise we drop connection.
+pub struct Connection {
+    /// peer session
+    pub session: XfSession,
+    /// Last Heartbeat
+    /// Client must send ping at least once per 10 seconds (CLIENT_TIMEOUT), otherwise we drop connection.
     pub hb: Instant,
     /// joined room
     pub room: String,
-    /// peer name
-    pub name: Option<String>,
     /// Chat server
     pub addr: Addr<ChatServer>,
 }
 
-impl WsChatSession {
+impl Connection {
     /// helper method that sends ping to client every second.
     ///
     /// also this method checks heartbeats from client
@@ -31,7 +30,7 @@ impl WsChatSession {
                 println!("Websocket Client heartbeat failed, disconnecting!");
 
                 // notify chat server
-                act.addr.do_send(server::Disconnect { id: act.id });
+                act.addr.do_send(message::Disconnect { id: act.session.id });
 
                 // stop actor
                 ctx.stop();
@@ -45,7 +44,7 @@ impl WsChatSession {
     }
 }
 
-impl Actor for WsChatSession {
+impl Actor for Connection {
     type Context = ws::WebsocketContext<Self>;
 
     /// Method is called on actor start.
@@ -58,17 +57,17 @@ impl Actor for WsChatSession {
         // register self in chat server. `AsyncContext::wait` register
         // future within context, but context waits until this future resolves
         // before processing any other events.
-        // HttpContext::state() is instance of WsChatSessionState, state is shared
+        // HttpContext::state() is instance of WsConnectionState, state is shared
         // across all routes within application
         let addr = ctx.address();
         self.addr
-            .send(server::Connect {
+            .send(message::Connect {
                 addr: addr.recipient(),
             })
             .into_actor(self)
             .then(|res, act, ctx| {
                 match res {
-                    Ok(res) => act.id = res,
+                    Ok(res) => act.session.id = res,
                     // something is wrong with chat server
                     _ => ctx.stop(),
                 }
@@ -79,22 +78,24 @@ impl Actor for WsChatSession {
 
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
         // notify chat server
-        self.addr.do_send(server::Disconnect { id: self.id });
+        self.addr.do_send(message::Disconnect {
+            id: self.session.id,
+        });
         Running::Stop
     }
 }
 
 /// Handle messages from chat server, we simply send it to peer websocket
-impl Handler<server::Message> for WsChatSession {
+impl Handler<message::ServerMessage> for Connection {
     type Result = ();
 
-    fn handle(&mut self, msg: server::Message, ctx: &mut Self::Context) {
+    fn handle(&mut self, msg: message::ServerMessage, ctx: &mut Self::Context) {
         ctx.text(msg.0);
     }
 }
 
 /// WebSocket message handler
-impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
+impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         let msg = match msg {
             Err(_) => {
@@ -124,7 +125,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                             // response
                             println!("List rooms");
                             self.addr
-                                .send(server::ListRooms)
+                                .send(message::ListRooms)
                                 .into_actor(self)
                                 .then(|res, _, ctx| {
                                     match res {
@@ -145,8 +146,8 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                         "/join" => {
                             if v.len() == 2 {
                                 self.room = v[1].to_owned();
-                                self.addr.do_send(server::Join {
-                                    id: self.id,
+                                self.addr.do_send(message::Join {
+                                    id: self.session.id,
                                     name: self.room.clone(),
                                 });
 
@@ -155,28 +156,14 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                                 ctx.text("!!! room name is required");
                             }
                         }
-                        "/name" => {
-                            if v.len() == 2 {
-                                self.name = Some(v[1].to_owned());
-                            } else {
-                                ctx.text("!!! name is required");
-                            }
-                        }
                         _ => ctx.text(format!("!!! unknown command: {:?}", m)),
                     }
                 }
-                // Messages
+                // Client Chat Messages
                 else {
-                    let msg = if let Some(ref name) = self.name {
-                        format!("{}: {}", name, m)
-                    } else {
-                        m.to_owned()
-                    };
-                    // send message to chat server
-                    self.addr.do_send(server::ClientMessage {
-                        id: self.id,
-                        msg,
-                        room: self.room.clone(),
+                    self.addr.do_send(message::ClientMessage {
+                        id: self.session.id,
+                        msg: m.to_owned(),
                     })
                 }
             }
