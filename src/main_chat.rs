@@ -44,6 +44,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(Data::new(redis))
             .app_data(Data::new(chat))
             .service(resource("/chat").to(crate::web::chat::service))
+            .service(crate::web::chat::view_chat)
     })
     .bind("127.0.0.1:8080")?
     .run()

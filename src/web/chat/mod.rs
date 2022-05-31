@@ -2,9 +2,11 @@ pub mod client;
 pub mod server;
 
 use crate::compat::xf::session::get_user_from_request;
+use crate::middleware::ClientCtx;
 use actix::Addr;
-use actix_web::{web, Error, HttpRequest, HttpResponse};
+use actix_web::{get, web, Error, HttpRequest, HttpResponse, Responder};
 use actix_web_actors::ws;
+use askama_actix::{Template, TemplateToResponse};
 use std::time::{Duration, Instant};
 
 /// How often heartbeat pings are sent
@@ -29,4 +31,13 @@ pub async fn service(
         &req,
         stream,
     )
+}
+
+#[derive(Template)]
+#[template(path = "chat.html")]
+struct ChatTestTemplate {}
+
+#[get("/test-chat")]
+pub async fn view_chat() -> impl Responder {
+    ChatTestTemplate {}.to_response()
 }

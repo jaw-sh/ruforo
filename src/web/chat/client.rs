@@ -115,7 +115,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
             }
             ws::Message::Text(text) => {
                 let m = text.trim();
-                // we check for /sss type of messages
+                // Forward-slash commands
                 if m.starts_with('/') {
                     let v: Vec<&str> = m.splitn(2, ' ').collect();
                     match v[0] {
@@ -164,7 +164,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                         }
                         _ => ctx.text(format!("!!! unknown command: {:?}", m)),
                     }
-                } else {
+                }
+                // Messages
+                else {
                     let msg = if let Some(ref name) = self.name {
                         format!("{}: {}", name, m)
                     } else {

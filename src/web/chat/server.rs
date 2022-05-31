@@ -79,13 +79,12 @@ impl ChatServer {
     }
 
     /// Send message to all users in the room
-    fn send_message(&self, room: &str, message: &str, skip_id: usize) {
+    fn send_message(&self, room: &str, message: &str) {
         if let Some(sessions) = self.rooms.get(room) {
             for id in sessions {
-                if *id != skip_id {
-                    if let Some(addr) = self.sessions.get(id) {
-                        let _ = addr.do_send(Message(message.to_owned()));
-                    }
+                //if let Some(skip_id)*id != skip_id {
+                if let Some(addr) = self.sessions.get(id) {
+                    let _ = addr.do_send(Message(message.to_owned()));
                 }
             }
         }
@@ -115,7 +114,7 @@ impl Handler<Connect> for ChatServer {
         println!("Someone joined");
 
         // notify all users in same room
-        self.send_message(&"Main".to_owned(), "Someone joined", 0);
+        self.send_message(&"Main".to_owned(), "Someone joined");
 
         // register session with random id
         let id = self.rng.gen::<usize>();
@@ -155,7 +154,7 @@ impl Handler<Disconnect> for ChatServer {
         }
         // send message to other users
         for room in rooms {
-            self.send_message(&room, "Someone disconnected", 0);
+            self.send_message(&room, "Someone disconnected");
         }
     }
 }
@@ -165,7 +164,7 @@ impl Handler<ClientMessage> for ChatServer {
     type Result = ();
 
     fn handle(&mut self, msg: ClientMessage, _: &mut Context<Self>) {
-        self.send_message(&msg.room, msg.msg.as_str(), msg.id);
+        self.send_message(&msg.room, msg.msg.as_str());
     }
 }
 
@@ -201,7 +200,7 @@ impl Handler<Join> for ChatServer {
         }
         // send message to other users
         for room in rooms {
-            self.send_message(&room, "Someone disconnected", 0);
+            self.send_message(&room, "Someone disconnected");
         }
 
         self.rooms
@@ -209,6 +208,6 @@ impl Handler<Join> for ChatServer {
             .or_insert_with(HashSet::new)
             .insert(id);
 
-        self.send_message(&name, "Someone connected", id);
+        self.send_message(&name, "Someone connected");
     }
 }
