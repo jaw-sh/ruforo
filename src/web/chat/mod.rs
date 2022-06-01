@@ -22,8 +22,6 @@ pub async fn service(req: HttpRequest, stream: web::Payload) -> Result<HttpRespo
         .expect("No chat server.");
     let session = get_user_from_request(db, &req).await;
 
-    println!("Session: {:?}", session);
-
     ws::start(
         connection::Connection {
             id: usize::MIN, // mutated by server

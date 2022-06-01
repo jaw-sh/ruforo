@@ -15,6 +15,7 @@
         }
 
         #chat {
+            background: rgb(54, 57, 63);
             display: flex;
             flex-direction: column;
         }
@@ -28,23 +29,48 @@
         }
 
         #messages {
-            width: 100%;
-            overflow-x: hidden;
+            color: rgb(255, 255, 255);
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
+            position: relative;
+            width: 100%;
+            overflow-x: hidden;
+        }
+
+        .chat-message {
+            padding-left: 72px;
+            padding-right: 48px;
+            padding-top: 0.125rem;
+            padding-bottom: 0.125rem;
+        }
+
+        .chat-message .left-content {
+            position: absolute;
+            left: 16px;
+        }
+
+        .chat-message .avatar {
+            height: 40px;
+            width: 40px;
+            border-radius: 50%;
+        }
+
+        .chat-message .meta .author {
+            font-weight: bold;
         }
 
         #message-form {
             overflow: hidden;
             display: flex;
             flex: column;
-            padding: 1rem;
+            padding: 8px;
         }
 
         #message-input {
+            color: rgb(255, 255, 255);
             border: none;
-            background: rgba(128, 128, 128, 0.3);
+            background: rgb(64, 68, 75);
             border-radius: 1rem;
             overflow: hidden;
             height: 1rem;
@@ -87,7 +113,16 @@
 
         ws.addEventListener('message', function (event) {
             console.log(event);
-            pushMessage(event.data);
+            let message = event.data;
+
+            try {
+                let json = JSON.parse(message);
+                pushMessage(json.message, json.author);
+            }
+            // Not valid JSON
+            catch (error) {
+                pushMessage(message);
+            }
         });
 
         ws.addEventListener('open', function (event) {
@@ -95,9 +130,18 @@
             pushMessage("Connected!");
         });
 
-        function pushMessage(message, user) {
+        function pushMessage(message, author) {
             let template = document.getElementById('tmp-chat-message').content.cloneNode(true);
             template.querySelector('.message').innerHTML = message;
+
+            if (typeof author === 'object') {
+                template.querySelector('.author').innerHTML = author.username;
+                template.querySelector('.avatar').setAttribute('src', `/data/avatars/m/${Math.floor(author.id / 1000)}/${author.id}.jpg?${author.avatar_date}`);
+            }
+            else {
+                template.querySelector('.avatar').remove();
+            }
+
             document.getElementById('messages').appendChild(template);
         }
 

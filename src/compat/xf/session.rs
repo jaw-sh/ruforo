@@ -5,11 +5,11 @@ use actix_web::{web::Data, HttpRequest};
 use redis::Commands;
 use sea_orm::entity::prelude::*;
 use sea_orm::{DatabaseConnection, FromQueryResult, QuerySelect};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_php::from_bytes;
 use std::time::Duration;
 
-#[derive(Clone, Debug, FromQueryResult)]
+#[derive(Clone, Debug, FromQueryResult, Serialize)]
 pub struct XfSession {
     pub id: u32,
     pub username: String,
@@ -17,7 +17,11 @@ pub struct XfSession {
 }
 
 impl XfSession {
-    fn get_avatar_uri(&self) -> String {
+    pub fn can_send_message(&self) -> bool {
+        self.id > 0
+    }
+
+    pub fn get_avatar_uri(&self) -> String {
         format!(
             "http://xf.localhost/data/avatars/m/{}/{}.jpg?{}",
             self.id / 1000,

@@ -165,8 +165,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                 // Client Chat Messages
                 else {
                     self.addr.do_send(message::ClientMessage {
-                        id: self.session.id,
-                        msg: m.to_owned(),
+                        id: self.id,
+                        author: self.session.clone(),
+                        message: m.to_owned(),
                     })
                 }
             }

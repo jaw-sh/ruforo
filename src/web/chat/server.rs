@@ -25,24 +25,26 @@ impl ChatServer {
             connections: HashMap::new(),
             rooms,
             rng: rand::thread_rng(),
-            // visitor_count,
         }
     }
 
-    /// Send message to all users in the room
+    /// Send message to all users in a room
     fn send_message(&self, room: &str, message: &str) {
         if let Some(connections) = self.rooms.get(room) {
-            println!("In room {:?}", room);
             for id in connections {
-                println!("Looking at id {:?}", id);
-                //if let Some(skip_id)*id != skip_id {
                 if let Some(addr) = self.connections.get(id) {
-                    println!("Sending to {:?}", id);
                     let _ = addr.do_send(message::ServerMessage(message.to_owned()));
-                } else {
-                    println!("NOT sending to {:?}", id);
                 }
             }
+        }
+    }
+
+    /// Send message to specific user
+    fn send_message_to(&self, recipient: usize, message: &str) {
+        if let Some(addr) = self.connections.get(&recipient) {
+            let _ = addr.do_send(message::ServerMessage(message.to_owned()));
+        } else {
+            println!("Failed to send specific message to client {}", recipient);
         }
     }
 }
@@ -99,9 +101,13 @@ impl Handler<message::Connect> for ChatServer {
 impl Handler<message::ClientMessage> for ChatServer {
     type Result = ();
 
-    fn handle(&mut self, msg: message::ClientMessage, _: &mut Context<Self>) {
+    fn handle(&mut self, message: message::ClientMessage, _: &mut Context<Self>) {
         println!("Received client message.");
-        self.send_message("Main", msg.msg.as_str());
+        if (message.author.can_send_message()) {
+            self.send_message("Main", &serde_json::to_string(&message).unwrap());
+        } else {
+            self.send_message_to(message.id, "You cannot send messages.");
+        }
     }
 }
 

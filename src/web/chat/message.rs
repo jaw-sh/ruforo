@@ -1,17 +1,21 @@
+use crate::compat::xf::session::XfSession;
 use actix::prelude::*;
+use serde::Serialize;
 
 // Note: There is ambiguous referencing to 'id'.
 // An usize id represents the connection actor addr.
 // An u32 id is pulled from the db and is a user id.
 
 /// Send message to specific room
-#[derive(Message)]
+#[derive(Message, Serialize)]
 #[rtype(result = "()")]
 pub struct ClientMessage {
-    /// User ID
-    pub id: u32,
+    /// Conn Id
+    pub id: usize,
+    /// Author Session
+    pub author: XfSession,
     /// Peer message
-    pub msg: String,
+    pub message: String,
 }
 
 /// New chat session is created
