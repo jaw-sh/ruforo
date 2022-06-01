@@ -41,10 +41,15 @@ document.addEventListener("DOMContentLoaded", function () {
     function pushMessage(message, author) {
         let messages = document.getElementById('messages');
         let template = document.getElementById('tmp-chat-message').content.cloneNode(true);
-        let timeNow = new Date().getTime();;
+        let timeNow = new Date();
 
         template.querySelector('.message').innerHTML = message;
-        template.children[0].dataset.received = timeNow;
+        template.children[0].dataset.received = timeNow.getTime();
+
+        // Set the relative timestamp
+        let timestamp = template.querySelector('time');
+        timestamp.setAttribute('datetime', timeNow.toISOString());
+        timestamp.innerHTML = "Just now";
 
         if (typeof author === 'object' && author !== null) {
             template.children[0].dataset.author = author.id;
@@ -54,7 +59,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (lastChild !== null && lastChild.dataset.author == author.id) {
                 // Allow to break into new groups if too much time has passed.
                 let timeLast = new Date(parseInt(lastChild.dataset.received, 10));
-                if (timeNow - timeLast < 30000) {
+                if (timeNow.getTime() - timeLast.getTime() < 30000) {
                     template.children[0].classList.add("chat-message--hasParent");
                 }
             }
@@ -63,6 +68,7 @@ document.addEventListener("DOMContentLoaded", function () {
             template.querySelector('.avatar').setAttribute('src', `/data/avatars/m/${Math.floor(author.id / 1000)}/${author.id}.jpg?${author.avatar_date}`);
         }
         else {
+            template.querySelector('.meta').remove();
             template.querySelector('.avatar').remove();
         }
 
