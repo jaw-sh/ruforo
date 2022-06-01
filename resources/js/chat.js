@@ -1,11 +1,11 @@
 document.addEventListener("DOMContentLoaded", function () {
     // WebSocket
-    let ws = new WebSocket("ws://xf.localhost/rust-chat");
+    const CHAT_URL = "ws://xf.localhost/rust-chat";
+    let ws = new WebSocket(CHAT_URL);
     pushMessage("Connecting...");
 
     ws.addEventListener('close', function (event) {
-        console.log(event);
-        pushMessage("Connection closed.");
+        pushMessage("Connection closed by remote server.");
     });
 
     ws.addEventListener('error', function (event) {
@@ -13,7 +13,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     ws.addEventListener('message', function (event) {
-        console.log(event);
         let author = null;
         let message = null;
 
@@ -42,15 +41,22 @@ document.addEventListener("DOMContentLoaded", function () {
     function pushMessage(message, author) {
         let messages = document.getElementById('messages');
         let template = document.getElementById('tmp-chat-message').content.cloneNode(true);
+        let timeNow = new Date().getTime();;
 
         template.querySelector('.message').innerHTML = message;
+        template.children[0].dataset.received = timeNow;
 
         if (typeof author === 'object' && author !== null) {
             template.children[0].dataset.author = author.id;
-            template.children[0].dataset.received = new Date().getTime();
 
-            if (messages.lastElementChild !== null && messages.lastElementChild.dataset.author == author.id) {
-                template.children[0].classList.add("chat-message--hasParent");
+            // Group consequtive messages by the same author.
+            let lastChild = messages.lastElementChild;
+            if (lastChild !== null && lastChild.dataset.author == author.id) {
+                // Allow to break into new groups if too much time has passed.
+                let timeLast = new Date(parseInt(lastChild.dataset.received, 10));
+                if (timeNow - timeLast < 30000) {
+                    template.children[0].classList.add("chat-message--hasParent");
+                }
             }
 
             template.querySelector('.author').innerHTML = author.username;

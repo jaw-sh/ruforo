@@ -6,7 +6,7 @@ PROJECT_NAME is a traditional web forum built in Rust.
 ## Stack
  - Rust
    - Actix-Web
-   - Askama for ORM
+   - Askama for templating
    - SeaQL (sqlx) for ORM
  - Postgres
  - S3
