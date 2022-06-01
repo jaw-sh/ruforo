@@ -52,7 +52,6 @@ impl Actor for Connection {
     /// Method is called on actor start.
     /// We register ws session with ChatServer
     fn started(&mut self, ctx: &mut Self::Context) {
-        eprintln!("Chat Started");
         // we'll start heartbeat process on session start.
         self.hb(ctx);
 
@@ -108,7 +107,6 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
             Ok(msg) => msg,
         };
 
-        println!("WEBSOCKET MESSAGE: {:?}", msg);
         match msg {
             ws::Message::Ping(msg) => {
                 self.hb = Instant::now();

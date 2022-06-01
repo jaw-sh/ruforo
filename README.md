@@ -1,15 +1,19 @@
-# ruforo - The most user friendly
-_Name pending._
+# _Unnamed Web Forum Project_
+(Formerly ruforo, formerly Sneedforo, formerly Chuckforo, formerly XenForo)
 
 PROJECT_NAME is a traditional web forum built in Rust.
 
 ## Stack
  - Rust
    - Actix-Web
-   - Askama for Templating
+   - Askama for ORM
    - SeaQL (sqlx) for ORM
  - Postgres
- - Webpack
+ - S3
+ - NPM
+   - SWC for asset compilation
+   - SCSS for stylesheets
+   - Vanilla JS
 
 ## Aspirations
  - Minimal bloat.
@@ -21,18 +25,15 @@ PROJECT_NAME is a traditional web forum built in Rust.
 ## Environment
  - Example `.env` file
    + NOTE: AWS variables will likely be migrated to DB
-```
-DATABASE_URL=postgres://rfuser:rfpass@localhost/ruforo
-SALT=GPIb5gy10Vw/SEj5f+cjeA
-AWS_ACCESS_KEY_ID=testaccesskey
-AWS_SECRET_ACCESS_KEY=testsecretkey
-DIR_TMP=./tmp     # used for file uploads
-SESSION_TIME=1440 # 1 day in minutes
-```
+ - PostgreSQL
+   + Required. Database agnosticism not planned.
+ - MinIO
+   + Suggested. Self-hosted S3 compatible FOSS.
  - node and webpack
    + Install [npm](https://nodejs.org/en/download/).
    + Run `npm install` from the root directory to install node dependencies.
    + Run `npx webpack` from the root directory to deploy browser-friendly resource files.
+   + _webpack will be replaced with SWC when SASS compilation is available._
 
 ### WebM Validation Notes
  - https://www.webmproject.org/docs/container/

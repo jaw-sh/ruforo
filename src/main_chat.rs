@@ -30,8 +30,12 @@ async fn main() -> std::io::Result<()> {
     use actix::Actor;
     use actix_web::web::{resource, Data};
     use actix_web::{App, HttpServer};
+    use env_logger::Env;
     use sea_orm::{ConnectOptions, Database};
     use std::time::Duration;
+
+    dotenv::dotenv().expect("DotEnv failed to initialize.");
+    env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
     let mysql = {
         let mut options = ConnectOptions::new("mysql://john:john@localhost/xenforo".to_owned());

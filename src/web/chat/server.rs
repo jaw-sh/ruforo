@@ -71,7 +71,7 @@ impl Handler<message::Connect> for ChatServer {
         println!("Someone joined");
 
         // notify all users in same room
-        self.send_message(&"Main".to_owned(), "Someone joined");
+        //self.send_message(&"Main".to_owned(), "Someone joined");
 
         // register session with random id
         let id = self.rng.gen::<usize>();
@@ -83,16 +83,6 @@ impl Handler<message::Connect> for ChatServer {
             .or_insert_with(HashSet::new)
             .insert(id);
 
-        println!(" - Room cnt {:?}", self.rooms.len());
-        println!(
-            " - Client cnt {:?}",
-            self.rooms.entry("Main".to_owned()).or_default().len()
-        );
-
-        // let count = self.visitor_count.fetch_add(1, Ordering::SeqCst);
-        // self.send_message("Main", &format!("Total visitors {}", count), 0);
-
-        // send id back
         id
     }
 }
@@ -102,8 +92,7 @@ impl Handler<message::ClientMessage> for ChatServer {
     type Result = ();
 
     fn handle(&mut self, message: message::ClientMessage, _: &mut Context<Self>) {
-        println!("Received client message.");
-        if (message.author.can_send_message()) {
+        if message.author.can_send_message() {
             self.send_message("Main", &serde_json::to_string(&message).unwrap());
         } else {
             self.send_message_to(message.id, "You cannot send messages.");
@@ -116,8 +105,6 @@ impl Handler<message::Disconnect> for ChatServer {
     type Result = ();
 
     fn handle(&mut self, msg: message::Disconnect, _: &mut Context<Self>) {
-        println!("Someone disconnected");
-
         let mut rooms: Vec<String> = Vec::new();
 
         // remove address
@@ -129,10 +116,11 @@ impl Handler<message::Disconnect> for ChatServer {
                 }
             }
         }
+
         // send message to other users
-        for room in rooms {
-            self.send_message(&room, "Someone disconnected");
-        }
+        //for room in rooms {
+        //    self.send_message(&room, "Someone disconnected");
+        //}
     }
 }
 
