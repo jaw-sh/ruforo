@@ -39,7 +39,9 @@ async fn main() -> std::io::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
     let mysql = {
-        let mut options = ConnectOptions::new("mysql://john:john@localhost/xenforo".to_owned());
+        let mut options = ConnectOptions::new(
+            std::env::var("XF_MYSQL_URL").expect("XF_MYSQL_URL required for chat binary."),
+        );
         options
             .max_connections(100)
             .min_connections(5)
@@ -51,7 +53,9 @@ async fn main() -> std::io::Result<()> {
             .await
             .expect("XF MySQL connection failed.")
     };
-    let (redis_cfg, redis) = match redis::Client::open("redis://127.0.0.1/") {
+    let (redis_cfg, redis) = match redis::Client::open(
+        std::env::var("XF_REDIS_URL").expect("XF_REDIS_URL required for chat binary."),
+    ) {
         Ok(client) => (
             client.clone(),
             client

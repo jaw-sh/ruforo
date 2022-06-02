@@ -23,7 +23,8 @@ impl XfSession {
 
     pub fn get_avatar_uri(&self) -> String {
         format!(
-            "http://xf.localhost/data/avatars/m/{}/{}.jpg?{}",
+            "{}/data/avatars/m/{}/{}.jpg?{}",
+            std::env::var("XF_PUBLIC_URL").expect("XF_PUBLIC_URL must be set in .env"),
             self.id / 1000,
             self.id,
             self.avatar_date
