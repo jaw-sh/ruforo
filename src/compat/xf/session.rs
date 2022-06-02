@@ -53,13 +53,21 @@ pub async fn get_user_from_request(db: &DatabaseConnection, req: &HttpRequest) -
 
             match session_value {
                 Ok(session) => {
-                    match from_bytes::<XfSessionData>(str::replace(&session, "\\", "").as_bytes()) {
-                        Ok(deser) => {
-                            log::debug!("Client authorized as User {:?}", deser);
-                            deser.userId
-                        }
+                    //match from_bytes::<XfSessionData>(str::replace(&session, "\\", "").as_bytes()) {
+                    match regex::Regex::new(r#"s:6:\\?"?userId\\?"?;i:(?P<user_id>\d+);"#) {
+                        Ok(ex) => match ex.captures(&session) {
+                            Some(captures) => {
+                                log::debug!("Client authorized as User {:?}", &captures["user_id"]);
+                                captures["user_id"].parse::<u32>().unwrap()
+                            }
+                            None => {
+                                log::warn!("FAILED to find a user ID in session");
+                                0
+                            }
+                        },
                         Err(err) => {
-                            log::warn!("FAILED to deserialize {:?}", err);
+                            log::warn!("FAILED to parse regex {:?}", err);
+                            //log::warn!("FAILED to deserialize {:?}", err);
                             0
                         }
                     }

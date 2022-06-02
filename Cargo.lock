@@ -2582,6 +2582,7 @@ dependencies = [
  "rand 0.8.5",
  "rctree",
  "redis",
+ "regex",
  "rusoto_core",
  "rusoto_s3",
  "sea-orm",
