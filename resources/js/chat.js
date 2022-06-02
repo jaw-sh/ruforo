@@ -1,7 +1,4 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // WebSocket
-    const CHAT_URL = "ws://xf.localhost/rust-chat";
-
     let ws = new WebSocket(CHAT_URL);
     let room = null;
 
@@ -78,7 +75,7 @@ document.addEventListener("DOMContentLoaded", function () {
         else {
             template.querySelector('.meta').remove();
             template.querySelector('.left-content').remove();
-            template.querySelector('.right-content').remove();
+            //template.querySelector('.right-content').remove();
         }
 
         messages.appendChild(template);

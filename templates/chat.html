@@ -4,6 +4,9 @@
 <head>
     <title>Rust Chat</title>
     <link rel="stylesheet" type="text/css" href="/assets/style.css" />
+    <script>
+        const CHAT_URL = "{{ std::env::var("XF_WS_URL").expect("XF_WS_URL needs to be set in .env") }}";
+    </script>
 </head>
 
 <body>
