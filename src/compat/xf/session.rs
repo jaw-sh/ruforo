@@ -52,16 +52,18 @@ pub async fn get_user_from_request(db: &DatabaseConnection, req: &HttpRequest) -
             };
 
             match session_value {
-                Ok(session) => match from_bytes::<XfSessionData>(session.as_bytes()) {
-                    Ok(deser) => {
-                        log::debug!("Client authorized as User {:?}", deser);
-                        deser.userId
+                Ok(session) => {
+                    match from_bytes::<XfSessionData>(str::replace(&session, "\\", "").as_bytes()) {
+                        Ok(deser) => {
+                            log::debug!("Client authorized as User {:?}", deser);
+                            deser.userId
+                        }
+                        Err(err) => {
+                            log::warn!("FAILED to deserialize {:?}", err);
+                            0
+                        }
                     }
-                    Err(err) => {
-                        log::warn!("FAILED to deserialize {:?}", err);
-                        0
-                    }
-                },
+                }
                 Err(err) => {
                     log::warn!("FAILED to pull from redis {:?}", err);
                     0
