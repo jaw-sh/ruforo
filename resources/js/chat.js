@@ -2,10 +2,10 @@ document.addEventListener("DOMContentLoaded", function () {
     // WebSocket
     const CHAT_URL = "ws://xf.localhost/rust-chat";
     let ws = new WebSocket(CHAT_URL);
-    pushMessage("Connecting...");
+    messagePush("Connecting...");
 
     ws.addEventListener('close', function (event) {
-        pushMessage("Connection closed by remote server.");
+        messagePush("Connection closed by remote server.");
     });
 
     ws.addEventListener('error', function (event) {
@@ -19,7 +19,6 @@ document.addEventListener("DOMContentLoaded", function () {
         // Try to parse JSON data.
         try {
             let json = JSON.parse(event.data);
-            console.log(json);
             author = json.author;
             message = json.message;
         }
@@ -29,17 +28,17 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         // Push whatever we got to chat.
         finally {
-            pushMessage(message, author);
+            messagePush(message, author);
         }
     });
 
     ws.addEventListener('open', function (event) {
         console.log(event);
-        pushMessage("Connected!");
+        messagePush("Connected!");
     });
 
-    function pushMessage(message, author) {
-        let messages = document.getElementById('messages');
+    function messagePush(message, author) {
+        let messages = document.getElementById('chat-messages');
         let template = document.getElementById('tmp-chat-message').content.cloneNode(true);
         let timeNow = new Date();
 
@@ -73,13 +72,23 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         messages.appendChild(template);
+        scrollToNew();
+    }
+
+    function messageSend(message) {
+        ws.send(message);
+    }
+
+    function scrollToNew() {
+        let scroller = document.getElementById('chat-scroller');
+        scroller.scrollTo(0, scroller.scrollHeight);
     }
 
     // Form
-    document.getElementById('message-input').addEventListener('keydown', function (event) {
-        if (event.which === 13) {
+    document.getElementById('chat-input').addEventListener('keydown', function (event) {
+        if (event.key === "Enter") {
             event.preventDefault();
-            ws.send(this.value);
+            messageSend(this.value);
             this.value = "";
             return false;
         }

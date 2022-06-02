@@ -1,25 +1,28 @@
 {% extends "container/public.html" %}
 
 {% block content %}
-<div>
-    <h2>{{ thread.title }}{% match thread.subtitle %}{% when Some with (subtitle) %}<span class="subtitle"> - {{ subtitle }}</span>{% when None %}{% endmatch %}</h2>
+<div class="thread">
+    <h2>{{ thread.title }}{% match thread.subtitle %}
+        {% when Some with (subtitle) %}<span class="subtitle"> - {{subtitle}}</span>{% when None %}{% endmatch %}</h2>
     {{ paginator.as_html()|safe }}
-    {% for post in posts %}
-        {% let post_attachments = attachments.get(post.ugc_id) %}
-        {% include "ugc/message.html" %}
-    {% endfor %}
-    {{ paginator.as_html()|safe }}
-</div>
 
-{% if client.can_post_in_thread(thread) %}
-<form action="/threads/{{ thread.id }}/post-reply" method="post" enctype="multipart/form-data">
-    <h2>Post Reply</h2>
-    <textarea name="content" rows="8" cols="80"></textarea>
-    <div>
-        <input type="file" name="attachment" class="attachment-input" />
-        <button class="attachment-upload">Upload</button>
-    </div>
-    <button>Sneed</button>
-</form>
+    {% for post in posts %}
+    {% let post_attachments = attachments.get(post.ugc_id) %}
+    {% include "ugc/message.html" %}
+    {% endfor %}
+
+    {{ paginator.as_html()|safe }}
+
+    {% if client.can_post_in_thread(thread) %}
+    <form action="/threads/{{ thread.id }}/post-reply" method="post" enctype="multipart/form-data">
+        <h2>Post Reply</h2>
+        <textarea name="content" rows="8" cols="80"></textarea>
+        <div>
+            <input type="file" name="attachment" class="attachment-input" />
+            <button class="attachment-upload">Upload</button>
+        </div>
+        <button>Sneed</button>
+    </form>
+</div>
 {% endif %}
 {% endblock %}
