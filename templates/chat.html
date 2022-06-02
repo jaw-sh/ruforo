@@ -8,14 +8,22 @@
 
 <body>
     <div id="chat">
+        {% if rooms.len() > 0 %}
+        <div id="chat-rooms">
+            {% for room in rooms %}
+            <span class="chat-room" role="button" data-id="{{ room.room_id }}">{{ room.title }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
         <div id="chat-scroller">
             <div id="chat-messages">
 
             </div>
         </div>
-        <div id="chat-form">
-            <textarea id="chat-input"></textarea>
-        </div>
+        <form id="chat-form">
+            <input id="chat-input-room" type="hidden" name="room" value="0" />
+            <textarea id="chat-input" name="message"></textarea>
+        </form>
     </div>
 
     <template id="tmp-chat-message">

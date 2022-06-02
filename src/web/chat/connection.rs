@@ -14,8 +14,8 @@ pub struct Connection {
     /// Last Heartbeat
     /// Client must send ping at least once per 10 seconds (CLIENT_TIMEOUT), otherwise we drop connection.
     pub hb: Instant,
-    /// joined room
-    pub room: String,
+    /// Active room
+    pub room: Option<usize>,
     /// Chat server
     pub addr: Addr<ChatServer>,
 }
@@ -132,7 +132,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                                     match res {
                                         Ok(rooms) => {
                                             for room in rooms {
-                                                ctx.text(room);
+                                                ctx.text(format!("{}", room));
                                             }
                                         }
                                         _ => println!("Something is wrong"),
@@ -146,13 +146,17 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                         }
                         "/join" => {
                             if v.len() == 2 {
-                                self.room = v[1].to_owned();
-                                self.addr.do_send(message::Join {
-                                    id: self.id,
-                                    name: self.room.clone(),
-                                });
-
-                                ctx.text("joined");
+                                match v[1].parse::<usize>() {
+                                    Ok(room_id) => {
+                                        self.room = Some(room_id);
+                                        self.addr.do_send(message::Join {
+                                            id: self.id,
+                                            room_id: room_id,
+                                            author: self.session.clone(),
+                                        });
+                                    }
+                                    Err(_) => ctx.text("!!! invalid room"),
+                                }
                             } else {
                                 ctx.text("!!! room name is required");
                             }
@@ -161,12 +165,17 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                     }
                 }
                 // Client Chat Messages
-                else {
+                else if let Some(room_id) = self.room {
                     self.addr.do_send(message::ClientMessage {
                         id: self.id,
+                        room_id: room_id,
                         author: self.session.clone(),
-                        message: m.to_owned(),
+                        message: crate::bbcode::bbcode_to_html(m),
                     })
+                }
+                // Client message to nowhere
+                else {
+                    ctx.text("You say something to yourself. Nobody replies.")
                 }
             }
             ws::Message::Binary(_) => println!("Unexpected binary"),

@@ -6,13 +6,13 @@ use sea_orm::entity::prelude::*;
 #[sea_orm(table_name = "xf_hb_chat_room")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub room_id: i32,
+    pub room_id: u32,
     pub title: String,
     pub description: String,
-    pub display_order: i32,
+    pub display_order: u32,
     #[sea_orm(column_type = "Decimal(Some((16, 6)))", nullable)]
     pub motd_date: Option<Decimal>,
-    pub motd_id: Option<i32>,
+    pub motd_id: Option<u32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

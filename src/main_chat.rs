@@ -27,6 +27,7 @@ extern crate ffmpeg_next;
 // Temporary part of the project.
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    use crate::web::chat::server::ChatServer;
     use actix::Actor;
     use actix_web::web::{resource, Data};
     use actix_web::{App, HttpServer};
@@ -54,7 +55,7 @@ async fn main() -> std::io::Result<()> {
             panic!("{:?}", err);
         }
     };
-    let chat = crate::web::chat::server::ChatServer::new().start();
+    let chat = ChatServer::new_from_xf(&mysql).await.start();
 
     HttpServer::new(move || {
         App::new()

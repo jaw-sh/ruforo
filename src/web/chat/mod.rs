@@ -2,6 +2,7 @@ pub mod connection;
 pub mod message;
 pub mod server;
 
+use crate::compat::xf::orm::chat_room;
 use crate::compat::xf::session::get_user_from_request;
 use actix::Addr;
 use actix_web::{get, web, web::Data, Error, HttpRequest, HttpResponse, Responder};
@@ -19,7 +20,7 @@ pub const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 pub async fn service(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
     let db = req
         .app_data::<Data<DatabaseConnection>>()
-        .expect("No chat server.");
+        .expect("No database connection.");
     let session = get_user_from_request(db, &req).await;
 
     ws::start(
@@ -27,7 +28,7 @@ pub async fn service(req: HttpRequest, stream: web::Payload) -> Result<HttpRespo
             id: usize::MIN, // mutated by server
             session,
             hb: Instant::now(),
-            room: "Main".to_owned(),
+            room: None,
             addr: req
                 .app_data::<Addr<server::ChatServer>>()
                 .expect("No chat server.")
@@ -40,9 +41,19 @@ pub async fn service(req: HttpRequest, stream: web::Payload) -> Result<HttpRespo
 
 #[derive(Template)]
 #[template(path = "chat.html")]
-struct ChatTestTemplate {}
+struct ChatTestTemplate {
+    rooms: Vec<chat_room::Model>,
+}
 
 #[get("/test-chat")]
-pub async fn view_chat() -> impl Responder {
-    ChatTestTemplate {}.to_response()
+pub async fn view_chat(req: HttpRequest) -> impl Responder {
+    use crate::compat::xf::room::get_room_list;
+    let db = req
+        .app_data::<Data<DatabaseConnection>>()
+        .expect("No database connection.");
+
+    ChatTestTemplate {
+        rooms: get_room_list(db).await,
+    }
+    .to_response()
 }

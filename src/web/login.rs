@@ -3,9 +3,9 @@ use crate::middleware::ClientCtx;
 use crate::orm::{user_2fa, user_names, users};
 use crate::session;
 use crate::session::{authenticate_by_cookie, get_argon2, get_sess};
-use crate::template::LoginTemplate;
 use actix_web::{error, get, post, web, Error, Responder};
 use argon2::password_hash::{PasswordHash, PasswordVerifier};
+use askama::Template;
 use askama_actix::TemplateToResponse;
 use google_authenticator::GoogleAuthenticator;
 use sea_orm::{entity::*, query::*, DbErr, FromQueryResult, QueryFilter};
@@ -13,6 +13,16 @@ use serde::Deserialize;
 
 pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
     conf.service(post_login).service(view_login);
+}
+
+#[derive(Template)]
+#[template(path = "login.html")]
+pub struct LoginTemplate<'a> {
+    pub client: ClientCtx,
+    pub logged_in: bool,
+    pub user_id: Option<i32>,
+    pub username: Option<&'a str>,
+    pub token: Option<&'a str>,
 }
 
 #[derive(Deserialize)]

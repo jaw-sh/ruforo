@@ -102,13 +102,3 @@ pub struct CreateUserTemplate<'a> {
     pub logged_in: bool,
     pub username: Option<&'a str>,
 }
-
-#[derive(Template)]
-#[template(path = "login.html")]
-pub struct LoginTemplate<'a> {
-    pub client: ClientCtx,
-    pub logged_in: bool,
-    pub user_id: Option<i32>,
-    pub username: Option<&'a str>,
-    pub token: Option<&'a str>,
-}

@@ -14,6 +14,8 @@ pub struct ClientMessage {
     pub id: usize,
     /// Author Session
     pub author: XfSession,
+    /// Recipient room
+    pub room_id: usize,
     /// Peer message
     pub message: String,
 }
@@ -39,15 +41,17 @@ pub struct Disconnect {
 pub struct Join {
     /// Conn Id
     pub id: usize,
-    /// Room name
-    pub name: String,
+    /// Room Id
+    pub room_id: usize,
+    /// Author Session
+    pub author: XfSession,
 }
 
 /// List of available rooms
 pub struct ListRooms;
 
 impl actix::Message for ListRooms {
-    type Result = Vec<String>;
+    type Result = Vec<usize>;
 }
 
 /// Message from server to clients

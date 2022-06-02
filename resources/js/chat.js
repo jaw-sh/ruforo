@@ -1,8 +1,11 @@
 document.addEventListener("DOMContentLoaded", function () {
     // WebSocket
     const CHAT_URL = "ws://xf.localhost/rust-chat";
+
     let ws = new WebSocket(CHAT_URL);
-    messagePush("Connecting...");
+    let room = null;
+
+    messagePush("Connecting to SneedChat...");
 
     ws.addEventListener('close', function (event) {
         messagePush("Connection closed by remote server.");
@@ -33,8 +36,12 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     ws.addEventListener('open', function (event) {
-        console.log(event);
-        messagePush("Connected!");
+        if (room === null) {
+            messagePush("Connected! You may now join a room.");
+        }
+        else {
+            messagePush(`Connected to <em>${room.title}</em>!`);
+        }
     });
 
     function messagePush(message, author) {
@@ -68,7 +75,8 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         else {
             template.querySelector('.meta').remove();
-            template.querySelector('.avatar').remove();
+            template.querySelector('.left-content').remove();
+            template.querySelector('.right-content').remove();
         }
 
         messages.appendChild(template);
@@ -84,11 +92,32 @@ document.addEventListener("DOMContentLoaded", function () {
         scroller.scrollTo(0, scroller.scrollHeight);
     }
 
+    // Room buttons
+    document.getElementById('chat-rooms').addEventListener('click', function (event) {
+        let target = event.target;
+        if (target.classList.contains('chat-room')) {
+            let room_id = parseInt(target.dataset.id, 10);
+
+            if (!isNaN(room_id) && room_id > 0) {
+                messageSend(`/join ${room_id}`);
+            }
+            else {
+                console.log(`Attempted to join a room with an ID of ${room_id}`);
+            }
+        }
+    });
+
     // Form
     document.getElementById('chat-input').addEventListener('keydown', function (event) {
         if (event.key === "Enter") {
             event.preventDefault();
+
+            //let formData = new FormData(this.parentElement);
+            //let formProps = Object.fromEntries(formData);
+            //
+            //messageSend(JSON.stringify(formProps));
             messageSend(this.value);
+
             this.value = "";
             return false;
         }
