@@ -47,18 +47,29 @@ async fn main() -> std::io::Result<()> {
             .idle_timeout(Duration::from_secs(8))
             .max_lifetime(Duration::from_secs(8))
             .sqlx_logging(true);
-        Database::connect(options).await.unwrap()
+        Database::connect(options)
+            .await
+            .expect("XF MySQL connection failed.")
     };
-    let redis = match redis::Client::open("redis://127.0.0.1/") {
-        Ok(client) => client,
+    let (redis_cfg, redis) = match redis::Client::open("redis://127.0.0.1/") {
+        Ok(client) => (
+            client.clone(),
+            client
+                .get_multiplexed_async_connection()
+                .await
+                .expect("XF Redis connection failed."),
+        ),
         Err(err) => {
             panic!("{:?}", err);
         }
     };
-    let chat = ChatServer::new_from_xf(&mysql).await.start();
+    let chat = ChatServer::new_from_xf(mysql.clone(), redis.clone())
+        .await
+        .start();
 
     HttpServer::new(move || {
         App::new()
+            .app_data(Data::new(redis_cfg.clone()))
             .app_data(Data::new(redis.clone()))
             .app_data(Data::new(mysql.clone()))
             .app_data(chat.clone())

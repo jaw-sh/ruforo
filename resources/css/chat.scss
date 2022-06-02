@@ -13,6 +13,16 @@ html.chat body,
     display: flex;
     flex-direction: column;
     color: rgb(255, 255, 255);
+
+    a {
+        color: rgb(255, 255, 255);
+        text-decoration: none;
+
+        &:active,
+        &:hover {
+            text-decoration: underline;
+        }
+    }
 }
 
 #chat-rooms {
@@ -30,7 +40,9 @@ html.chat body,
         background: rgb(64, 68, 75);
     }
 
-    &:hover {}
+    &:hover {
+        background: rgb(64, 68, 75);
+    }
 }
 
 #chat-scroller {

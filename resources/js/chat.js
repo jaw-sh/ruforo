@@ -37,7 +37,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     ws.addEventListener('open', function (event) {
         if (room === null) {
-            messagePush("Connected! You may now join a room.");
+            if (!roomJoinByHash()) {
+                messagePush("Connected! You may now join a room.");
+            }
         }
         else {
             messagePush(`Connected to <em>${room.title}</em>!`);
@@ -87,25 +89,45 @@ document.addEventListener("DOMContentLoaded", function () {
         ws.send(message);
     }
 
+    function roomJoin(id) {
+        if (Number.isInteger(id) && id > 0) {
+            messageSend(`/join ${id}`);
+            return true;
+        }
+
+        console.log(`Attempted to join a room with an ID of ${room_id}`);
+        return false;
+    }
+
+    function roomJoinByHash() {
+        let room_id = parseInt(window.location.hash.substring(1), 10);
+
+        if (room_id > 0) {
+            return roomJoin(room_id);
+        }
+
+        return false;
+    }
+
     function scrollToNew() {
         let scroller = document.getElementById('chat-scroller');
         scroller.scrollTo(0, scroller.scrollHeight);
     }
 
     // Room buttons
-    document.getElementById('chat-rooms').addEventListener('click', function (event) {
-        let target = event.target;
-        if (target.classList.contains('chat-room')) {
-            let room_id = parseInt(target.dataset.id, 10);
-
-            if (!isNaN(room_id) && room_id > 0) {
-                messageSend(`/join ${room_id}`);
-            }
-            else {
-                console.log(`Attempted to join a room with an ID of ${room_id}`);
-            }
-        }
-    });
+    //document.getElementById('chat-rooms').addEventListener('click', function (event) {
+    //    let target = event.target;
+    //    if (target.classList.contains('chat-room')) {
+    //        let room_id = parseInt(target.dataset.id, 10);
+    //
+    //        if (!isNaN(room_id) && room_id > 0) {
+    //            messageSend(`/join ${room_id}`);
+    //        }
+    //        else {
+    //            console.log(`Attempted to join a room with an ID of ${room_id}`);
+    //        }
+    //    }
+    //});
 
     // Form
     document.getElementById('chat-input').addEventListener('keydown', function (event) {
@@ -122,4 +144,6 @@ document.addEventListener("DOMContentLoaded", function () {
             return false;
         }
     });
+
+    window.addEventListener('hashchange', roomJoinByHash, false);
 });

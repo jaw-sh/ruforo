@@ -1,12 +1,15 @@
 use super::message;
 use actix::prelude::*;
 use rand::{self, rngs::ThreadRng, Rng};
+use redis::aio::MultiplexedConnection as RedisConnection;
 use sea_orm::DatabaseConnection;
 use std::collections::{HashMap, HashSet};
 
 /// `ChatServer` manages chat rooms and responsible for coordinating chat
 /// session. implementation is super primitive
 pub struct ChatServer {
+    db: DatabaseConnection,
+    redis: RedisConnection,
     /// Random Id -> Recipient Addr
     connections: HashMap<usize, Recipient<message::ServerMessage>>,
     rooms: HashMap<usize, HashSet<usize>>,
@@ -14,13 +17,15 @@ pub struct ChatServer {
 }
 
 impl ChatServer {
-    pub async fn new_from_xf(db: &DatabaseConnection) -> ChatServer {
+    pub async fn new_from_xf(db: DatabaseConnection, redis: RedisConnection) -> ChatServer {
         log::info!("New ChatServer from XF Compat");
 
         // Populate rooms
-        let rooms = crate::compat::xf::room::get_room_list(db).await;
+        let rooms = crate::compat::xf::room::get_room_list(&db).await;
 
         ChatServer {
+            db,
+            redis,
             connections: HashMap::new(),
             rooms: HashMap::from_iter(
                 rooms
@@ -95,6 +100,20 @@ impl Handler<message::ClientMessage> for ChatServer {
         if message.author.can_send_message() {
             if let Ok(json) = &serde_json::to_string(&message) {
                 self.send_message(&message.room_id, &json);
+
+                // TODO: XF
+                // Spawn thread to insert MySQL row for this message.
+                // We don't care, remote app does.
+                let thread_db = self.db.clone();
+                let mut thread_redis = self.redis.clone();
+                actix_web::rt::spawn(async move {
+                    crate::compat::xf::message::insert_chat_message(
+                        message,
+                        &thread_db,
+                        &mut thread_redis,
+                    )
+                    .await;
+                });
             } else {
                 log::error!("ChatServer has failed to serialize a ClientMessage");
             }

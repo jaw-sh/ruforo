@@ -11,7 +11,8 @@
         {% if rooms.len() > 0 %}
         <div id="chat-rooms">
             {% for room in rooms %}
-            <span class="chat-room" role="button" data-id="{{ room.room_id }}">{{ room.title }}</span>
+            <a class="chat-room" role="button" href="#{{ room.room_id }}"
+                data-id="{{ room.room_id }}">{{room.title}}</a>
             {% endfor %}
         </div>
         {% endif %}
