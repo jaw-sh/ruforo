@@ -33,14 +33,14 @@ pub fn bbcode_to_html(input: &str) -> String {
     let mut lexer = Lexer::new(true);
 
     let dom = lexer.lex(tokenizer.tokenize(input));
-    let prefetch_data = async_std::task::block_on(
-        crate::attachment::get_attachments_by_ugc_attachment_id(lexer.attachments.to_owned()),
-    );
+    //let prefetch_data = async_std::task::block_on(
+    //    crate::attachment::get_attachments_by_ugc_attachment_id(lexer.attachments.to_owned()),
+    //);
 
     HTMLConstructor {
         output_string: String::with_capacity(input.len() + input.len() / 2),
         pretty_print: false,
-        prefetch_data,
+        prefetch_data: Default::default(),
     }
     .construct(dom)
 }
