@@ -94,8 +94,6 @@ html.chat body,
     position: relative;
     padding-left: 72px;
     padding-right: 48px;
-    padding-top: 0.125rem;
-    padding-bottom: 0.125rem;
 
     // Left-hand content
     .left-content {
@@ -119,6 +117,10 @@ html.chat body,
     .author {
         font-weight: bold;
         margin-right: 0.25rem;
+        cursor: pointer;
+        cursor: copy;
+        cursor: alias;
+        user-select: none;
     }
 
     .timestamp {
@@ -127,6 +129,12 @@ html.chat body,
         font-size: 0.75rem;
         margin-left: 0.25rem;
         vertical-align: baseline;
+    }
+
+    // Message Line
+    .message {
+        border-left: 2px solid transparent;
+        padding-left: 0.25rem;
     }
 
     // Right-hand buttons
@@ -145,6 +153,49 @@ html.chat body,
     .left-content,
     .meta {
         display: none;
+    }
+}
+
+.chat-message--isIgnored {
+    &::before {
+        content: "Blocked message.";
+        font-size: .9rem;
+    }
+
+    &+.chat-message--isIgnored {
+        display: none;
+    }
+
+    .left-content,
+    .main-content,
+    .right-content {
+        display: none;
+    }
+}
+
+// Message highlighting
+.message {
+
+    // Order is important. Later covers earlier.
+    .chat-message--highlightYou & {
+        border-left-color: rgba(255, 26, 26, .5);
+        background-color: rgba(255, 26, 26, .1);
+    }
+
+    .chat-message--highlightUser & {
+        border-left-color: rgba(255, 26, 255, 0.5);
+        background-color: rgba(255, 26, 255, 0.1);
+    }
+
+    .chat-message--highlightAuthor & {
+        border-left-color: rgba(26, 255, 26, 0.5);
+        background-color: rgba(26, 255, 26, 0.1);
+    }
+
+    .chat-message--highlight &,
+    .chat-message:hover & {
+        border-left-color: rgba(250, 166, 26, 0.5);
+        background-color: rgba(250, 166, 26, 0.1);
     }
 }
 

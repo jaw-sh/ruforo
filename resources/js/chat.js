@@ -1,6 +1,8 @@
 document.addEventListener("DOMContentLoaded", function () {
-    let ws = new WebSocket(CHAT_URL);
+    let ws = new WebSocket(APP.chat_ws_url);
     let room = null;
+    let messageHoverEl = null;
+    let userHover = null;
 
     messagePush("Connecting to SneedChat...");
 
@@ -37,11 +39,76 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!roomJoinByHash()) {
                 messagePush("Connected! You may now join a room.");
             }
+            else {
+                messagePush("Connected!");
+            }
         }
         else {
             messagePush(`Connected to <em>${room.title}</em>!`);
         }
     });
+
+    function messageAddEventListeners(element) {
+        if (Object.keys(element.dataset).indexOf('author') > -1) {
+            element.addEventListener('mouseenter', messageMouseEnter);
+            element.addEventListener('mouseleave', messageMouseLeave);
+        }
+
+        let authorEl = element.querySelector('.author');
+        if (authorEl !== null) {
+            authorEl.addEventListener('click', usernameClick);
+        }
+
+        Array.from(element.querySelectorAll('.username')).forEach(function (usernameEl) {
+            usernameEl.addEventListener('click', usernameClick);
+            usernameEl.addEventListener('mouseenter', usernameEnter);
+            usernameEl.addEventListener('mouseleave', usernameLeave);
+        });
+    }
+
+    function messageMouseEnter(event) {
+        var author = parseInt(this.dataset.author, 10);
+
+        // Are we already hovering over something?
+        if (messageHoverEl !== null) {
+            // Is it the same message?
+            if (this == messageHoverEl) {
+                // We don't need to do anything.
+                return true;
+            }
+
+            // Is it by the same author?
+            if (author === parseInt(messageHoverEl.dataset.author, 10)) {
+                // Great, we don't need to do anything.
+                //messageHoverEl = $msg;
+                //chat.$msgs.children().removeClass(chat.classes.highlightHover);
+                //$msg.addClass(chat.classes.highlightHover);
+                return true;
+            }
+        }
+
+        messageHoverEl = this;
+
+        Array.from(document.querySelectorAll('.chat-message--highlightAuthor')).forEach(function (el) {
+            el.classList.remove('chat-message--highlightAuthor');
+        });
+
+        Array.from(document.querySelectorAll(`.chat-message[data-author='${author}']`)).forEach(function (el) {
+            el.classList.add('chat-message--highlightAuthor');
+        });
+    }
+
+    function messageMouseLeave(event) {
+        // We only need to do anything if we're hovering over this message.
+        // If we moved between messages, this work is already done.
+        if (messageHoverEl !== null && messageHoverEl == this) {
+            // We are off of any message, so remove the hovering classes.
+            messageHoverEl = null;
+            Array.from(document.querySelectorAll('.chat-message--highlightAuthor')).forEach(function (el) {
+                el.classList.remove('chat-message--highlightAuthor');
+            });
+        }
+    }
 
     function messagePush(message, author) {
         let messages = document.getElementById('chat-messages');
@@ -59,6 +126,10 @@ document.addEventListener("DOMContentLoaded", function () {
         if (typeof author === 'object' && author !== null) {
             template.children[0].dataset.author = author.id;
 
+            if (APP.user.ignored_users.includes(author.id)) {
+                template.children[0].classList.add("chat-message--isIgnored");
+            }
+
             // Group consequtive messages by the same author.
             let lastChild = messages.lastElementChild;
             if (lastChild !== null && lastChild.dataset.author == author.id) {
@@ -69,8 +140,16 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
 
-            template.querySelector('.author').innerHTML = author.username;
-            template.querySelector('.avatar').setAttribute('src', `/data/avatars/m/${Math.floor(author.id / 1000)}/${author.id}.jpg?${author.avatar_date}`);
+            let authorEl = template.querySelector('.author');
+            authorEl.innerHTML = author.username;
+            authorEl.dataset.id = author.id;
+
+            if (author.avatar_date > 0) {
+                template.querySelector('.avatar').setAttribute('src', `/data/avatars/m/${Math.floor(author.id / 1000)}/${author.id}.jpg?${author.avatar_date}`);
+            }
+            else {
+                template.querySelector('.avatar').remove();
+            }
         }
         else {
             template.querySelector('.meta').remove();
@@ -78,7 +157,13 @@ document.addEventListener("DOMContentLoaded", function () {
             //template.querySelector('.right-content').remove();
         }
 
-        messages.appendChild(template);
+        // Check tagging.
+        if (message.includes(`@${APP.user.username}`)) {
+            template.children[0].classList.add("chat-message--highlightYou");
+        }
+
+        let el = messages.appendChild(template.children[0]);
+        messageAddEventListeners(el);
         scrollToNew();
     }
 
@@ -110,6 +195,45 @@ document.addEventListener("DOMContentLoaded", function () {
         let scroller = document.getElementById('chat-scroller');
         scroller.scrollTo(0, scroller.scrollHeight);
     }
+
+    function usernameClick(event) {
+        // TODO: Replace with Dialog like Discord?
+        document.getElementById('chat-input').value += `@${this.textContent}, `;
+
+        event.preventDefault();
+        return false;
+    }
+
+    function usernameEnter(event) {
+        var id = parseInt(this.dataset.id, 10);
+
+        if (userHover === id) {
+            return true;
+        }
+
+        userHover = id;
+
+        Array.from(document.querySelectorAll('.chat-message--highlightUser')).forEach(function (el) {
+            el.classList.remove('chat-message--highlightUser');
+        });
+        Array.from(document.querySelectorAll(`[data-author='${id}']`)).forEach(function (el) {
+            el.classList.add('chat-message--highlightUser');
+        });
+    }
+
+    function usernameLeave(event) {
+        var id = parseInt(this.dataset.id, 10);
+
+        // Are we hovering over the same message still?
+        // This stops unhovering when moving between hover targets.
+        if (userHover === id) {
+            userHover = null;
+            Array.from(document.querySelectorAll('.chat-message--highlightUser')).forEach(function (el) {
+                el.classList.remove('chat-message--highlightUser');
+            });
+        }
+    }
+
 
     // Room buttons
     //document.getElementById('chat-rooms').addEventListener('click', function (event) {

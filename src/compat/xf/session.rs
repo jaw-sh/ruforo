@@ -1,19 +1,20 @@
 // This is dark magic which interprets the XF2 PHP-serialized session keys.
 
 use super::orm::user;
+use super::orm::user_ignored;
 use actix_web::{web::Data, HttpRequest};
 use redis::Commands;
 use sea_orm::entity::prelude::*;
 use sea_orm::{DatabaseConnection, FromQueryResult, QuerySelect};
 use serde::{Deserialize, Serialize};
-use serde_php::from_bytes;
 use std::time::Duration;
 
-#[derive(Clone, Debug, FromQueryResult, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct XfSession {
     pub id: u32,
     pub username: String,
     pub avatar_date: u32,
+    pub ignored_users: Vec<u32>,
 }
 
 impl XfSession {
@@ -32,9 +33,37 @@ impl XfSession {
     }
 }
 
+impl Default for XfSession {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            username: "Guest".to_owned(),
+            avatar_date: 0,
+            ignored_users: Default::default(),
+        }
+    }
+}
+
+#[derive(FromQueryResult)]
+struct XfSessionDatabase {
+    pub id: u32,
+    pub username: String,
+    pub avatar_date: u32,
+}
+
+impl Default for XfSessionDatabase {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            username: "Guest".to_owned(),
+            avatar_date: 0,
+        }
+    }
+}
+
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Eq, PartialEq)]
-struct XfSessionData {
+struct XfSessionSerialized {
     userId: u32,
 }
 
@@ -53,7 +82,8 @@ pub async fn get_user_from_request(db: &DatabaseConnection, req: &HttpRequest) -
 
             match session_value {
                 Ok(session) => {
-                    //match from_bytes::<XfSessionData>(str::replace(&session, "\\", "").as_bytes()) {
+                    //use serde_php::from_bytes;
+                    //match from_bytes::<XfSessionSerialized>(str::replace(&session, "\\", "").as_bytes()) {
                     match regex::Regex::new(r#"s:6:\\?"?userId\\?"?;i:(?P<user_id>\d+);"#) {
                         Ok(ex) => match ex.captures(&session) {
                             Some(captures) => {
@@ -83,32 +113,58 @@ pub async fn get_user_from_request(db: &DatabaseConnection, req: &HttpRequest) -
 
     println!("Session id: {:?}", id);
 
-    if id > 0 {
+    // Fetch basic user info
+    let session = if id > 0 {
         match user::Entity::find_by_id(id)
             .select_only()
             .column_as(user::Column::UserId, "id")
             .column(user::Column::Username)
             .column(user::Column::AvatarDate)
             .filter(user::Column::UserId.eq(id))
-            .into_model::<XfSession>()
+            .into_model::<XfSessionDatabase>()
             .one(db)
             .await
         {
             Ok(res) => match res {
-                Some(session) => return session,
+                Some(session) => session,
                 None => {
                     println!("No result for user id {:?}", id);
+                    XfSessionDatabase::default()
                 }
             },
             Err(err) => {
                 println!("MySQL Error: {:?}", err);
+                XfSessionDatabase::default()
             }
-        };
-    }
+        }
+    } else {
+        XfSessionDatabase::default()
+    };
+
+    // Fetch additional information
+    let ignored_users: Vec<u32> = if session.id > 0 {
+        match user_ignored::Entity::find()
+            .filter(user_ignored::Column::UserId.eq(id))
+            .all(db)
+            .await
+        {
+            Ok(res) => res
+                .into_iter()
+                .map(|m| m.ignored_user_id)
+                .collect::<Vec<u32>>(),
+            Err(err) => {
+                println!("MySQL Error: {:?}", err);
+                Default::default()
+            }
+        }
+    } else {
+        Default::default()
+    };
 
     XfSession {
-        id: 0,
-        username: "Guest".to_owned(),
-        avatar_date: 0,
+        id: session.id,
+        username: session.username,
+        avatar_date: session.avatar_date,
+        ignored_users,
     }
 }

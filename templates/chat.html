@@ -5,7 +5,7 @@
     <title>Rust Chat</title>
     <link rel="stylesheet" type="text/css" href="/assets/style.css" />
     <script>
-        const CHAT_URL = "{{ std::env::var("XF_WS_URL").expect("XF_WS_URL needs to be set in .env") }}";
+        const APP = {{ app_json| safe }};
     </script>
 </head>
 
@@ -31,7 +31,7 @@
     </div>
 
     <template id="tmp-chat-message">
-        {% include "ugc/chat.html" %}
+        {% include "ugc/chat_message.html" %}
     </template>
 
     <script src="/assets/chat.js" type="module"></script>

@@ -3,7 +3,7 @@ pub mod message;
 pub mod server;
 
 use crate::compat::xf::orm::chat_room;
-use crate::compat::xf::session::get_user_from_request;
+use crate::compat::xf::session::{get_user_from_request, XfSession};
 use actix::Addr;
 use actix_web::{get, web, web::Data, Error, HttpRequest, HttpResponse, Responder};
 use actix_web_actors::ws;
@@ -43,17 +43,27 @@ pub async fn service(req: HttpRequest, stream: web::Payload) -> Result<HttpRespo
 #[template(path = "chat.html")]
 struct ChatTestTemplate {
     rooms: Vec<chat_room::Model>,
+    app_json: String,
 }
 
 #[get("/test-chat")]
 pub async fn view_chat(req: HttpRequest) -> impl Responder {
     use crate::compat::xf::room::get_room_list;
+
     let db = req
         .app_data::<Data<DatabaseConnection>>()
         .expect("No database connection.");
+    let session = get_user_from_request(db, &req).await;
 
     ChatTestTemplate {
         rooms: get_room_list(db).await,
+        app_json: format!(
+            "{{
+                chat_ws_url: \"{}\",
+                user: {},
+            }}",
+            std::env::var("XF_WS_URL").expect("XF_WS_URL needs to be set in .env"),
+            serde_json::to_string(&session).expect("XfSession stringify failed"),
+        ),
     }
-    .to_response()
 }
