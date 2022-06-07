@@ -155,9 +155,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function roomJoin(id) {
         if (Number.isInteger(id) && id > 0) {
+            scrollEl.classList.add('ScrollAnchorConsume');
             messagesDelete();
             messageSend(`/join ${id}`);
-            scrollEl.classList.add('ScrollLocked'); // lock chat so autoscroll starts again.
             return true;
         }
 
@@ -176,31 +176,30 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function scrollerScroll(event) {
-        this._focused = true;
+        const clampHeight = 32; // margin of error
 
         // if last scrollTop is lower (greater) than current scroll top,
         // we have scrolled down.
         if (this.lastScrollPos > this.scrollTop) {
-            this.classList.remove('ScrollLocked');
+            if (!this.classList.contains("ScrollAnchorConsume")) {
+                this.classList.add('ScrollAnchored');
+            }
+            else {
+                this.classList.remove('ScrollAnchorConsume');
+            }
         }
         // if we've scrolled down and we are very close to the bottom
         // based on the height of the viewport, lock it in
-        else {
-            const clampHeight = 32; // margin of error
-
-            if (this.offsetHeight + this.scrollTop >= this.scrollHeight - clampHeight) {
-                this.classList.add('ScrollLocked');
-            }
+        else if (this.offsetHeight + this.scrollTop >= this.scrollHeight - clampHeight) {
+            this.classList.remove('ScrollAnchored');
         }
 
         this.lastScrollPos = this.scrollTop;
     }
 
     function scrollToNew() {
-        let scroller = document.getElementById('chat-scroller');
-
-        if (scroller.classList.contains('ScrollLocked')) {
-            scroller.scrollTo(0, scroller.scrollHeight);
+        if (!scrollEl.classList.contains('ScrollAnchored')) {
+            scrollEl.scrollTo(0, scrollEl.scrollHeight);
         }
     }
 
@@ -313,7 +312,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Scroll window
     scrollEl.addEventListener('scroll', scrollerScroll);
-    scrollEl.classList.add('ScrollLocked');
+    //scrollEl.classList.add('ScrollLocked');
     setInterval(scrollToNew, 64);
 
     // Form
@@ -333,6 +332,13 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     window.addEventListener('hashchange', roomJoinByHash, false);
+    window.addEventListener('resize', function (event) {
+        if (!scrollEl.classList.contains("ScrollAnchor")) {
+            scrollEl.classList.add("ScrollAnchorConsume");
+        }
+        scrollToNew();
+    });
+
 
     websocketConnect();
 });
