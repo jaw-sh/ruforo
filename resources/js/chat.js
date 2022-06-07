@@ -203,6 +203,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (Number.isInteger(id) && id > 0) {
             messagesDelete();
             messageSend(`/join ${id}`);
+            scrollEl.classList.add('ScrollLocked'); // lock chat so autoscroll starts again.
             return true;
         }
 
