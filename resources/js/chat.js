@@ -314,6 +314,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Scroll window
     scrollEl.addEventListener('scroll', scrollerScroll);
     scrollEl.classList.add('ScrollLocked');
+    setInterval(scrollToNew, 64);
 
     // Form
     document.getElementById('chat-input').addEventListener('keydown', function (event) {
