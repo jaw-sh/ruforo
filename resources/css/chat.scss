@@ -268,3 +268,12 @@ html.chat body,
     word-break: break-word;
     white-space: break-spaces;
 }
+
+// chat shim compat
+@media (max-height: 100px) {
+
+    #chat-rooms,
+    #chat-form {
+        display: none;
+    }
+}

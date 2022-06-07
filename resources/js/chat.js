@@ -192,8 +192,16 @@ document.addEventListener("DOMContentLoaded", function () {
         ws.send(message);
     }
 
+    function messagesDelete() {
+        let messagesEl = document.getElementById('chat-messages');
+        while (messagesEl.firstChild) {
+            messagesEl.removeChild(messagesEl.firstChild);
+        }
+    }
+
     function roomJoin(id) {
         if (Number.isInteger(id) && id > 0) {
+            messagesDelete();
             messageSend(`/join ${id}`);
             return true;
         }
