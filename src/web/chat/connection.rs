@@ -119,6 +119,11 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
             }
             ws::Message::Text(text) => {
                 let m = text.trim();
+
+                if m.len() <= 0 || m.len() >= 1024 {
+                    return;
+                }
+
                 // Forward-slash commands
                 if m.starts_with('/') {
                     let v: Vec<&str> = m.splitn(2, ' ').collect();

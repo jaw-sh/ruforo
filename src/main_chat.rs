@@ -43,7 +43,7 @@ async fn main() -> std::io::Result<()> {
             std::env::var("XF_MYSQL_URL").expect("XF_MYSQL_URL required for chat binary."),
         );
         options
-            .max_connections(100)
+            .max_connections(256)
             .min_connections(5)
             .connect_timeout(Duration::from_secs(1))
             .idle_timeout(Duration::from_secs(8))
