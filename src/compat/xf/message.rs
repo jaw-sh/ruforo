@@ -1,8 +1,7 @@
 use super::orm::chat_message;
 use crate::web::chat::message::ClientMessage;
-use redis::{aio::MultiplexedConnection as RedisConnection, AsyncCommands, RedisError};
+use redis::aio::MultiplexedConnection as RedisConnection;
 use sea_orm::{entity::*, prelude::*, query::*, DatabaseConnection, QueryFilter};
-use std::collections::VecDeque;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub async fn get_chat_room_history(
@@ -25,7 +24,6 @@ pub async fn get_chat_room_history(
 pub async fn insert_chat_message(
     message: &ClientMessage,
     db: &DatabaseConnection,
-    redis: &mut RedisConnection,
 ) -> ClientMessage {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)

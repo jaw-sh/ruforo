@@ -12,9 +12,9 @@ use sea_orm::DatabaseConnection;
 use std::time::{Duration, Instant};
 
 /// How often heartbeat pings are sent
-pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
+pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
 /// How long before lack of client response causes a timeout
-pub const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
+pub const CLIENT_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Entry point for our websocket route
 pub async fn service(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {

@@ -1,5 +1,5 @@
 use super::message;
-use crate::compat::xf::session::{XfAuthor, XfSession};
+use crate::compat::xf::session::XfAuthor;
 use actix::prelude::*;
 use rand::{self, rngs::ThreadRng, Rng};
 use redis::aio::MultiplexedConnection as RedisConnection;
@@ -109,16 +109,15 @@ impl Handler<message::ClientMessage> for ChatServer {
             let mut redis = self.redis.clone();
 
             Box::pin(
-                async move {
-                    crate::compat::xf::message::insert_chat_message(&message, &db, &mut redis).await
-                }
-                .into_actor(self)
-                .map(move |message, actor, _ctx| {
-                    actor.send_message(
-                        &message.room_id,
-                        &serde_json::to_string(&message).expect("ClientMessage stringify failed."),
-                    );
-                }),
+                async move { crate::compat::xf::message::insert_chat_message(&message, &db).await }
+                    .into_actor(self)
+                    .map(move |message, actor, _ctx| {
+                        actor.send_message(
+                            &message.room_id,
+                            &serde_json::to_string(&message)
+                                .expect("ClientMessage stringify failed."),
+                        );
+                    }),
             )
         } else {
             self.send_message_to(message.id, "You cannot send messages.");
