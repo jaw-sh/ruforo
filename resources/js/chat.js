@@ -115,7 +115,7 @@ document.addEventListener("DOMContentLoaded", function () {
             Array.from(template.querySelectorAll('.timestamp')).forEach(function (el) {
                 let time = new Date(message.message_date * 1000);
                 let hours = time.getHours();
-                let minutes = time.getMinutes();
+                let minutes = String(time.getMinutes()).padStart(2, '0');
 
                 el.setAttribute('datetime', message.message_date);
 
