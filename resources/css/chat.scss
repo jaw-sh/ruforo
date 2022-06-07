@@ -94,6 +94,7 @@ html.chat body,
     position: relative;
     padding-left: 72px;
     padding-right: 48px;
+    margin-top: 1.0625rem;
 
     // Left-hand content
     .left-content {
@@ -112,6 +113,9 @@ html.chat body,
         display: block;
         line-height: 1.375rem;
         min-height: 1.375rem;
+
+        margin-left: 2px;
+        padding-left: 0.25rem;
     }
 
     .author {
@@ -183,6 +187,7 @@ html.chat body,
 }
 
 .chat-message--hasParent {
+    margin-top: 0;
 
     .left-content,
     .meta {
