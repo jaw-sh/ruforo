@@ -1,55 +1,9 @@
 document.addEventListener("DOMContentLoaded", function () {
-    let ws = new WebSocket(APP.chat_ws_url);
+    let ws = null;
     let room = null;
     let messageHoverEl = null;
     let userHover = null;
     let scrollEl = document.getElementById('chat-scroller');
-
-    messagePush("Connecting to SneedChat...");
-
-    ws.addEventListener('close', function (event) {
-        messagePush("Connection closed by remote server.");
-    });
-
-    ws.addEventListener('error', function (event) {
-        console.log(event);
-    });
-
-    ws.addEventListener('message', function (event) {
-        let author = null;
-        let id = null;
-        let message = null;
-
-        // Try to parse JSON data.
-        try {
-            let json = JSON.parse(event.data);
-            author = json.author;
-            message = json.message;
-            id = json.message_id;
-        }
-        // Not valid JSON, default
-        catch (error) {
-            message = event.data;
-        }
-        // Push whatever we got to chat.
-        finally {
-            messagePush(message, author, id);
-        }
-    });
-
-    ws.addEventListener('open', function (event) {
-        if (room === null) {
-            if (!roomJoinByHash()) {
-                messagePush("Connected! You may now join a room.");
-            }
-            else {
-                messagePush("Connected!");
-            }
-        }
-        else {
-            messagePush(`Connected to <em>${room.title}</em>!`);
-        }
-    });
 
     function messageAddEventListeners(element) {
         if (Object.keys(element.dataset).indexOf('author') > -1) {
@@ -291,6 +245,56 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
+    function websocketConnect() {
+        ws = new WebSocket(APP.chat_ws_url);
+        messagePush("Connecting to SneedChat...");
+
+        ws.addEventListener('close', function (event) {
+            messagePush("Connection lost. Please wait - attempting reestablish");
+            setTimeout(websocketConnect, 3000);
+        });
+
+        ws.addEventListener('error', function (event) {
+            console.log(event);
+        });
+
+        ws.addEventListener('message', function (event) {
+            let author = null;
+            let id = null;
+            let message = null;
+
+            // Try to parse JSON data.
+            try {
+                let json = JSON.parse(event.data);
+                author = json.author;
+                message = json.message;
+                id = json.message_id;
+            }
+            // Not valid JSON, default
+            catch (error) {
+                message = event.data;
+            }
+            // Push whatever we got to chat.
+            finally {
+                messagePush(message, author, id);
+            }
+        });
+
+        ws.addEventListener('open', function (event) {
+            if (room === null) {
+                if (!roomJoinByHash()) {
+                    messagePush("Connected! You may now join a room.");
+                }
+                else {
+                    messagePush("Connected!");
+                }
+            }
+            else {
+                messagePush(`Connected to <em>${room.title}</em>!`);
+            }
+        });
+    }
+
 
     // Room buttons
     //document.getElementById('chat-rooms').addEventListener('click', function (event) {
@@ -328,4 +332,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     window.addEventListener('hashchange', roomJoinByHash, false);
+
+    websocketConnect();
 });
