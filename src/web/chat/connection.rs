@@ -4,7 +4,7 @@ use super::{CLIENT_TIMEOUT, HEARTBEAT_INTERVAL};
 use crate::compat::xf::session::XfSession;
 use actix::*;
 use actix_web_actors::ws;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub struct Connection {
     /// connection id
@@ -18,6 +18,8 @@ pub struct Connection {
     pub room: Option<usize>,
     /// Chat server
     pub addr: Addr<ChatServer>,
+    /// Last command (any) sent
+    pub last_command: Instant,
 }
 
 impl Connection {
@@ -169,6 +171,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                     self.addr.do_send(message::ClientMessage {
                         id: self.id,
                         room_id: room_id,
+                        message_id: 0,
                         author: self.session.clone(),
                         message: crate::bbcode::bbcode_to_html(m),
                     })

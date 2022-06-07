@@ -3,11 +3,12 @@ pub mod message;
 pub mod server;
 
 use crate::compat::xf::orm::chat_room;
-use crate::compat::xf::session::{get_user_from_request, XfSession};
+use crate::compat::xf::session::get_user_from_request;
 use actix::Addr;
-use actix_web::{get, web, web::Data, Error, HttpRequest, HttpResponse, Responder};
+use actix_web::http::header;
+use actix_web::{error, get, web, web::Data, Error, HttpRequest, HttpResponse, Responder};
 use actix_web_actors::ws;
-use askama_actix::{Template, TemplateToResponse};
+use askama_actix::Template;
 use sea_orm::DatabaseConnection;
 use std::time::{Duration, Instant};
 
@@ -33,6 +34,7 @@ pub async fn service(req: HttpRequest, stream: web::Payload) -> Result<HttpRespo
                 .app_data::<Addr<server::ChatServer>>()
                 .expect("No chat server.")
                 .clone(),
+            last_command: Instant::now(),
         },
         &req,
         stream,

@@ -10,10 +10,12 @@ use std::collections::{HashMap, HashSet};
 pub struct ChatServer {
     db: DatabaseConnection,
     redis: RedisConnection,
+
+    rng: ThreadRng,
+
     /// Random Id -> Recipient Addr
     connections: HashMap<usize, Recipient<message::ServerMessage>>,
     rooms: HashMap<usize, HashSet<usize>>,
-    rng: ThreadRng,
 }
 
 impl ChatServer {
@@ -26,13 +28,13 @@ impl ChatServer {
         ChatServer {
             db,
             redis,
+            rng: rand::thread_rng(),
             connections: HashMap::new(),
             rooms: HashMap::from_iter(
                 rooms
                     .into_iter()
                     .map(|r| (r.room_id as usize, HashSet::<usize>::default())),
             ),
-            rng: rand::thread_rng(),
         }
     }
 
@@ -78,7 +80,7 @@ impl Handler<message::Connect> for ChatServer {
     fn handle(&mut self, msg: message::Connect, _: &mut Context<Self>) -> Self::Result {
         println!("Someone joined");
 
-        // register session with random id
+        // regifter session with random id
         let id = self.rng.gen::<usize>();
         self.connections.insert(id, msg.addr);
 
@@ -94,31 +96,32 @@ impl Handler<message::Connect> for ChatServer {
 
 /// Handler for Message message.
 impl Handler<message::ClientMessage> for ChatServer {
-    type Result = ();
+    type Result = ResponseActFuture<Self, ()>;
 
-    fn handle(&mut self, message: message::ClientMessage, _: &mut Context<Self>) {
+    fn handle(
+        &mut self,
+        message: message::ClientMessage,
+        _ctx: &mut Context<Self>,
+    ) -> Self::Result {
         if message.author.can_send_message() {
-            if let Ok(json) = &serde_json::to_string(&message) {
-                self.send_message(&message.room_id, &json);
+            let db = self.db.clone();
+            let mut redis = self.redis.clone();
 
-                // TODO: XF
-                // Spawn thread to insert MySQL row for this message.
-                // We don't care, remote app does.
-                let thread_db = self.db.clone();
-                let mut thread_redis = self.redis.clone();
-                actix_web::rt::spawn(async move {
-                    crate::compat::xf::message::insert_chat_message(
-                        message,
-                        &thread_db,
-                        &mut thread_redis,
-                    )
-                    .await;
-                });
-            } else {
-                log::error!("ChatServer has failed to serialize a ClientMessage");
-            }
+            Box::pin(
+                async move {
+                    crate::compat::xf::message::insert_chat_message(&message, &db, &mut redis).await
+                }
+                .into_actor(self)
+                .map(move |message, actor, _ctx| {
+                    actor.send_message(
+                        &message.room_id,
+                        &serde_json::to_string(&message).expect("ClientMessage stringify failed."),
+                    );
+                }),
+            )
         } else {
             self.send_message_to(message.id, "You cannot send messages.");
+            Box::pin(async {}.into_actor(self))
         }
     }
 }
@@ -165,32 +168,64 @@ impl Handler<message::ListRooms> for ChatServer {
 /// Join room, send disconnect message to old room
 /// send join message to new room
 impl Handler<message::Join> for ChatServer {
-    type Result = ();
+    type Result = ResponseActFuture<Self, ()>;
 
-    fn handle(&mut self, message: message::Join, _: &mut Context<Self>) {
-        let message::Join {
-            id,
-            room_id,
-            author,
-        } = message;
-        let mut rooms = Vec::new();
+    fn handle(&mut self, message: message::Join, _: &mut Context<Self>) -> Self::Result {
+        if true {
+            let message::Join {
+                id,
+                room_id,
+                author,
+            } = message;
+            let mut rooms = Vec::new();
 
-        // remove session from all rooms
-        for (n, connections) in &mut self.rooms {
-            if connections.remove(&id) {
-                rooms.push(n.to_owned());
+            // remove session from all rooms
+            for (n, connections) in &mut self.rooms {
+                if connections.remove(&id) {
+                    rooms.push(n.to_owned());
+                }
             }
-        }
-        // send message to other users
-        for this_room in rooms {
-            self.send_message(&this_room, &format!("{} left the room.", &author.username));
-        }
 
-        self.rooms
-            .entry(room_id.clone())
-            .or_insert_with(HashSet::new)
-            .insert(id);
+            // send message to other users
+            //for this_room in rooms {
+            //    self.send_message(&this_room, &format!("{} left the room.", &author.username));
+            //}
 
-        self.send_message(&room_id, &format!("{} joined the room.", &author.username));
+            let db = self.db.clone();
+
+            Box::pin(
+                async move {
+                    use crate::compat::xf::message::get_chat_room_history;
+                    get_chat_room_history(&db, &(room_id as u32), 20).await
+                }
+                .into_actor(self)
+                .map(move |messages, actor, _ctx| {
+                    for message in messages {
+                        let client_msg = message::ClientMessage {
+                            id,
+                            room_id,
+                            author: author.clone(),
+                            message_id: message.message_id,
+                            message: message.message_text.to_owned(),
+                        };
+                        actor.send_message_to(
+                            id,
+                            &serde_json::to_string(&client_msg)
+                                .expect("ClientMessage stringify failed."),
+                        );
+                    }
+
+                    // Put user in room now so messages don't load in during history.
+                    actor
+                        .rooms
+                        .entry(room_id.clone())
+                        .or_insert_with(HashSet::new)
+                        .insert(id);
+                }),
+            )
+        } else {
+            self.send_message_to(message.id, "You cannot join this room.");
+            Box::pin(async {}.into_actor(self))
+        }
     }
 }

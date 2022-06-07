@@ -7,8 +7,7 @@ use serde::Serialize;
 // An u32 id is pulled from the db and is a user id.
 
 /// Send message to specific room
-#[derive(Message, Serialize)]
-#[rtype(result = "()")]
+#[derive(Serialize)]
 pub struct ClientMessage {
     /// Conn Id
     pub id: usize,
@@ -16,8 +15,14 @@ pub struct ClientMessage {
     pub author: XfSession,
     /// Recipient room
     pub room_id: usize,
+    /// Message ID from database
+    pub message_id: u32,
     /// Peer message
     pub message: String,
+}
+
+impl Message for ClientMessage {
+    type Result = ();
 }
 
 /// New chat session is created
@@ -58,3 +63,11 @@ impl actix::Message for ListRooms {
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct ServerMessage(pub String);
+
+/// Message from server to clients
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct RoomMessage {
+    pub room_id: usize,
+    pub message: String,
+}

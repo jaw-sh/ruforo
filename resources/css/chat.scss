@@ -139,6 +139,7 @@ html.chat body,
 
     // Right-hand buttons
     .right-content {
+        display: none;
         position: absolute;
         right: 0;
         z-index: 1;
@@ -146,6 +147,39 @@ html.chat body,
         padding: 0 14px 0 32px;
     }
 
+    .buttons {
+        display: grid;
+        grid-auto-flow: column;
+        box-sizing: border-box;
+        height: 32px;
+        border-radius: 4px;
+        align-items: center;
+        box-align: center;
+        box-pack: s tart;
+        justify-content: flex-start;
+        user-select: none;
+        position: relative;
+        overflow: hidden;
+        background-color: rgb(54, 57, 63);
+        box-shadow: 0 0 0 1px rgba(4, 4, 5, 0.15);
+    }
+
+    .button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 24px;
+        padding: 4px;
+        min-width: 24px;
+        flex: 0 0 auto;
+        color: rgb(185 187 190);
+        cursor: pointer;
+        position: relative;
+    }
+
+    &[id]:hover .right-content {
+        display: block;
+    }
 }
 
 .chat-message--hasParent {
@@ -205,7 +239,7 @@ html.chat body,
     flex-shrink: 0;
     padding-left: 16px;
     padding-right: 16px;
-    margin-top: -8px;
+    //margin-top: -8px;
 }
 
 #chat-input {

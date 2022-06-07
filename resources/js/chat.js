@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let room = null;
     let messageHoverEl = null;
     let userHover = null;
+    let scrollEl = document.getElementById('chat-scroller');
 
     messagePush("Connecting to SneedChat...");
 
@@ -16,6 +17,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     ws.addEventListener('message', function (event) {
         let author = null;
+        let id = null;
         let message = null;
 
         // Try to parse JSON data.
@@ -23,6 +25,7 @@ document.addEventListener("DOMContentLoaded", function () {
             let json = JSON.parse(event.data);
             author = json.author;
             message = json.message;
+            id = json.message_id;
         }
         // Not valid JSON, default
         catch (error) {
@@ -30,7 +33,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         // Push whatever we got to chat.
         finally {
-            messagePush(message, author);
+            messagePush(message, author, id);
         }
     });
 
@@ -110,7 +113,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    function messagePush(message, author) {
+    function messagePush(message, author, id) {
         let messages = document.getElementById('chat-messages');
         let template = document.getElementById('tmp-chat-message').content.cloneNode(true);
         let timeNow = new Date();
@@ -124,8 +127,10 @@ document.addEventListener("DOMContentLoaded", function () {
         timestamp.innerHTML = "Just now";
 
         if (typeof author === 'object' && author !== null) {
+            template.children[0].id = `chat-message-${id}`;
             template.children[0].dataset.author = author.id;
 
+            // Ignored poster?
             if (APP.user.ignored_users.includes(author.id)) {
                 template.children[0].classList.add("chat-message--isIgnored");
             }
@@ -140,16 +145,21 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             }
 
+            // Add meta details
             let authorEl = template.querySelector('.author');
             authorEl.innerHTML = author.username;
             authorEl.dataset.id = author.id;
 
+            // Add left-content details
             if (author.avatar_date > 0) {
                 template.querySelector('.avatar').setAttribute('src', `/data/avatars/m/${Math.floor(author.id / 1000)}/${author.id}.jpg?${author.avatar_date}`);
             }
             else {
                 template.querySelector('.avatar').remove();
             }
+
+            // Add right-content details
+            template.querySelector('.report').setAttribute('href', `/chat/messages/${id}/report`);
         }
         else {
             template.querySelector('.meta').remove();
@@ -164,7 +174,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
         let el = messages.appendChild(template.children[0]);
         messageAddEventListeners(el);
+
+        // Prune oldest messages.
+        while (messages.children.length > 200) {
+            messages.children[0].remove();
+        }
+
+        messages.children[0].classList.remove("chat-message--hasParent");
+
+        // Scroll down.
         scrollToNew();
+
+        return el;
     }
 
     function messageSend(message) {
@@ -191,14 +212,41 @@ document.addEventListener("DOMContentLoaded", function () {
         return false;
     }
 
+    function scrollerScroll(event) {
+        this._focused = true;
+
+        // if last scrollTop is lower (greater) than current scroll top,
+        // we have scrolled down.
+        if (this.lastScrollPos > this.scrollTop) {
+            this.classList.remove('ScrollLocked');
+        }
+        // if we've scrolled down and we are very close to the bottom
+        // based on the height of the viewport, lock it in
+        else {
+            const clampHeight = 32; // margin of error
+
+            if (this.offsetHeight + this.scrollTop >= this.scrollHeight - clampHeight) {
+                this.classList.add('ScrollLocked');
+            }
+        }
+
+        this.lastScrollPos = this.scrollTop;
+    }
+
     function scrollToNew() {
         let scroller = document.getElementById('chat-scroller');
-        scroller.scrollTo(0, scroller.scrollHeight);
+
+        if (scroller.classList.contains('ScrollLocked')) {
+            scroller.scrollTo(0, scroller.scrollHeight);
+        }
     }
 
     function usernameClick(event) {
         // TODO: Replace with Dialog like Discord?
-        document.getElementById('chat-input').value += `@${this.textContent}, `;
+        let input = document.getElementById('chat-input')
+        input.value += `@${this.textContent}, `;
+        input.setSelectionRange(input.value.length, input.value.length);
+        input.focus();
 
         event.preventDefault();
         return false;
@@ -249,6 +297,10 @@ document.addEventListener("DOMContentLoaded", function () {
     //        }
     //    }
     //});
+
+    // Scroll window
+    scrollEl.addEventListener('scroll', scrollerScroll);
+    scrollEl.classList.add('ScrollLocked');
 
     // Form
     document.getElementById('chat-input').addEventListener('keydown', function (event) {
