@@ -479,7 +479,7 @@ checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 [[package]]
 name = "askama"
 version = "0.11.2"
-source = "git+https://github.com/djc/askama#064077a9001e121a12fc234fee44514840380a0e"
+source = "git+https://github.com/djc/askama#0de54192a039943a687d579e15cb87bfc4801589"
 dependencies = [
  "askama_derive",
  "askama_escape 0.10.3 (git+https://github.com/djc/askama)",
@@ -489,7 +489,7 @@ dependencies = [
 [[package]]
 name = "askama_actix"
 version = "0.13.1"
-source = "git+https://github.com/djc/askama#064077a9001e121a12fc234fee44514840380a0e"
+source = "git+https://github.com/djc/askama#0de54192a039943a687d579e15cb87bfc4801589"
 dependencies = [
  "actix-web",
  "askama",
@@ -498,14 +498,16 @@ dependencies = [
 [[package]]
 name = "askama_derive"
 version = "0.12.0"
-source = "git+https://github.com/djc/askama#064077a9001e121a12fc234fee44514840380a0e"
+source = "git+https://github.com/djc/askama#0de54192a039943a687d579e15cb87bfc4801589"
 dependencies = [
  "mime",
  "mime_guess",
  "nom",
  "proc-macro2",
  "quote",
+ "serde",
  "syn",
+ "toml",
 ]
 
 [[package]]
@@ -517,20 +519,25 @@ checksum = "619743e34b5ba4e9703bba34deac3427c72507c7159f5fd030aea8cac0cfe341"
 [[package]]
 name = "askama_escape"
 version = "0.10.3"
-source = "git+https://github.com/djc/askama#064077a9001e121a12fc234fee44514840380a0e"
+source = "git+https://github.com/djc/askama#0de54192a039943a687d579e15cb87bfc4801589"
 
 [[package]]
 name = "askama_shared"
 version = "0.13.0"
-source = "git+https://github.com/djc/askama#064077a9001e121a12fc234fee44514840380a0e"
+source = "git+https://github.com/djc/askama#0de54192a039943a687d579e15cb87bfc4801589"
 dependencies = [
  "askama_escape 0.10.3 (git+https://github.com/djc/askama)",
+ "humansize",
  "mime",
  "mime_guess",
  "nom",
+ "num-traits",
+ "percent-encoding",
  "proc-macro2",
  "quote",
+ "serde",
  "syn",
+ "toml",
 ]
 
 [[package]]
@@ -1571,9 +1578,9 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "0.2.7"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff8670570af52249509a86f5e3e18a08c60b177071826898fde8997cf5f6bfbb"
+checksum = "75f43d41e26995c17e71ee126451dd3941010b0514a81a9d11f3b341debc2399"
 dependencies = [
  "bytes",
  "fnv",
@@ -1608,6 +1615,12 @@ name = "httpdate"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4a1e36c821dbe04574f602848a19f742f4fb3c98d40449f11bcad18d6b17421"
+
+[[package]]
+name = "humansize"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02296996cb8796d7c6e3bc2d9211b7802812d36999a51bb754123ead7d37d026"
 
 [[package]]
 name = "humantime"
@@ -3443,9 +3456,9 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.19.1"
+version = "1.19.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95eec79ea28c00a365f539f1961e9278fbcaf81c0ff6aaf0e93c181352446948"
+checksum = "c51a52ed6686dd62c320f9b89299e9dfb46f730c7a48e635c19f21d116cb1439"
 dependencies = [
  "bytes",
  "libc",
@@ -3530,6 +3543,15 @@ dependencies = [
  "pin-project-lite",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "toml"
+version = "0.5.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d82e1a7758622a465f8cee077614c73484dac5b836c02ff6a40d5d1010324d7"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

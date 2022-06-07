@@ -3,7 +3,7 @@
 
 <head>
     <title>Rust Chat</title>
-    <link rel="stylesheet" type="text/css" href="/assets/style.css?june-6-v4" />
+    <link rel="stylesheet" type="text/css" href="/assets/style.css?{{ webpack_time }}" />
     <script>
         const APP = {{ app_json| safe }};
     </script>
@@ -32,7 +32,7 @@
         {% include "ugc/chat_message.html" %}
     </template>
 
-    <script src="/assets/chat.js?june-6-v4" type="module"></script>
+    <script src="/assets/chat.js?{{ webpack_time }} type=" module"></script>
 </body>
 
 </html>

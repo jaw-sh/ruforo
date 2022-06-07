@@ -80,7 +80,7 @@ async fn main() -> std::io::Result<()> {
             .service(resource("/chat").to(crate::web::chat::service))
             .service(crate::web::chat::view_chat)
     })
-    .bind("127.0.0.1:8080")?
+    .bind(std::env::var("CHAT_WS_BIND").unwrap_or("127.0.0.1:8080".to_owned()))?
     .run()
     .await
 }
