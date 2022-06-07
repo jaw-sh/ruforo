@@ -67,21 +67,29 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    function messagePush(message, author, id) {
-        let messages = document.getElementById('chat-messages');
+    function messagePush(data) {
+        let author = null;
+        let message = null;
+
+        // Try to parse JSON data.
+        try {
+            message = JSON.parse(data);
+            author = message.author;
+        }
+        // Not valid JSON, default
+        catch (error) {
+            message = { message: data }; // plain text
+        }
+
+        let messagesEl = document.getElementById('chat-messages');
         let template = document.getElementById('tmp-chat-message').content.cloneNode(true);
         let timeNow = new Date();
 
-        template.querySelector('.message').innerHTML = message;
+        template.querySelector('.message').innerHTML = message.message;
         template.children[0].dataset.received = timeNow.getTime();
 
-        // Set the relative timestamp
-        let timestamp = template.querySelector('time');
-        timestamp.setAttribute('datetime', timeNow.toISOString());
-        timestamp.innerHTML = "Just now";
-
-        if (typeof author === 'object' && author !== null) {
-            template.children[0].id = `chat-message-${id}`;
+        if (author !== null) {
+            template.children[0].id = `chat-message-${message.message_id}`;
             template.children[0].dataset.author = author.id;
 
             // Ignored poster?
@@ -90,7 +98,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             // Group consequtive messages by the same author.
-            let lastChild = messages.lastElementChild;
+            let lastChild = messagesEl.lastElementChild;
             if (lastChild !== null && lastChild.dataset.author == author.id) {
                 // Allow to break into new groups if too much time has passed.
                 let timeLast = new Date(parseInt(lastChild.dataset.received, 10));
@@ -104,6 +112,21 @@ document.addEventListener("DOMContentLoaded", function () {
             authorEl.innerHTML = author.username;
             authorEl.dataset.id = author.id;
 
+            Array.from(template.querySelectorAll('.timestamp')).forEach(function (el) {
+                let time = new Date(message.message_date * 1000);
+                let hours = time.getHours();
+                let minutes = time.getMinutes();
+
+                el.setAttribute('datetime', message.message_date);
+
+                if (el.classList.contains('relative')) {
+                    el.innerHTML = time.toLocaleDateString("en-US") + " " + time.toLocaleTimeString("en-US")
+                }
+                else {
+                    el.innerHTML = (hours % 12) + ":" + minutes + " " + (hours >= 12 ? "PM" : "AM");
+                }
+            });
+
             // Add left-content details
             if (author.avatar_date > 0) {
                 template.querySelector('.avatar').setAttribute('src', `/data/avatars/m/${Math.floor(author.id / 1000)}/${author.id}.jpg?${author.avatar_date}`);
@@ -113,28 +136,29 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             // Add right-content details
-            template.querySelector('.report').setAttribute('href', `/chat/messages/${id}/report`);
+            template.querySelector('.report').setAttribute('href', `/chat/messages/${message.message_id}/report`);
         }
         else {
+            template.children[0].classList.add("chat-message--systemMsg");
             template.querySelector('.meta').remove();
             template.querySelector('.left-content').remove();
             //template.querySelector('.right-content').remove();
         }
 
         // Check tagging.
-        if (message.includes(`@${APP.user.username}`)) {
+        if (message.message.includes(`@${APP.user.username}`)) {
             template.children[0].classList.add("chat-message--highlightYou");
         }
 
-        let el = messages.appendChild(template.children[0]);
+        let el = messagesEl.appendChild(template.children[0]);
         messageAddEventListeners(el);
 
         // Prune oldest messages.
-        while (messages.children.length > 200) {
-            messages.children[0].remove();
+        while (messagesEl.children.length > 200) {
+            messagesEl.children[0].remove();
         }
 
-        messages.children[0].classList.remove("chat-message--hasParent");
+        messagesEl.children[0].classList.remove("chat-message--hasParent");
 
         // Scroll down.
         scrollToNew();
@@ -258,25 +282,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         ws.addEventListener('message', function (event) {
-            let author = null;
-            let id = null;
-            let message = null;
-
-            // Try to parse JSON data.
-            try {
-                let json = JSON.parse(event.data);
-                author = json.author;
-                message = json.message;
-                id = json.message_id;
-            }
-            // Not valid JSON, default
-            catch (error) {
-                message = event.data;
-            }
-            // Push whatever we got to chat.
-            finally {
-                messagePush(message, author, id);
-            }
+            messagePush(event.data);
         });
 
         ws.addEventListener('open', function (event) {

@@ -210,6 +210,7 @@ impl Handler<message::Join> for ChatServer {
                                 avatar_date: 1,
                             },
                             message_id: message.message_id,
+                            message_date: message.message_date.try_into().unwrap(),
                             message: message.message_text.to_owned(),
                         };
                         actor.send_message_to(

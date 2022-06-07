@@ -17,6 +17,8 @@ pub struct ClientMessage {
     pub room_id: usize,
     /// Message ID from database
     pub message_id: u32,
+    /// Message Data
+    pub message_date: i32,
     /// Peer message
     pub message: String,
 }

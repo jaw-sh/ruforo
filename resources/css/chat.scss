@@ -97,12 +97,11 @@ html.chat body,
     margin-top: 1.0625rem;
 
     // Left-hand content
-    .left-content {
-        position: absolute;
-        left: 16px;
-    }
+    .left-content {}
 
     .avatar {
+        position: absolute;
+        left: 16px;
         height: 40px;
         width: 40px;
         border-radius: 50%;
@@ -128,11 +127,20 @@ html.chat body,
     }
 
     .timestamp {
-        display: none;
         height: 1.25rem;
         font-size: 0.75rem;
         margin-left: 0.25rem;
         vertical-align: baseline;
+
+        &.static {
+            position: absolute;
+            left: 0;
+            display: none;
+            height: 1.375rem;
+            width: 56px;
+            line-height: 1.375rem;
+            text-align: center;
+        }
     }
 
     // Message Line
@@ -186,12 +194,21 @@ html.chat body,
     }
 }
 
+.chat-message--systemMsg {
+    font-family: monospace;
+    color: #ccc;
+}
+
 .chat-message--hasParent {
     margin-top: 0;
 
-    .left-content,
+    .avatar,
     .meta {
         display: none;
+    }
+
+    &:hover .timestamp.static {
+        display: block;
     }
 }
 

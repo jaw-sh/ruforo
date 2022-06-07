@@ -1,6 +1,5 @@
 use super::orm::chat_message;
 use crate::web::chat::message::ClientMessage;
-use redis::aio::MultiplexedConnection as RedisConnection;
 use sea_orm::{entity::*, prelude::*, query::*, DatabaseConnection, QueryFilter};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -48,6 +47,7 @@ pub async fn insert_chat_message(
         id: message.id,
         room_id: message.room_id,
         message_id: model.message_id,
+        message_date: model.message_date.try_into().unwrap(),
         author: message.author.to_owned(),
         message: message.message.to_owned(),
     }

@@ -176,9 +176,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                     self.addr.do_send(message::ClientMessage {
                         id: self.id,
                         room_id: room_id,
-                        message_id: 0,
                         author: XfAuthor::from(&self.session),
                         message: crate::bbcode::bbcode_to_html(m),
+                        message_id: 0,
+                        message_date: 0,
                     })
                 }
                 // Client message to nowhere
