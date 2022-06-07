@@ -1,4 +1,4 @@
-use crate::compat::xf::session::XfSession;
+use crate::compat::xf::session::{XfAuthor, XfSession};
 use actix::prelude::*;
 use serde::Serialize;
 
@@ -12,7 +12,7 @@ pub struct ClientMessage {
     /// Conn Id
     pub id: usize,
     /// Author Session
-    pub author: XfSession,
+    pub author: XfAuthor,
     /// Recipient room
     pub room_id: usize,
     /// Message ID from database

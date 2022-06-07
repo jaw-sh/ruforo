@@ -5,8 +5,7 @@ pub mod server;
 use crate::compat::xf::orm::chat_room;
 use crate::compat::xf::session::get_user_from_request;
 use actix::Addr;
-use actix_web::http::header;
-use actix_web::{error, get, web, web::Data, Error, HttpRequest, HttpResponse, Responder};
+use actix_web::{get, web, web::Data, Error, HttpRequest, HttpResponse, Responder};
 use actix_web_actors::ws;
 use askama_actix::Template;
 use sea_orm::DatabaseConnection;
@@ -92,22 +91,5 @@ pub async fn view_chat(req: HttpRequest) -> impl Responder {
             std::env::var("XF_WS_URL").expect("XF_WS_URL needs to be set in .env"),
             serde_json::to_string(&session).expect("XfSession stringify failed"),
         ),
-    }
-}
-
-mod test {
-    #[test]
-    fn test_file_time() {
-        let webpack_time: u64 = match std::fs::metadata("resources/js/chat.js") {
-            Ok(metadata) => match metadata.modified() {
-                Ok(time) => match time.duration_since(std::time::UNIX_EPOCH) {
-                    Ok(distance) => distance.as_secs(),
-                    Err(_) => 0,
-                },
-                Err(_) => 0,
-            },
-            Err(_) => 0,
-        };
-        println!("{:?}", webpack_time);
     }
 }

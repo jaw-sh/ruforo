@@ -1,5 +1,5 @@
 use super::message;
-use crate::compat::xf::session::XfSession;
+use crate::compat::xf::session::{XfAuthor, XfSession};
 use actix::prelude::*;
 use rand::{self, rngs::ThreadRng, Rng};
 use redis::aio::MultiplexedConnection as RedisConnection;
@@ -205,11 +205,10 @@ impl Handler<message::Join> for ChatServer {
                         let client_msg = message::ClientMessage {
                             id,
                             room_id,
-                            author: XfSession {
+                            author: XfAuthor {
                                 id: message.user_id.unwrap_or(0) as u32,
                                 username: message.username,
                                 avatar_date: 1,
-                                ignored_users: vec![],
                             },
                             message_id: message.message_id,
                             message: message.message_text.to_owned(),

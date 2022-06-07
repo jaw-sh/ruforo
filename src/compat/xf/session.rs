@@ -10,14 +10,23 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 #[derive(Clone, Debug, Serialize)]
-pub struct XfSession {
+pub struct XfAuthor {
     pub id: u32,
     pub username: String,
     pub avatar_date: u32,
-    pub ignored_users: Vec<u32>,
 }
 
-impl XfSession {
+impl From<&XfSession> for XfAuthor {
+    fn from(session: &XfSession) -> Self {
+        Self {
+            id: session.id,
+            username: session.username.to_owned(),
+            avatar_date: session.avatar_date,
+        }
+    }
+}
+
+impl XfAuthor {
     pub fn can_send_message(&self) -> bool {
         self.id > 0
     }
@@ -31,6 +40,14 @@ impl XfSession {
             self.avatar_date
         )
     }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct XfSession {
+    pub id: u32,
+    pub username: String,
+    pub avatar_date: u32,
+    pub ignored_users: Vec<u32>,
 }
 
 impl Default for XfSession {

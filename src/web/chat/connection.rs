@@ -1,10 +1,10 @@
 use super::message;
 use super::server::ChatServer;
 use super::{CLIENT_TIMEOUT, HEARTBEAT_INTERVAL};
-use crate::compat::xf::session::XfSession;
+use crate::compat::xf::session::{XfAuthor, XfSession};
 use actix::*;
 use actix_web_actors::ws;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 pub struct Connection {
     /// connection id
@@ -172,7 +172,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                         id: self.id,
                         room_id: room_id,
                         message_id: 0,
-                        author: self.session.clone(),
+                        author: XfAuthor::from(&self.session),
                         message: crate::bbcode::bbcode_to_html(m),
                     })
                 }
