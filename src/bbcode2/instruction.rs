@@ -15,7 +15,7 @@ impl Instruction {
             Self::Null => "".to_string(),
             Self::Linebreak => "\n\r".to_string(),
             Self::Tag(tag, arg) => match arg {
-                Some(arg) => format!("{}={}", tag, arg),
+                Some(arg) => format!("{}{}", tag, arg),
                 None => format!("{}", tag),
             },
             Self::TagClose(tag) => format!("{}", tag),
@@ -26,9 +26,9 @@ impl Instruction {
     /// Reverses instruction to string.
     pub fn to_tag_string(&self) -> String {
         match self {
-            Self::Null | Self::Linebreak | Self::Text(_) => self.to_inner_string(),
             Self::Tag(_, _) => format!("[{}]", self.to_inner_string()),
             Self::TagClose(_) => format!("[/{}]", self.to_inner_string()),
+            _ => self.to_inner_string(),
         }
     }
 }

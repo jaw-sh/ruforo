@@ -54,8 +54,11 @@ impl Tokenizer {
             ReadMode::TagClose => {
                 self.parse_tag_close(character);
             }
-            ReadMode::TagPrimaryArg => {
-                self.parse_tag_primary_arg(character);
+            ReadMode::TagArg => {
+                self.parse_tag_arg(character, false);
+            }
+            ReadMode::TagArgQuote => {
+                self.parse_tag_arg(character, true);
             }
             ReadMode::Linebreak => {
                 self.parse_linebreak(character);
@@ -145,10 +148,12 @@ impl Tokenizer {
 
     fn parse_tag(&mut self, character: char) {
         match character {
+            // End the tag.
             ']' => {
                 self.commit_instruction();
                 self.mode = ReadMode::Text;
             }
+            // Move to closing tag instruciton.
             '/' => match self.current_instruction {
                 // If we've already started our tag, reset to to text.
                 Instruction::Tag(_, _) => self.reset_parse_to_text(character),
@@ -158,20 +163,20 @@ impl Tokenizer {
                     self.current_instruction = Instruction::TagClose("".to_string());
                 }
             },
-            '=' => {
-                self.mode = ReadMode::TagPrimaryArg;
-            }
-            '>' | '<' | '&' | '"' | '\'' | '\\' => {
-                let san_char = self.sanitize(character);
-                match self.current_instruction {
-                    Instruction::Tag(ref mut contents, _) => {
-                        contents.push_str(&san_char);
-                    }
-                    _ => {
-                        self.current_instruction = Instruction::Tag(san_char, None);
-                    }
+            // Hints we should move to arguments
+            ' ' | '=' => match self.current_instruction {
+                // Begin adding to the arg string, if we have a tag.
+                Instruction::Tag(ref tag, _) => {
+                    self.current_instruction =
+                        Instruction::Tag(tag.to_owned(), Some(character.to_string()));
+                    self.mode = ReadMode::TagArg;
                 }
-            }
+                // If we don't have a tag name yet, we choke.
+                _ => {
+                    self.reset_parse_to_text(character);
+                }
+            },
+            // Add letters
             _ => match self.current_instruction {
                 Instruction::Tag(ref mut contents, _) => {
                     contents.push(character);
@@ -181,6 +186,60 @@ impl Tokenizer {
                 }
             },
         }
+    }
+
+    /// Parse arguments in a tag.
+    /// Arguments are any text after the tag name, before the ].
+    fn parse_tag_arg(&mut self, character: char, literal: bool) {
+        // If the character should be added to the arg string.
+        match character {
+            // Close tag if we're not being literal.
+            ']' => {
+                if !literal {
+                    self.commit_instruction();
+                    self.mode = ReadMode::Text;
+                    return;
+                }
+            }
+            // Break tag if we're not being literal.
+            '[' => {
+                if !literal {
+                    self.reset_parse_to_text(character);
+                    return;
+                }
+            }
+            // Toggle literal reading
+            '"' => {
+                self.mode = match literal {
+                    true => ReadMode::TagArg,
+                    false => ReadMode::TagArgQuote,
+                };
+            }
+            // Intolerable break; choke and kill the tag.
+            '\n' | '\r' => {
+                self.reset_parse_to_text(character);
+                return;
+            }
+            // Append any other character to our arg string.
+            _ => {}
+        };
+
+        match self.current_instruction {
+            Instruction::Tag(ref contents, ref mut args) => match args {
+                // Add to the Some(string)
+                Some(ref mut args) => {
+                    args.push(character);
+                }
+                // Change instruction to include an arg string.
+                None => {
+                    self.current_instruction =
+                        Instruction::Tag(contents.to_string(), Some(character.to_string()));
+                }
+            },
+            _ => {
+                unreachable!();
+            }
+        };
     }
 
     fn parse_tag_close(&mut self, character: char) {
@@ -210,46 +269,6 @@ impl Tokenizer {
         }
     }
 
-    fn parse_tag_primary_arg(&mut self, character: char) {
-        match character {
-            ']' => {
-                self.commit_instruction();
-                self.mode = ReadMode::Text;
-            }
-            '>' | '<' | '&' | '"' | '\'' | '\\' => {
-                let san_char = self.sanitize(character);
-                match self.current_instruction {
-                    Instruction::Tag(ref mut contents, ref mut args) => match args {
-                        Some(ref mut primarg) => {
-                            primarg.push_str(&san_char);
-                        }
-                        None => {
-                            self.current_instruction =
-                                Instruction::Tag((*contents).to_string(), Some(san_char));
-                        }
-                    },
-                    _ => {
-                        unreachable!();
-                    }
-                }
-            }
-            _ => match self.current_instruction {
-                Instruction::Tag(ref mut contents, ref mut args) => match args {
-                    Some(ref mut primarg) => {
-                        primarg.push(character);
-                    }
-                    None => {
-                        self.current_instruction =
-                            Instruction::Tag((*contents).to_string(), Some(character.to_string()));
-                    }
-                },
-                _ => {
-                    unreachable!();
-                }
-            },
-        }
-    }
-
     /// Aborts the current ReadMode to Text and converts current instruction to Text.
     /// Supplied char is what choked the parser.
     fn reset_parse_to_text(&mut self, character: char) {
@@ -260,7 +279,7 @@ impl Tokenizer {
                 content.to_string()
             }
             Instruction::Tag(tag, arg) => match arg {
-                Some(arg) => format!("[{}={}", tag, arg),
+                Some(arg) => format!("[{}{}", tag, arg),
                 None => format!("[{}", tag),
             },
             Instruction::TagClose(tag) => format!("[/{}", tag),
@@ -400,7 +419,7 @@ mod tests {
         match &t.instructions[0] {
             Instruction::Tag(tag, arg) => {
                 assert_eq!("url", tag);
-                assert_eq!(&Some("https://zombo.com".to_string()), arg);
+                assert_eq!(&Some("=https://zombo.com".to_string()), arg);
             }
             _ => assert!(false, "1st instruction was not a tag."),
         }
@@ -413,6 +432,57 @@ mod tests {
                 assert_eq!("url", tag);
             }
             _ => assert!(false, "3rd instruction was not a closing tag."),
+        }
+    }
+
+    #[test]
+    fn tag_with_strange_args() {
+        use super::{Instruction, Tokenizer};
+
+        // This content can be parsed as correct because the tokenizer does not care
+        // about the validity of the arguments.
+        const GIBBERISH: &str = "   👍 wow nice \"[test]\"";
+
+        let mut t = Tokenizer::new();
+        t.tokenize(&format!("[url{}]Text[/url]", GIBBERISH));
+
+        assert_eq!(t.instructions.len(), 3);
+        match &t.instructions[0] {
+            Instruction::Tag(tag, arg) => {
+                assert_eq!("url", tag);
+                assert_eq!(&Some(GIBBERISH.to_string()), arg);
+            }
+            _ => assert!(false, "1st instruction was not a tag."),
+        }
+        match &t.instructions[1] {
+            Instruction::Text(text) => assert_eq!("Text", text),
+            _ => assert!(false, "2nd instruction was not text."),
+        }
+        match &t.instructions[2] {
+            Instruction::TagClose(tag) => {
+                assert_eq!("url", tag);
+            }
+            _ => assert!(false, "3rd instruction was not a closing tag."),
+        }
+    }
+
+    #[test]
+    fn tag_with_strange_broken_args() {
+        use super::{Instruction, Tokenizer};
+
+        const GIBBERISH: &str = "   👍 wow nice [test]";
+
+        let mut t = Tokenizer::new();
+        t.tokenize(&format!("[url{}]Text[/url]", GIBBERISH));
+        println!("{:?}", t.instructions);
+
+        assert_eq!(t.instructions.len(), 2);
+
+        match &t.instructions[0] {
+            Instruction::Text(text) => {
+                assert_eq!(&format!("[url{}]Text", GIBBERISH), text);
+            }
+            _ => assert!(false, "1st instruction was not text."),
         }
     }
 }

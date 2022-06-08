@@ -5,8 +5,9 @@ pub enum ReadMode {
     Escape,
     Linebreak,
     Tag,
+    TagArg,
+    TagArgQuote,
     TagClose,
-    TagPrimaryArg,
 }
 
 impl Default for ReadMode {
