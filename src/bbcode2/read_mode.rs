@@ -5,6 +5,7 @@ pub enum ReadMode {
     Escape,
     Linebreak,
     Tag,
+    TagClose,
     TagPrimaryArg,
 }
 

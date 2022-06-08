@@ -3,6 +3,7 @@
 pub enum Instruction {
     Null,
     Tag(String, Option<String>),
+    TagClose(String),
     Text(String),
     Linebreak,
 }

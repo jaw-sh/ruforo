@@ -51,6 +51,9 @@ impl Tokenizer {
             ReadMode::Tag => {
                 self.parse_tag(character);
             }
+            ReadMode::TagClose => {
+                self.parse_tag_close(character);
+            }
             ReadMode::TagPrimaryArg => {
                 self.parse_tag_primary_arg(character);
             }
@@ -95,7 +98,7 @@ impl Tokenizer {
         }
     }
 
-    /// s paragraph breaks.
+    /// Parses new lines and discards whitespace until next instruction.
     fn parse_linebreak(&mut self, character: char) {
         match character {
             // Consume tabs.
@@ -108,7 +111,6 @@ impl Tokenizer {
             ' ' => {}
             // Unexpected character; finish breaking and return to text parser
             _ => {
-                println!("Hello!");
                 self.insert_instruction(Instruction::Linebreak);
                 self.mode = ReadMode::Text;
                 self.parse_text(character);
@@ -116,7 +118,6 @@ impl Tokenizer {
         }
     }
 
-    /// s escaped charcters.
     fn parse_escape(&mut self, character: char) {
         self.mode = ReadMode::Text;
         match character {
@@ -142,13 +143,21 @@ impl Tokenizer {
         }
     }
 
-    /// s BbCode tags.
     fn parse_tag(&mut self, character: char) {
         match character {
             ']' => {
                 self.commit_instruction();
                 self.mode = ReadMode::Text;
             }
+            '/' => match self.current_instruction {
+                // If we've already started our tag, reset to to text.
+                Instruction::Tag(_, _) => self.reset_parse_to_text(character),
+                // If we've just opened, we can proceed to a closing tag.
+                _ => {
+                    self.mode = ReadMode::TagClose;
+                    self.current_instruction = Instruction::TagClose("".to_string());
+                }
+            },
             '=' => {
                 self.mode = ReadMode::TagPrimaryArg;
             }
@@ -174,7 +183,33 @@ impl Tokenizer {
         }
     }
 
-    /// s BbCode tag arguments.
+    fn parse_tag_close(&mut self, character: char) {
+        match character {
+            // close tag
+            ']' => {
+                self.commit_instruction();
+                self.mode = ReadMode::Text;
+            }
+            _ => {
+                // if a-Z, commit as tag name
+                if character.is_ascii_alphabetic() {
+                    match self.current_instruction {
+                        Instruction::TagClose(ref mut contents) => {
+                            contents.push(character);
+                        }
+                        _ => {
+                            self.current_instruction = Instruction::TagClose(character.to_string())
+                        }
+                    }
+                }
+                // otherwise, we have a broken closing tag
+                else {
+                    self.reset_parse_to_text(character);
+                }
+            }
+        }
+    }
+
     fn parse_tag_primary_arg(&mut self, character: char) {
         match character {
             ']' => {
@@ -215,6 +250,28 @@ impl Tokenizer {
         }
     }
 
+    /// Aborts the current ReadMode to Text and converts current instruction to Text.
+    /// Supplied char is what choked the parser.
+    fn reset_parse_to_text(&mut self, character: char) {
+        // Recover existing input.
+        let mut text: String = match &self.current_instruction {
+            Instruction::Text(content) => {
+                log::warn!("Resetting text parse back to text. Should not occur.");
+                content.to_string()
+            }
+            Instruction::Tag(tag, arg) => match arg {
+                Some(arg) => format!("[{}={}", tag, arg),
+                None => format!("[{}", tag),
+            },
+            Instruction::TagClose(tag) => format!("[/{}", tag),
+            _ => todo!(),
+        };
+        text.push(character);
+
+        self.mode = ReadMode::Text;
+        self.current_instruction = Instruction::Text(text);
+    }
+
     /// Sanitizes a char for HTML.
     fn sanitize(&mut self, character: char) -> String {
         match character {
@@ -236,7 +293,7 @@ mod tests {
         use super::{Instruction, Tokenizer};
 
         let mut t = Tokenizer::new();
-        t.tokenize("a\n\rb\n\rc");
+        t.tokenize("a\n\rb\n\r\r\r\rc\r");
 
         assert_eq!(t.instructions.len(), 5);
 
@@ -266,6 +323,69 @@ mod tests {
         match &t.instructions[0] {
             Instruction::Text(text) => assert_eq!("&lt;strong&gt;HTML&lt;/strong&gt;", text),
             _ => assert!(false, "Instruction was not text."),
+        }
+    }
+
+    #[test]
+    fn tag_and_close() {
+        use super::{Instruction, Tokenizer};
+
+        let mut t = Tokenizer::new();
+        t.tokenize("[b]Bold[/b]");
+
+        assert_eq!(t.instructions.len(), 3);
+
+        match &t.instructions[0] {
+            Instruction::Tag(tag, text) => {
+                assert_eq!("b", tag);
+                assert_eq!(&None, text);
+            }
+            _ => assert!(false, "1st instruction was not a tag."),
+        }
+        match &t.instructions[1] {
+            Instruction::Text(text) => assert_eq!("Bold", text),
+            _ => assert!(false, "2nd instruction was not text."),
+        }
+        match &t.instructions[2] {
+            Instruction::TagClose(tag) => {
+                assert_eq!("b", tag);
+            }
+            _ => assert!(false, "3rd instruction was not a closing tag."),
+        }
+    }
+
+    #[test]
+    fn tag_close_terminates() {
+        use super::{Instruction, Tokenizer};
+
+        let mut t = Tokenizer::new();
+        t.tokenize("[b]Bold[//b]");
+
+        assert_eq!(t.instructions.len(), 3);
+
+        match &t.instructions[2] {
+            Instruction::Text(text) => {
+                assert_eq!("[//b]", text);
+            }
+            _ => assert!(false, "3rd instruction was not text."),
+        }
+    }
+
+    #[test]
+    fn tag_terminates() {
+        use super::{Instruction, Tokenizer};
+
+        let mut t = Tokenizer::new();
+        t.tokenize("[b]Bold[b/b]");
+        println!("{:?}", t.instructions);
+
+        assert_eq!(t.instructions.len(), 3);
+
+        match &t.instructions[2] {
+            Instruction::Text(text) => {
+                assert_eq!("[b/b]", text);
+            }
+            _ => assert!(false, "3rd instruction was not text."),
         }
     }
 }
