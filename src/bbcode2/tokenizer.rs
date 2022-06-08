@@ -73,6 +73,7 @@ impl Tokenizer {
             '[' => {
                 self.commit_instruction();
                 self.mode = ReadMode::Tag;
+                self.current_instruction = Instruction::empty_tag();
             }
             '\r' => {}
             '\n' => {
@@ -154,28 +155,40 @@ impl Tokenizer {
                 self.mode = ReadMode::Text;
             }
             // Move to closing tag instruciton.
-            '/' => match self.current_instruction {
-                // If we've already started our tag, reset to to text.
-                Instruction::Tag(_, _) => self.reset_parse_to_text(character),
+            '/' => {
                 // If we've just opened, we can proceed to a closing tag.
-                _ => {
+                if self.current_instruction.is_empty() {
                     self.mode = ReadMode::TagClose;
-                    self.current_instruction = Instruction::TagClose("".to_string());
+                    self.current_instruction = Instruction::empty_tag_close();
                 }
-            },
-            // Hints we should move to arguments
-            ' ' | '=' => match self.current_instruction {
-                // Begin adding to the arg string, if we have a tag.
-                Instruction::Tag(ref tag, _) => {
-                    self.current_instruction =
-                        Instruction::Tag(tag.to_owned(), Some(character.to_string()));
-                    self.mode = ReadMode::TagArg;
-                }
-                // If we don't have a tag name yet, we choke.
-                _ => {
+                // If we've already started our tag, choke and reset.
+                else {
                     self.reset_parse_to_text(character);
                 }
-            },
+            }
+            // Hints we should move to arguments
+            ' ' | '=' => {
+                // Begin adding to the arg string, if we have a tag.
+                if !self.current_instruction.is_empty() {
+                    match self.current_instruction {
+                        Instruction::Tag(ref tag, _) => {
+                            self.current_instruction =
+                                Instruction::Tag(tag.to_owned(), Some(character.to_string()));
+                            self.mode = ReadMode::TagArg;
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+                // If we don't have a tag name yet, we choke.
+                else {
+                    self.reset_parse_to_text(character);
+                }
+            }
+            // Intolerable break; choke and kill the tag.
+            '\n' | '\r' => {
+                self.reset_parse_to_text(character);
+                return;
+            }
             // Add letters
             _ => match self.current_instruction {
                 Instruction::Tag(ref mut contents, _) => {
@@ -273,7 +286,7 @@ impl Tokenizer {
     /// Supplied char is what choked the parser.
     fn reset_parse_to_text(&mut self, character: char) {
         // Recover existing input.
-        let mut text: String = match &self.current_instruction {
+        let text: String = match &self.current_instruction {
             Instruction::Text(content) => {
                 log::warn!("Resetting text parse back to text. Should not occur.");
                 content.to_string()
@@ -285,10 +298,10 @@ impl Tokenizer {
             Instruction::TagClose(tag) => format!("[/{}", tag),
             _ => self.current_instruction.to_inner_string(),
         };
-        text.push(character);
 
         self.mode = ReadMode::Text;
         self.current_instruction = Instruction::Text(text);
+        self.parse_text(character);
     }
 
     /// Sanitizes a char for HTML.
@@ -442,7 +455,6 @@ mod tests {
         // This content can be parsed as correct because the tokenizer does not care
         // about the validity of the arguments.
         const GIBBERISH: &str = "   👍 wow nice \"[test]\"";
-
         let mut t = Tokenizer::new();
         t.tokenize(&format!("[url{}]Text[/url]", GIBBERISH));
 
@@ -470,19 +482,55 @@ mod tests {
     fn tag_with_strange_broken_args() {
         use super::{Instruction, Tokenizer};
 
-        const GIBBERISH: &str = "   👍 wow nice [test]";
-
+        const GIBBERISH: &str = "   👍 wow nice [ test ]";
         let mut t = Tokenizer::new();
         t.tokenize(&format!("[url{}]Text[/url]", GIBBERISH));
-        println!("{:?}", t.instructions);
+        //println!("{:?}", t.instructions);
 
-        assert_eq!(t.instructions.len(), 2);
+        assert_eq!(t.instructions.len(), 3);
 
         match &t.instructions[0] {
-            Instruction::Text(text) => {
-                assert_eq!(&format!("[url{}]Text", GIBBERISH), text);
-            }
+            Instruction::Text(t1) => match &t.instructions[1] {
+                Instruction::Text(t2) => {
+                    assert_eq!(format!("{}{}", t1, t2), format!("[url{}]Text", GIBBERISH));
+                }
+                _ => assert!(false, "2nd instruction was not text."),
+            },
             _ => assert!(false, "1st instruction was not text."),
+        }
+        match &t.instructions[2] {
+            Instruction::TagClose(tag) => {
+                assert_eq!(tag, "url");
+            }
+            _ => assert!(false, "3rd instruction was not a tag close."),
+        }
+    }
+
+    #[test]
+    fn tag_with_strange_broken_newline_args() {
+        use super::{Instruction, Tokenizer};
+
+        // parse a tag with a linebreak
+        let mut t = Tokenizer::new();
+        t.tokenize("[quote\nbox]");
+
+        assert_eq!(t.instructions.len(), 3);
+
+        if let Instruction::Text(ref text) = t.instructions[0] {
+            assert_eq!(text, "[quote");
+        } else {
+            assert!(false, "1st instruction was not text.");
+        }
+
+        assert!(
+            Instruction::Linebreak == t.instructions[1],
+            "2nd instruction was not a linebreak."
+        );
+
+        if let Instruction::Text(ref text) = t.instructions[2] {
+            assert_eq!(text, "box]");
+        } else {
+            assert!(false, "3rd instruction was not text.");
         }
     }
 }

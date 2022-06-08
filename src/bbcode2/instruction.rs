@@ -9,6 +9,26 @@ pub enum Instruction {
 }
 
 impl Instruction {
+    /// Provides an empty BbCode tag instruction.
+    pub fn empty_tag() -> Self {
+        Self::Tag("".to_owned(), None)
+    }
+
+    /// Provides an empty BbCode closing tag instruction.
+    pub fn empty_tag_close() -> Self {
+        Self::TagClose("".to_owned())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Null => true,
+            Self::Linebreak => false,
+            Self::Tag(tag, arg) => tag.len() == 0 && arg.is_none(),
+            Self::TagClose(tag) => tag.len() == 0,
+            Self::Text(text) => text.len() == 0,
+        }
+    }
+
     /// Converts instruction to string, without syntax.
     pub fn to_inner_string(&self) -> String {
         match self {
