@@ -1,6 +1,7 @@
 mod attachment;
 mod auth_2fa;
 mod bbcode;
+mod bbcode2;
 mod create_user;
 mod db;
 mod ffmpeg;

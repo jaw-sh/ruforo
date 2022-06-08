@@ -7,8 +7,6 @@ use std::cell::Ref;
 pub struct HTMLConstructor {
     pub output_string: String,
     pub pretty_print: bool,
-    /// TODO: Definitely find some way to make this generic.
-    pub prefetch_data: Vec<crate::attachment::AttachmentForTemplate>,
 }
 
 impl HTMLConstructor {
@@ -31,7 +29,6 @@ impl HTMLConstructor {
                     self.output_string.push_str(text)
                 }
             }
-            GroupType::Attachment => self.start_attach_element(element),
             //GroupType::Paragraph => self.output_string.push_str("<p>"),
             GroupType::Bold => self.output_string.push_str("<b>"),
             GroupType::Strong => self.output_string.push_str("<strong>"),
@@ -93,7 +90,7 @@ impl HTMLConstructor {
             GroupType::Image => {
                 if let Some(arg) = element.argument() {
                     self.output_string
-                        .push_str(&format!("<img src=\"{}\">", arg));
+                        .push_str(&format!("<img src=\"{}\" />", arg));
                 }
             }
             GroupType::Figure => {

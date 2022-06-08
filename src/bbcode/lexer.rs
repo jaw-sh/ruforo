@@ -304,31 +304,35 @@ impl Lexer {
         }
     }
 
-    /// Moves current working node up to the current node's parent.
+    /// Terminates the group, or all groups until the specified group.
     pub(crate) fn end_group(&mut self, ele_type: GroupType) {
+        // If our last child is a linebreak, remove it.
         if let Some(mut kid) = self.current_node.last_child() {
             if kid.borrow().ele_type() == &GroupType::Br {
                 kid.detach();
             }
         }
-        if self.current_node.borrow_mut().ele_type() == &ele_type {
-            self.close_same_group();
-        } else if self.current_node.borrow().is_kaput() {
-            let mut same = false;
+
+        // Check to see if the group we are closing is the same group open.
+        let mut same = self.current_node.borrow_mut().ele_type() == &ele_type;
+
+        // If we're not closing the same group but the current group is broken,
+        if !same && self.current_node.borrow().is_kaput() {
+            // Check if the broken tag is the group we're trying to close.
             if let GroupType::Kaput(some_box, _) = self.current_node.borrow().ele_type().clone() {
                 let unpacked_type = *some_box;
                 if unpacked_type == ele_type {
                     same = true;
                 }
             }
-            if same {
-                self.close_same_group();
-            } else {
-                let mut group_stack = Vec::new();
-                self.close_diff_group(&mut group_stack, ele_type);
-                self.reopen_groups(&mut group_stack);
-            }
-        } else {
+        }
+
+        // It is the same group, so close it.
+        if same {
+            self.close_same_group();
+        }
+        // It is not, so close the stack.
+        else {
             let mut group_stack = Vec::new();
             self.close_diff_group(&mut group_stack, ele_type);
             self.reopen_groups(&mut group_stack);
@@ -400,7 +404,7 @@ static NO_ARG_CMD: phf::Map<&'static str, fn(&mut Lexer)> = phf_map! {
     "/opacity" => Lexer::cmd_opacity_close,
     "size" => Lexer::cmd_size_bare_open,
     "/size" => Lexer::cmd_size_close,
-    "url" => Lexer::cmd_url_bare_open,
+    "url" => Lexer::cmd_url_open_bare,
     "/url" => Lexer::cmd_url_close,
     "quote" => Lexer::cmd_quote_open,
     "/quote" => Lexer::cmd_quote_close,
@@ -437,19 +441,15 @@ static NO_ARG_CMD: phf::Map<&'static str, fn(&mut Lexer)> = phf_map! {
     "/math" => Lexer::cmd_math_close,
     "mathblock" => Lexer::cmd_mathblock_open,
     "/mathblock" => Lexer::cmd_mathblock_close,
-    "embed" => Lexer::cmd_embed_open,
-    "/embed" => Lexer::cmd_embed_close,
     "email" => Lexer::cmd_email_open,
     "/email" => Lexer::cmd_email_close,
-    "attach" => Lexer::cmd_attachment_open,
-    "/attach" => Lexer::cmd_attachment_close,
 };
 
 /// Static compile-time map of tags with single arguments to lexer commands.
 static ONE_ARG_CMD: phf::Map<&'static str, fn(&mut Lexer, &str)> = phf_map! {
     "color" => Lexer::cmd_color_open,
     "colour" => Lexer::cmd_color_open,
-    "url" => Lexer::cmd_url_open,
+    "url" => Lexer::cmd_url_open_arg,
     "opacity" => Lexer::cmd_opacity_open,
     "size" => Lexer::cmd_size_open,
     "quote" => Lexer::cmd_quote_arg_open,

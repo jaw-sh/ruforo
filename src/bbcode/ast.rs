@@ -57,6 +57,10 @@ impl Element {
             self.text_contents = Some(new_text.to_string());
         }
     }
+    /// Completely clears the current text_content value.
+    pub fn clear_text(&mut self) {
+        self.text_contents = None;
+    }
     /// Gets whether or not an ASTElement has text.
     pub fn has_text(&self) -> bool {
         self.text_contents.is_some()
