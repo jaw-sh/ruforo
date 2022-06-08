@@ -264,7 +264,7 @@ impl Tokenizer {
                 None => format!("[{}", tag),
             },
             Instruction::TagClose(tag) => format!("[/{}", tag),
-            _ => todo!(),
+            _ => self.current_instruction.to_inner_string(),
         };
         text.push(character);
 
@@ -307,7 +307,7 @@ mod tests {
         );
         match &t.instructions[4] {
             Instruction::Text(text) => assert_eq!("c", text),
-            _ => assert!(false, "1st instruction was not text."),
+            _ => assert!(false, "5th instruction was not text."),
         }
     }
 
@@ -336,9 +336,9 @@ mod tests {
         assert_eq!(t.instructions.len(), 3);
 
         match &t.instructions[0] {
-            Instruction::Tag(tag, text) => {
+            Instruction::Tag(tag, arg) => {
                 assert_eq!("b", tag);
-                assert_eq!(&None, text);
+                assert_eq!(&None, arg);
             }
             _ => assert!(false, "1st instruction was not a tag."),
         }
@@ -372,12 +372,11 @@ mod tests {
     }
 
     #[test]
-    fn tag_terminates() {
+    fn tag_open_terminates() {
         use super::{Instruction, Tokenizer};
 
         let mut t = Tokenizer::new();
         t.tokenize("[b]Bold[b/b]");
-        println!("{:?}", t.instructions);
 
         assert_eq!(t.instructions.len(), 3);
 
@@ -386,6 +385,34 @@ mod tests {
                 assert_eq!("[b/b]", text);
             }
             _ => assert!(false, "3rd instruction was not text."),
+        }
+    }
+
+    #[test]
+    fn tag_with_arg() {
+        use super::{Instruction, Tokenizer};
+
+        let mut t = Tokenizer::new();
+        t.tokenize("[url=https://zombo.com]ZOMBO[/url]");
+
+        assert_eq!(t.instructions.len(), 3);
+
+        match &t.instructions[0] {
+            Instruction::Tag(tag, arg) => {
+                assert_eq!("url", tag);
+                assert_eq!(&Some("https://zombo.com".to_string()), arg);
+            }
+            _ => assert!(false, "1st instruction was not a tag."),
+        }
+        match &t.instructions[1] {
+            Instruction::Text(text) => assert_eq!("ZOMBO", text),
+            _ => assert!(false, "2nd instruction was not text."),
+        }
+        match &t.instructions[2] {
+            Instruction::TagClose(tag) => {
+                assert_eq!("url", tag);
+            }
+            _ => assert!(false, "3rd instruction was not a closing tag."),
         }
     }
 }
