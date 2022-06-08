@@ -74,6 +74,21 @@ html.chat body,
         background-clip: padding-box;
         border-radius: 8px;
     }
+
+    &.ScrollAnchored::before {
+        content: 'Anchored ⚓';
+        display: block;
+        border: 2px solid white;
+        background: black;
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: auto;
+        height: auto;
+        padding: 0.2rem;
+        pointer-events: none;
+        ;
+    }
 }
 
 #chat-messages {
@@ -95,7 +110,6 @@ html.chat body,
     padding-left: 64px;
     padding-right: 48px;
     margin-top: 1.0625rem;
-    overflow: hidden;
 
     // Left-hand content
     //.left-content {}
@@ -148,6 +162,14 @@ html.chat body,
     .message {
         border-left: 2px solid transparent;
         padding-left: 0.25rem;
+        overflow: hidden;
+
+        img {
+            height: auto;
+            width: auto;
+            max-height: 250px;
+            max-width: 250px;
+        }
     }
 
     // Right-hand buttons
