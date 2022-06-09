@@ -12,6 +12,6 @@ pub enum ReadMode {
 
 impl Default for ReadMode {
     fn default() -> Self {
-        ReadMode::Text
+        Self::Text
     }
 }
