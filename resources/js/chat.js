@@ -269,7 +269,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function websocketConnect() {
-        ws = new WebSocket(APP.chat_ws_url);
+        // TODO: Make this something practical.
+        // fixes cross-domain issues that the forum currently enjoy
+        // transform "wss://mysite.us/rust-chat" to "wss://mysite.eu/rust-chat" when on mysite.eu, for instance.
+        let sneed = new URL(APP.chat_ws_url);
+        sneed.hostname = window.location.hostname;
+
+        ws = new WebSocket(sneed.href);
         messagePush("Connecting to SneedChat...");
 
         ws.addEventListener('close', function (event) {
