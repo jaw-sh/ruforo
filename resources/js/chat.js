@@ -274,6 +274,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // transform "wss://mysite.us/rust-chat" to "wss://mysite.eu/rust-chat" when on mysite.eu, for instance.
         let sneed = new URL(APP.chat_ws_url);
         sneed.hostname = window.location.hostname;
+        sneed.protocol = window.location.protocol == "http:" ? "ws:" : "wss:";
 
         ws = new WebSocket(sneed.href);
         messagePush("Connecting to SneedChat...");
