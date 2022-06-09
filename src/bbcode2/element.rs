@@ -34,7 +34,7 @@ pub struct Element {
     /// If true, the contents of this tag are always literal.
     /// Example: \[code\]my bbcode here\[code\]
     is_literal: bool,
-    /// If true, this element is not allowed to contain anything at all.
+    /// If true, this element is not allowed to contain anything at all, including text.
     /// Example: \[hr\] tags, linebreaks.
     is_void: bool,
 }
@@ -43,7 +43,6 @@ impl Element {
     /// Converts a Lexer's Token into a Parser's Element.
     pub fn new_from_token(token: &Token) -> Self {
         match token {
-            Token::Null => Self::default(),
             Token::Linebreak => Self {
                 is_void: true,
                 ..Self::default()
@@ -53,14 +52,16 @@ impl Element {
                 argument: arg.to_owned(),
                 ..Self::default()
             },
-            Token::TagClose(tag) => Self {
-                tag: Some(tag.to_owned()),
-                ..Self::default()
-            },
-            Token::Text(text) => Self {
-                contents: Some(text.to_owned()),
-                ..Self::default()
-            },
+            Token::Text(text) => Self::new_text(text),
+            _ => unreachable!(),
+        }
+    }
+
+    // Text-only element
+    pub fn new_text(text: &String) -> Self {
+        Self {
+            contents: Some(text.to_owned()),
+            ..Self::default()
         }
     }
 
@@ -91,6 +92,15 @@ impl Element {
         !self.is_literal && !self.is_void
     }
 
+    pub fn extract_contents(&mut self) -> Option<Element> {
+        let res = match &self.contents {
+            Some(text) => Some(Self::new_text(text)),
+            None => None,
+        };
+        self.contents = None;
+        res
+    }
+
     pub fn get_contents(&self) -> Option<&String> {
         self.contents.as_ref()
     }
@@ -104,7 +114,7 @@ impl Element {
     }
 
     /// If true, all contents must never be parsed.
-    pub fn is_litreal(&self) -> bool {
+    pub fn is_literal(&self) -> bool {
         self.is_literal
     }
 
