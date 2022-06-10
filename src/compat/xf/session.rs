@@ -128,8 +128,6 @@ pub async fn get_user_from_request(db: &DatabaseConnection, req: &HttpRequest) -
         None => 0,
     };
 
-    println!("Session id: {:?}", id);
-
     // Fetch basic user info
     let session = if id > 0 {
         match user::Entity::find_by_id(id)
@@ -138,6 +136,7 @@ pub async fn get_user_from_request(db: &DatabaseConnection, req: &HttpRequest) -
             .column(user::Column::Username)
             .column(user::Column::AvatarDate)
             .filter(user::Column::UserId.eq(id))
+            .filter(user::Column::IsBanned.eq(false))
             .into_model::<XfSessionDatabase>()
             .one(db)
             .await

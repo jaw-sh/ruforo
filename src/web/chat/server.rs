@@ -79,7 +79,7 @@ impl Handler<message::Connect> for ChatServer {
     type Result = usize;
 
     fn handle(&mut self, msg: message::Connect, _: &mut Context<Self>) -> Self::Result {
-        println!("Someone joined");
+        println!("{} joined chat.", msg.session.username);
 
         // regifter session with random id
         let id = self.rng.gen::<usize>();

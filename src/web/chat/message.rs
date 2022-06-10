@@ -32,6 +32,7 @@ impl Message for ClientMessage {
 #[rtype(usize)]
 pub struct Connect {
     pub addr: Recipient<ServerMessage>,
+    pub session: XfSession,
 }
 
 /// Session is disconnected

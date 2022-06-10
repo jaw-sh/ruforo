@@ -66,6 +66,7 @@ impl Actor for Connection {
         self.addr
             .send(message::Connect {
                 addr: addr.recipient(),
+                session: self.session.to_owned(),
             })
             .into_actor(self)
             .then(|res, act, ctx| {
