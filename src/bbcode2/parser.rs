@@ -15,14 +15,13 @@ impl Parser {
     pub fn new() -> Self {
         // The rctree's Node<> is a modified RefCell, so cloning is just a ref.
         // See: https://docs.rs/rctree/latest/rctree/struct.Node.html#impl-Clone
-        let dom = Element::new_root();
-        let root = Node::new(dom);
+        let root = Node::new(Element::new_root());
         let node = root.clone();
 
         Self { root, node }
     }
 
-    pub fn parse(&mut self, tokens: &[Token]) {
+    pub fn parse(&mut self, tokens: &[Token]) -> Node<Element> {
         for token in tokens {
             match token {
                 Token::Null => {
@@ -39,7 +38,13 @@ impl Parser {
         while let Some(_) = self.node.parent() {
             self.close_open_tag();
         }
-        self.insert_contents_as_node()
+        self.insert_contents_as_node();
+
+        // Unbind and return
+        let ast = self.root.clone();
+        self.root = Node::new(Element::new_root());
+        self.node = self.root.clone();
+        ast
     }
 
     fn add_linebreak(&mut self, token: &Token) {

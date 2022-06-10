@@ -1,9 +1,11 @@
+mod constructor;
 mod element;
 mod lexer;
 mod parser;
 mod read_mode;
 mod token;
 
+pub use constructor::Constructor;
 pub use element::{Element, ElementDisplay};
 pub use lexer::Lexer;
 pub use parser::Parser;
