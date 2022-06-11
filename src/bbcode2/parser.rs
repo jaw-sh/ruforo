@@ -165,6 +165,7 @@ impl Parser {
         // Literals consume tags as literal text instead of parsing them.
         else if literal {
             self.add_text(&token.to_tag_string());
+            return;
         }
         // Voids should not be accepting tokens.
         else if void {

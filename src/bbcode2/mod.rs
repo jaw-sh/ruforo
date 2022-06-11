@@ -29,6 +29,13 @@ pub fn parse(input: &str) -> String {
 
 mod tests {
     #[test]
+    fn plain() {
+        use super::parse;
+        assert_eq!("[b]Test[/b]", parse("[plain][b]Test[/b][/plain]"));
+        assert_eq!("[b]Test[/b]", parse("[plain][b]Test[/b]"));
+    }
+
+    #[test]
     fn inline_tags() {
         use super::parse;
 

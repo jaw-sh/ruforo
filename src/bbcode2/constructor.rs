@@ -44,6 +44,8 @@ impl Constructor {
                 Tag::Invalid => {}
                 Tag::HorizontalRule => return self_closing_tag("hr"),
                 Tag::Linebreak => return self_closing_tag("br"),
+                Tag::Plain => {}
+
                 Tag::Bold => return open_simple_tag("b"),
                 Tag::Italics => return open_simple_tag("i"),
                 Tag::Underline => return open_simple_tag("u"),
@@ -62,6 +64,8 @@ impl Constructor {
                 Tag::Invalid => {}
                 Tag::Linebreak => {}
                 Tag::HorizontalRule => {}
+                Tag::Plain => {}
+
                 Tag::Bold => return close_simple_tag("b"),
                 Tag::Italics => return close_simple_tag("i"),
                 Tag::Underline => return close_simple_tag("u"),

@@ -6,6 +6,7 @@ pub enum Tag {
     Invalid,
     Linebreak,
     HorizontalRule,
+    Plain,
 
     // Inline Tags
     Bold,
@@ -20,6 +21,7 @@ pub fn get_tag_by_name(tag: &str) -> Tag {
         "br" => Tag::Linebreak,
         "hr" => Tag::HorizontalRule,
         "i" => Tag::Italics,
+        "plain" => Tag::Plain,
         "s" => Tag::Strikethrough,
         "u" => Tag::Underline,
         _ => unreachable!(),

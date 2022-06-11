@@ -1,4 +1,4 @@
-use super::Token;
+use super::{Tag, Token};
 
 #[derive(Debug, Clone)]
 pub enum ElementDisplay {
@@ -40,6 +40,40 @@ pub struct Element {
 }
 
 impl Element {
+    fn new_for_tag(tag: &String, arg: &Option<String>) -> Self {
+        use super::tag::get_tag_by_name;
+
+        let mut el = Self {
+            tag: Some(tag.to_owned()),
+            argument: arg.to_owned(),
+            ..Self::default()
+        };
+
+        // Adjust display
+        el.display = match get_tag_by_name(tag) {
+            _ => ElementDisplay::Inline,
+        };
+
+        // Adjust classifiers
+        match get_tag_by_name(tag) {
+            Tag::Invalid => {
+                el.is_broken = true;
+            }
+            Tag::Linebreak => {
+                unreachable!();
+            }
+            Tag::HorizontalRule => {
+                el.is_void = true;
+            }
+            Tag::Plain => {
+                el.is_literal = true;
+            }
+            _ => {}
+        }
+
+        el
+    }
+
     /// Converts a Lexer's Token into a Parser's Element.
     pub fn new_from_token(token: &Token) -> Self {
         match token {
@@ -48,11 +82,7 @@ impl Element {
                 is_void: true,
                 ..Self::default()
             },
-            Token::Tag(tag, arg) => Self {
-                tag: Some(tag.to_owned()),
-                argument: arg.to_owned(),
-                ..Self::default()
-            },
+            Token::Tag(tag, arg) => Self::new_for_tag(tag, arg),
             Token::Text(text) => Self::new_text(text),
             _ => unreachable!(),
         }
