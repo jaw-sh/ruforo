@@ -214,11 +214,10 @@ mod tests {
         use super::{Parser, Token};
 
         let mut parser = Parser::new();
-        parser.parse(&[Token::Text("Foobar".to_owned())]);
+        let ast = parser.parse(&[Token::Text("Foobar".to_owned())]);
 
-        assert_eq!(parser.root, parser.root);
         assert_eq!(
-            parser.root.first_child().unwrap().borrow().get_contents(),
+            ast.first_child().unwrap().borrow().get_contents(),
             Some(&"Foobar".to_string())
         );
     }
@@ -228,14 +227,14 @@ mod tests {
         use super::{Parser, Token};
 
         let mut parser = Parser::new();
-        parser.parse(&[
+        let ast = parser.parse(&[
             Token::Tag("b".to_owned(), None),
             Token::Text("Foobar".to_owned()),
             Token::TagClose("b".to_owned()),
         ]);
 
-        assert_eq!(parser.root.borrow().get_contents(), None);
-        match parser.node.first_child() {
+        assert_eq!(ast.borrow().get_contents(), None);
+        match ast.first_child() {
             Some(child) => {
                 assert_eq!(child.borrow().get_tag_name(), Some(&"b".to_string()));
                 match child.first_child() {
@@ -300,10 +299,10 @@ mod tests {
         use super::{Parser, Token};
 
         let mut parser = Parser::new();
-        parser.parse(&[Token::TagClose("quote".to_owned())]);
+        let ast = parser.parse(&[Token::TagClose("quote".to_owned())]);
 
         assert_eq!(
-            parser.root.first_child().unwrap().borrow().get_contents(),
+            ast.first_child().unwrap().borrow().get_contents(),
             Some(&"[/quote]".to_owned())
         );
         assert_eq!(parser.node, parser.root);
