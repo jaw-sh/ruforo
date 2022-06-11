@@ -12,7 +12,7 @@ impl Constructor {
     }
 
     pub fn build(&self, mut node: Node<Element>) -> String {
-        let mut output: String = "".to_string();
+        let mut output: String = String::new();
 
         output.push_str(&self.element_open(node.borrow_mut()));
 
@@ -41,23 +41,24 @@ impl Constructor {
 
         if let Some(tag) = el.get_tag_name() {
             match get_tag_by_name(tag) {
-                Tag::Invalid => {}
-                Tag::HorizontalRule => return self_closing_tag("hr"),
-                Tag::Linebreak => return self_closing_tag("br"),
-                Tag::Plain => {}
+                Tag::HorizontalRule => self_closing_tag("hr"),
+                Tag::Linebreak => self_closing_tag("br"),
+                Tag::Plain => String::new(), // Not rendered.
 
-                Tag::Bold => return open_simple_tag("b"),
-                Tag::Italics => return open_simple_tag("i"),
-                Tag::Underline => return open_simple_tag("u"),
-                Tag::Strikethrough => return open_simple_tag("s"),
+                Tag::Bold => open_simple_tag("b"),
+                Tag::Italics => open_simple_tag("i"),
+                Tag::Underline => open_simple_tag("u"),
+                Tag::Strikethrough => open_simple_tag("s"),
 
-                Tag::Code => return open_simple_tag("pre"),
+                Tag::Code => open_simple_tag("pre"),
 
-                Tag::Image => return open_img_tag(el),
+                Tag::Image => open_img_tag(el),
+
+                _ => el.to_open_str(),
             }
+        } else {
+            String::new()
         }
-
-        "".to_string()
     }
 
     fn element_close(&self, el: RefMut<Element>) -> String {
@@ -65,27 +66,34 @@ impl Constructor {
 
         if let Some(tag) = el.get_tag_name() {
             match get_tag_by_name(tag) {
-                Tag::Invalid => {}
-                Tag::Linebreak => {}
-                Tag::HorizontalRule => {}
-                Tag::Plain => {}
+                Tag::Invalid => {
+                    if el.is_explicit() {
+                        el.to_close_str()
+                    } else {
+                        String::new()
+                    }
+                }
 
-                Tag::Bold => return close_simple_tag("b"),
-                Tag::Italics => return close_simple_tag("i"),
-                Tag::Underline => return close_simple_tag("u"),
-                Tag::Strikethrough => return close_simple_tag("s"),
+                Tag::Bold => close_simple_tag("b"),
+                Tag::Italics => close_simple_tag("i"),
+                Tag::Underline => close_simple_tag("u"),
+                Tag::Strikethrough => close_simple_tag("s"),
 
-                Tag::Code => return close_simple_tag("pre"),
+                Tag::Code => close_simple_tag("pre"),
 
                 Tag::Image => {
                     if el.is_broken() && el.is_explicit() {
-                        return "[/img]".to_owned();
+                        "[/img]".to_owned()
+                    } else {
+                        String::new()
                     }
                 }
-            }
-        }
 
-        "".to_string()
+                _ => String::new(),
+            }
+        } else {
+            String::new()
+        }
     }
 }
 

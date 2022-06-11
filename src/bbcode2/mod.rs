@@ -82,6 +82,16 @@ mod tests {
     }
 
     #[test]
+    fn invalid() {
+        use super::parse;
+
+        assert_eq!("[foo]Test[/foo]", parse("[foo]Test[/foo]"));
+        assert_eq!("[foo]Test[/foo]", parse("[plain][foo]Test[/foo][/plain]"));
+        assert_eq!("[foo]Test[/bar]", parse("[foo]Test[/bar]"));
+        assert_eq!("[foo]Test", parse("[foo]Test"));
+    }
+
+    #[test]
     fn linebreaks() {
         use super::parse;
 

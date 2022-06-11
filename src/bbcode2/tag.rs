@@ -33,7 +33,7 @@ pub fn get_tag_by_name(tag: &str) -> Tag {
         "plain" => Tag::Plain,
         "s" => Tag::Strikethrough,
         "u" => Tag::Underline,
-        _ => unreachable!(),
+        _ => Tag::Invalid,
     }
 }
 

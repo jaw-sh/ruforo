@@ -32,7 +32,7 @@ impl Token {
     /// Converts token to string, without syntax.
     pub fn to_inner_string(&self) -> String {
         match self {
-            Self::Null => "".to_string(),
+            Self::Null => String::new(),
             Self::Linebreak => "\n\r".to_string(),
             Self::Tag(tag, arg) => match arg {
                 Some(arg) => format!("{}{}", tag, arg),

@@ -53,7 +53,10 @@ impl Element {
 
         // Adjust display
         el.display = match get_tag_by_name(tag) {
-            Tag::Invalid => unreachable!(),
+            Tag::Invalid => {
+                el.broken = true;
+                ElementDisplay::Inline
+            }
             Tag::Linebreak => unreachable!(),
             Tag::HorizontalRule => ElementDisplay::Selfclosing,
             Tag::Plain => ElementDisplay::Plain,
@@ -186,5 +189,27 @@ impl Element {
 
     pub fn set_explicit(&mut self) {
         self.explicit = true;
+    }
+
+    /// Unwinds element into an opening tag string.
+    pub fn to_open_str(&self) -> String {
+        match &self.tag {
+            Some(tag) => match &self.argument {
+                Some(argument) => format!("[{}{}]", tag, argument),
+                None => format!("[{}]", tag),
+            },
+            None => match &self.argument {
+                Some(argument) => format!("[{}]", argument),
+                None => "[/]".to_string(),
+            },
+        }
+    }
+
+    /// Unwinds element into an closing tag string.
+    pub fn to_close_str(&self) -> String {
+        match &self.tag {
+            Some(tag) => format!("[/{}]", tag),
+            None => "[/]".to_string(),
+        }
     }
 }
