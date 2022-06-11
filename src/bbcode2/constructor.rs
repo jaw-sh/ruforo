@@ -50,6 +50,8 @@ impl Constructor {
                 Tag::Italics => return open_simple_tag("i"),
                 Tag::Underline => return open_simple_tag("u"),
                 Tag::Strikethrough => return open_simple_tag("s"),
+
+                Tag::Code => return open_simple_tag("pre"),
             }
         }
 
@@ -70,6 +72,8 @@ impl Constructor {
                 Tag::Italics => return close_simple_tag("i"),
                 Tag::Underline => return close_simple_tag("u"),
                 Tag::Strikethrough => return close_simple_tag("s"),
+
+                Tag::Code => return close_simple_tag("pre"),
             }
         }
 

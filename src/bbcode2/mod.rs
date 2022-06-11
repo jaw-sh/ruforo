@@ -29,13 +29,6 @@ pub fn parse(input: &str) -> String {
 
 mod tests {
     #[test]
-    fn plain() {
-        use super::parse;
-        assert_eq!("[b]Test[/b]", parse("[plain][b]Test[/b][/plain]"));
-        assert_eq!("[b]Test[/b]", parse("[plain][b]Test[/b]"));
-    }
-
-    #[test]
     fn inline_tags() {
         use super::parse;
 
@@ -48,6 +41,28 @@ mod tests {
         assert_eq!("<b><i>Test</i></b>", parse("[b][i]Test[/i]"));
         assert_eq!("<b><i>Test</i></b>", parse("[b][i]Test[/b]"));
         assert_eq!("<b><i>Test</i></b>", parse("[b][i]Test"));
+    }
+
+    #[test]
+    fn international_text() {
+        use super::parse;
+
+        assert_eq!(
+            "I&#x27;d bet it&#x27;s a &quot;test&quot;, yea.",
+            parse("I'd bet it's a \"test\", yea.")
+        );
+        assert_eq!("私は猫<i>です</i>。", parse("私は猫[i]です[/i]。"));
+        assert_eq!(
+            "全世界無產階級和被壓迫的民族聯合起來！",
+            parse("全世界無產階級和被壓迫的民族聯合起來！")
+        );
+        assert_eq!(
+            "<b>СМЕРТЬ</b><br />ВСІМ, ХТО НА ПИРИШКОДІ<br />ДОБУТЬЯ ВІЛЬНОСТІ<br />ТРУДОВОМУ ЛЮДУ.",
+            parse(
+                "[b]СМЕРТЬ[/b]\n\rВСІМ, ХТО НА ПИРИШКОДІ\n\rДОБУТЬЯ ВІЛЬНОСТІ\n\rТРУДОВОМУ ЛЮДУ."
+            )
+        );
+        assert_eq!("😂🔫", parse("😂🔫"));
     }
 
     #[test]
@@ -71,11 +86,29 @@ mod tests {
     fn misc() {
         use super::parse;
 
+        // This is a self-closing tag in HTML and I disagree that it should require a closing tag in BBCode.
         assert_eq!("<hr />", parse("[hr]"));
-        assert_eq!("<hr />", parse("[hr][/hr]"));
+        //assert_eq!("<hr />", parse("[hr][/hr]"));
         assert_eq!("Foo<hr />Bar", parse("Foo[hr]Bar"));
-        assert_eq!("Foo<hr />Bar", parse("Foo[hr]Bar[/hr]"));
-        assert_eq!("Foo<hr />Bar", parse("Foo[hr][/hr]Bar"));
+        //assert_eq!("Foo<hr />Bar", parse("Foo[hr]Bar[/hr]"));
+        //assert_eq!("Foo<hr />Bar", parse("Foo[hr][/hr]Bar"));
         assert_eq!("<b>Foo<hr />Bar</b>", parse("[b]Foo[hr]Bar"));
+    }
+
+    #[test]
+    fn plain() {
+        use super::parse;
+
+        assert_eq!("[b]Test[/b]", parse("[plain][b]Test[/b][/plain]"));
+        assert_eq!("[b]Test[/b]", parse("[plain][b]Test[/b]"));
+        assert_eq!("[b]Foo[hr]bar[/b]", parse("[plain][b]Foo[hr]bar[/b]"));
+    }
+
+    #[test]
+    fn pre() {
+        use super::parse;
+
+        assert_eq!("<pre>Test</pre>", parse("[code]Test[/code]"));
+        assert_eq!("<pre>Foo\n\rbar</pre>", parse("[code]Foo\n\rbar[/code]"));
     }
 }

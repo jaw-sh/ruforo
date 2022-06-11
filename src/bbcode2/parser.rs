@@ -1,6 +1,4 @@
-use super::Element;
-use super::ElementDisplay;
-use super::Token;
+use super::{Element, ElementDisplay, Token};
 use rctree::Node;
 
 /// Struct for parsing BbCode Tokens into an Element tree.
@@ -48,10 +46,17 @@ impl Parser {
     }
 
     fn add_linebreak(&mut self, token: &Token) {
-        if !self.node.borrow().is_void() {
+        // If we can linebreak, add a <br />.
+        if self.node.borrow().can_linebreak() {
             self.insert_element(Element::new_from_token(token));
-        } else {
-            unreachable!();
+        }
+        // If we cannot linebreak but can have content, add a regular newline.
+        else if self.node.borrow().can_have_content() {
+            self.node.borrow_mut().add_text(&token.to_inner_string());
+        }
+        // Should not happen.
+        else {
+            unreachable!("Parser wanted to add new line to an element without breaks or content.");
         }
     }
 
@@ -91,8 +96,8 @@ impl Parser {
                 if match el.get_display_type() {
                     // Inline tags may be closed by early termination of other tags.
                     ElementDisplay::Inline => true,
-                    // Block tags may never be closed by other tags.
-                    ElementDisplay::Block => tag_matched,
+                    // Other tags may never be closed by other tags.
+                    _ => tag_matched,
                 } {
                     // Increment counter so we know how many parents we are moving up.
                     closed_tags += 1;
@@ -146,34 +151,31 @@ impl Parser {
         // Append the linebreak itself, if we can.
         let node = Node::new(el);
         self.node.append(node.clone());
+
         node
     }
 
     /// Attempts to add element as child to current node and move current node to new element.
     fn open_tag(&mut self, token: &Token, el: Element) {
-        // Pulling from nodes in a lifetime is cleaner.
-        let (parentable, literal, void) = {
-            let mutel = self.node.borrow();
-            (mutel.can_parent(&el), mutel.is_literal(), mutel.is_void())
-        };
-
-        if parentable {
-            // Insert the element and move our pointer.
-            self.node = self.insert_element(el);
-            return;
+        if self.node.borrow().can_parent() {
+            // Insert the new element as a child.
+            if !el.can_have_content() {
+                // If we are inserting a void element, do not move pointer.
+                self.insert_element(el);
+                return;
+            } else {
+                // Otherwise, insert the element and move our pointer.
+                self.node = self.insert_element(el);
+                return;
+            }
         }
         // Literals consume tags as literal text instead of parsing them.
-        else if literal {
+        else if self.node.borrow().can_have_content() {
             self.add_text(&token.to_tag_string());
             return;
         }
-        // Voids should not be accepting tokens.
-        else if void {
-            log::warn!("Attempting to add token to a void element.");
-            return;
-        }
 
-        unreachable!()
+        unreachable!("Parser attempting to open tag in element that cannot parent or have content.")
     }
 }
 
@@ -255,7 +257,7 @@ mod tests {
         );
 
         let mut children = ast.children();
-        assert_eq!(children.nth(1).unwrap().borrow().is_void(), true);
+        assert_eq!(children.nth(1).unwrap().borrow().can_have_content(), false);
 
         let mut children = ast.children();
         assert_eq!(

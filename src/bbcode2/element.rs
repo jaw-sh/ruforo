@@ -2,8 +2,16 @@ use super::{Tag, Token};
 
 #[derive(Debug, Clone)]
 pub enum ElementDisplay {
-    Inline,
+    /// Element which may not be closed by its interiors.
     Block,
+    /// Element which renders inline may be closed automatically in some situations.
+    Inline,
+    /// Element with content not parsed to BBCode.
+    Plain,
+    /// Element with content which whitespace is always preserved.
+    Preformatted,
+    /// Element with no content.
+    Selfclosing,
 }
 
 impl Default for ElementDisplay {
@@ -27,16 +35,6 @@ pub struct Element {
     contents: Option<String>,
     /// Types determine what other elements this one can safely embed in or close.
     display: ElementDisplay,
-
-    /// If true, this tag is malformed and should revert to text.
-    /// Example: \[url=gibberish\]bad url\[/url\]
-    is_broken: bool,
-    /// If true, the contents of this tag are always literal.
-    /// Example: \[code\]my bbcode here\[code\]
-    is_literal: bool,
-    /// If true, this element is not allowed to contain anything at all, including text.
-    /// Example: \[hr\] tags, linebreaks.
-    is_void: bool,
 }
 
 impl Element {
@@ -51,25 +49,13 @@ impl Element {
 
         // Adjust display
         el.display = match get_tag_by_name(tag) {
+            Tag::Invalid => unreachable!(),
+            Tag::Linebreak => unreachable!(),
+            Tag::HorizontalRule => ElementDisplay::Selfclosing,
+            Tag::Plain => ElementDisplay::Plain,
+            Tag::Code => ElementDisplay::Preformatted,
             _ => ElementDisplay::Inline,
         };
-
-        // Adjust classifiers
-        match get_tag_by_name(tag) {
-            Tag::Invalid => {
-                el.is_broken = true;
-            }
-            Tag::Linebreak => {
-                unreachable!();
-            }
-            Tag::HorizontalRule => {
-                el.is_void = true;
-            }
-            Tag::Plain => {
-                el.is_literal = true;
-            }
-            _ => {}
-        }
 
         el
     }
@@ -79,7 +65,7 @@ impl Element {
         match token {
             Token::Linebreak => Self {
                 tag: Some("br".to_owned()),
-                is_void: true,
+                display: ElementDisplay::Selfclosing,
                 ..Self::default()
             },
             Token::Tag(tag, arg) => Self::new_for_tag(tag, arg),
@@ -105,22 +91,48 @@ impl Element {
     }
 
     pub fn add_text(&mut self, text: &String) {
-        // Add text if possible.
-        if !self.is_void {
-            match self.contents {
-                Some(ref mut contents) => contents.push_str(text),
-                None => self.contents = Some(text.to_owned()),
-            };
-            return;
+        match self.display {
+            ElementDisplay::Selfclosing => {
+                unreachable!("Parser trying to insert text in self-closing element.")
+            }
+            _ => {
+                // Set our contents to include new text.
+                match self.contents {
+                    Some(ref mut contents) => contents.push_str(text),
+                    None => self.contents = Some(text.to_owned()),
+                }
+            }
         }
+    }
 
-        unreachable!("Parser trying to add text to void element.")
+    /// If true, this node can have text.
+    /// If false, it should never contain anything.
+    pub fn can_have_content(&self) -> bool {
+        match self.display {
+            ElementDisplay::Selfclosing => false,
+            _ => true,
+        }
+    }
+
+    /// If true, this node can accept <br/> tags.
+    /// If false, it depends on other checks what it can accept.
+    pub fn can_linebreak(&self) -> bool {
+        match self.display {
+            ElementDisplay::Preformatted => false,
+            ElementDisplay::Selfclosing => false,
+            _ => true,
+        }
     }
 
     /// If true, this node can accept the given element as a child.
-    /// If false, reason it cannot.
-    pub fn can_parent(&self, node: &Element) -> bool {
-        !self.is_literal && !self.is_void
+    /// If false, it should never have child tag elements.
+    pub fn can_parent(&self) -> bool {
+        match self.display {
+            ElementDisplay::Plain => false,
+            ElementDisplay::Preformatted => false,
+            ElementDisplay::Selfclosing => false,
+            _ => true,
+        }
     }
 
     pub fn extract_contents(&mut self) -> Option<Element> {
@@ -144,20 +156,10 @@ impl Element {
         self.tag.as_ref()
     }
 
-    /// If true, all contents must never be parsed.
-    pub fn is_literal(&self) -> bool {
-        self.is_literal
-    }
-
     pub fn is_tag(&self, other: &String) -> bool {
         match &self.tag {
             Some(ours) => ours == other,
             None => false,
         }
-    }
-
-    /// If true, no element or text may be added to this element.
-    pub fn is_void(&self) -> bool {
-        self.is_void
     }
 }

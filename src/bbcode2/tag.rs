@@ -1,6 +1,3 @@
-use super::Element;
-use phf::phf_map;
-
 pub enum Tag {
     // Unique Tags
     Invalid,
@@ -13,12 +10,16 @@ pub enum Tag {
     Italics,
     Underline,
     Strikethrough,
+
+    // Block Tags
+    Code,
 }
 
 pub fn get_tag_by_name(tag: &str) -> Tag {
     match tag {
         "b" => Tag::Bold,
         "br" => Tag::Linebreak,
+        "code" => Tag::Code,
         "hr" => Tag::HorizontalRule,
         "i" => Tag::Italics,
         "plain" => Tag::Plain,
