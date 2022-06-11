@@ -67,13 +67,17 @@ impl Parser {
     }
 
     fn add_url(&mut self, token: &Token, url: &String) {
-        match Url::parse(url) {
-            Ok(_) => {
-                self.insert_element(Element::new_from_token(token));
+        if self.node.borrow().can_parent() {
+            match Url::parse(url) {
+                Ok(_) => {
+                    self.insert_element(Element::new_from_token(token));
+                }
+                Err(_) => {
+                    self.add_text(url);
+                }
             }
-            Err(_) => {
-                self.add_text(url);
-            }
+        } else {
+            self.add_text(url);
         }
     }
 

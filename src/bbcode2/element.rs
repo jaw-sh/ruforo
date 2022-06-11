@@ -62,6 +62,7 @@ impl Element {
             Tag::Plain => ElementDisplay::Plain,
             Tag::Code => ElementDisplay::Preformatted,
             Tag::Image => ElementDisplay::Plain,
+            Tag::Link => ElementDisplay::Plain,
             _ => ElementDisplay::Inline,
         };
 

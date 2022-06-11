@@ -53,6 +53,7 @@ impl Constructor {
                 Tag::Code => open_simple_tag("pre"),
 
                 Tag::Image => open_img_tag(el),
+                Tag::Link => open_url_tag(el),
 
                 _ => el.to_open_str(),
             }
@@ -84,6 +85,13 @@ impl Constructor {
                 Tag::Image => {
                     if el.is_broken() && el.is_explicit() {
                         "[/img]".to_owned()
+                    } else {
+                        String::new()
+                    }
+                }
+                Tag::Link => {
+                    if el.is_broken() && el.is_explicit() {
+                        "[/url]".to_owned()
                     } else {
                         String::new()
                     }

@@ -20,6 +20,7 @@ pub enum Tag {
 
     // Embed Tags
     Image,
+    Link,
 }
 
 pub fn get_tag_by_name(tag: &str) -> Tag {
@@ -33,6 +34,7 @@ pub fn get_tag_by_name(tag: &str) -> Tag {
         "plain" => Tag::Plain,
         "s" => Tag::Strikethrough,
         "u" => Tag::Underline,
+        "url" => Tag::Link,
         _ => Tag::Invalid,
     }
 }
@@ -75,5 +77,35 @@ pub fn open_img_tag(mut el: RefMut<Element>) -> String {
         format!("[img]{}", contents)
     } else {
         "[img]".to_string()
+    }
+}
+
+pub fn open_url_tag(mut el: RefMut<Element>) -> String {
+    // Our URL comes from inside the tag.
+    if let Some(contents) = el.get_contents() {
+        match Url::parse(contents) {
+            Ok(url) => match url.scheme() {
+                "http" | "https" => {
+                    el.clear_contents();
+                    return format!(
+                        "<a href=\"{}\" rel=\"nofollow\">{}</a>",
+                        url.as_str(),
+                        url.as_str()
+                    );
+                }
+                _ => {}
+            },
+            Err(_) => {}
+        }
+    }
+
+    // If we have no content, we are broken.
+    el.borrow_mut().set_broken();
+
+    // Return raw bbcode
+    if let Some(contents) = el.get_contents() {
+        format!("[url]{}", contents)
+    } else {
+        "[url]".to_string()
     }
 }

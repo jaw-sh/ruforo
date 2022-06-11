@@ -111,6 +111,20 @@ mod tests {
     }
 
     #[test]
+    fn linkify() {
+        use super::parse;
+
+        assert_eq!(
+            "Welcome, to <a href=\"https://zombo.com/\" rel=\"nofollow\">https://zombo.com/</a>!",
+            parse("Welcome, to https://zombo.com/!")
+        );
+        assert_eq!(
+            "Welcome, to <a href=\"https://zombo.com/\" rel=\"nofollow\">https://zombo.com/</a>!",
+            parse("Welcome, to [url]https://zombo.com/[/url]!")
+        );
+    }
+
+    #[test]
     fn misc() {
         use super::parse;
 

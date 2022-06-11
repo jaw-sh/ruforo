@@ -644,6 +644,32 @@ mod tests {
     }
 
     #[test]
+    fn url_in_brackets() {
+        use super::{Lexer, Token};
+
+        let mut t = Lexer::new();
+        t.tokenize("<https://zombo.com/>");
+
+        let mut output = String::with_capacity(64);
+        let mut found_url = false;
+
+        for token in &t.tokens {
+            match token {
+                Token::Text(ref text) => output.push_str(text),
+                Token::Url(ref url) => {
+                    found_url = true;
+                    assert_eq!("https://zombo.com/", url);
+                    output.push_str(url)
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        assert!(found_url, "Did not encounter URL token.");
+        assert_eq!("&lt;https://zombo.com/&gt;", output);
+    }
+
+    #[test]
     fn url_scan() {
         use super::{Lexer, Token};
 
@@ -669,31 +695,5 @@ mod tests {
 
         assert_eq!(6, found_url);
         assert_eq!(ZOMBOCOM, output);
-    }
-
-    #[test]
-    fn url_in_brackets() {
-        use super::{Lexer, Token};
-
-        let mut t = Lexer::new();
-        t.tokenize("<https://zombo.com/>");
-
-        let mut output = String::with_capacity(64);
-        let mut found_url = false;
-
-        for token in &t.tokens {
-            match token {
-                Token::Text(ref text) => output.push_str(text),
-                Token::Url(ref url) => {
-                    found_url = true;
-                    assert_eq!("https://zombo.com/", url);
-                    output.push_str(url)
-                }
-                _ => unreachable!(),
-            }
-        }
-
-        assert!(found_url, "Did not encounter URL token.");
-        assert_eq!("&lt;https://zombo.com/&gt;", output);
     }
 }
