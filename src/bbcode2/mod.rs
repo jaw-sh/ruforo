@@ -1,3 +1,5 @@
+extern crate linkify;
+
 mod constructor;
 mod element;
 mod lexer;

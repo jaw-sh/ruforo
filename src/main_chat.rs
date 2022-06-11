@@ -20,8 +20,8 @@ mod web;
 
 mod compat;
 
-extern crate dotenv;
 extern crate ffmpeg_next;
+extern crate linkify;
 
 // Binary made compatible with XF2.
 // Temporary part of the project.

@@ -1,5 +1,6 @@
 use super::ReadMode;
 use super::Token;
+use linkify::{LinkFinder, LinkKind};
 use url::Url;
 
 /// Struct for BbCode tokenization.
@@ -8,6 +9,7 @@ pub struct Lexer {
     mode: ReadMode,
     current_token: Token,
     tokens: Vec<Token>,
+    link_finder: LinkFinder,
 }
 
 impl Lexer {
@@ -29,6 +31,7 @@ impl Lexer {
     fn commit_token(&mut self) {
         match self.current_token {
             Token::Null => {}
+            // Verify and push URls directly.
             Token::Url(ref url) => match Url::parse(url) {
                 Ok(_) => {
                     self.tokens.push(self.current_token.clone());
@@ -39,6 +42,57 @@ impl Lexer {
                     }
                 }
             },
+            // This pulls links out of the text string and splits it into multiple tokens.
+            Token::Text(ref text) => {
+                // This mutable string is adjusted every time text is removed in the inner loop.
+                let mut scan = text.to_owned();
+                // Check for links in text.
+                let links: Vec<_> = self.link_finder.links(text).collect();
+
+                // Loop through each link.
+                for link in links {
+                    // Pull the link as an unsized string.
+                    let linkstr = link.as_str();
+                    // Find the pos of the link.
+                    match scan.find(linkstr) {
+                        // Then, get the string _before_ that link appears.
+                        Some(pos) => match scan.get(..pos) {
+                            Some(str) => {
+                                // If that string has any value, we can commit it as text.
+                                if str.len() > 0 {
+                                    self.tokens.push(Token::Text(str.to_owned()));
+                                }
+
+                                // Commit the actual URL in order.
+                                self.tokens.push(Token::Url(linkstr.to_owned()));
+
+                                // Pull the remainder of the string after our URL.
+                                let next_pos = pos + linkstr.len();
+                                match scan.get(next_pos..) {
+                                    Some(newstr) => {
+                                        // Reset the scan string.
+                                        scan = newstr.to_string();
+                                    }
+                                    None => {
+                                        log::warn!("Lexer somehow was unable to substring second half of string.")
+                                    }
+                                }
+                            }
+                            None => {
+                                log::warn!("Lexer somehow was unable to substring link that the LinkFinder found.")
+                            }
+                        },
+                        None => {
+                            log::warn!("Lexer somehow was unable to find link pos that the LinkFinder did.")
+                        }
+                    }
+                }
+
+                // Finally, commit whatever is left of scan.
+                if scan.len() > 0 {
+                    self.tokens.push(Token::Text(scan));
+                }
+            }
             _ => {
                 self.tokens.push(self.current_token.clone());
             }
@@ -590,7 +644,35 @@ mod tests {
     }
 
     #[test]
-    fn url() {
+    fn url_scan() {
+        use super::{Lexer, Token};
+
+        const ZOMBOCOM: &str = "Welcome, to https://zombo.com/. This is https://zombo.com/. Welcome. (This is https://zombo.com/). Welcome, to https://zombo.com/! You can do anything at https://zombo.com/, anything at all. The only limit ... is yourself. Welcome, to https://zombo.com/...";
+        let mut t = Lexer::new();
+        t.tokenize(ZOMBOCOM);
+
+        let mut output = String::with_capacity(64);
+        let mut found_url = 0;
+
+        for token in &t.tokens {
+            match token {
+                Token::Text(ref text) => output.push_str(text),
+                Token::Url(ref url) => {
+                    found_url += 1;
+                    // Every URL is the same so make sure it's not mangling them.
+                    assert_eq!("https://zombo.com/", url);
+                    output.push_str(url)
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        assert_eq!(6, found_url);
+        assert_eq!(ZOMBOCOM, output);
+    }
+
+    #[test]
+    fn url_in_brackets() {
         use super::{Lexer, Token};
 
         let mut t = Lexer::new();
