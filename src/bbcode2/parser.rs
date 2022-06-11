@@ -34,7 +34,7 @@ impl Parser {
 
         // Cleanly close all open tags.
         while let Some(_) = self.node.parent() {
-            self.close_open_tag();
+            self.close_open_tag(false);
         }
         self.insert_contents_as_node();
 
@@ -65,10 +65,22 @@ impl Parser {
     }
 
     // Attempts to close the currently open tag.
-    fn close_open_tag(&mut self) {
+    // If explicit is true, the user has explicitly closed this element.
+    fn close_open_tag(&mut self, explicit: bool) {
         match self.node.parent() {
             Some(parent) => {
-                self.insert_contents_as_node();
+                // Set explicitly closed if we have.
+                if explicit {
+                    self.node.borrow_mut().set_explicit();
+                }
+
+                // Move content to a text node if we can parent.
+                // In [b]foo[hr]bar[/b], this makes sure bar is in the right spot.
+                // In [img]x[/img], a Plain tag, we capture the text content for parsing.
+                if self.node.borrow().can_parent() {
+                    self.insert_contents_as_node();
+                }
+
                 self.node = parent;
             }
             None => unreachable!(),
@@ -125,7 +137,7 @@ impl Parser {
         // Close all tags needed.
         while closed_tags > 0 {
             match self.node.parent() {
-                Some(_) => self.close_open_tag(),
+                Some(_) => self.close_open_tag(closed_tags == 1),
                 None => unreachable!(),
             };
             closed_tags -= 1;
@@ -180,6 +192,23 @@ impl Parser {
 }
 
 mod tests {
+    #[test]
+    fn add_text_to_img() {
+        use super::{Parser, Token};
+
+        let mut parser = Parser::new();
+        let ast = parser.parse(&[
+            Token::Tag("img".to_owned(), None),
+            Token::Text("https://zombo.com/images/zombocom.png".to_owned()),
+            Token::TagClose("img".to_owned()),
+        ]);
+
+        assert_eq!(
+            ast.first_child().unwrap().borrow().get_contents(),
+            Some(&"https://zombo.com/images/zombocom.png".to_string())
+        );
+    }
+
     #[test]
     fn add_text_to_root() {
         use super::{Parser, Token};

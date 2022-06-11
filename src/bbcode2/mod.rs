@@ -24,10 +24,26 @@ pub fn parse(input: &str) -> String {
     let ast = parser.parse(tokens);
 
     let constructor = Constructor::new();
-    constructor.build(&ast)
+    constructor.build(ast)
 }
 
 mod tests {
+    #[test]
+    fn img() {
+        use super::parse;
+
+        assert_eq!("[img]", parse("[img]"));
+        assert_eq!("[img][/img]", parse("[img][/img]"));
+        assert_eq!(
+            "<img src=\"https://zombo.com/images/zombocom.png\" />",
+            parse("[img]https://zombo.com/images/zombocom.png[/img]")
+        );
+        assert_eq!(
+            "<img src=\"https://zombo.com/images/zombocom.png\" />",
+            parse("[img]https://zombo.com/images/zombocom.png")
+        );
+    }
+
     #[test]
     fn inline_tags() {
         use super::parse;

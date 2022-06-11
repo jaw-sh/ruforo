@@ -35,6 +35,10 @@ pub struct Element {
     contents: Option<String>,
     /// Types determine what other elements this one can safely embed in or close.
     display: ElementDisplay,
+    /// When parsing arguments, elements may break, which defaults rendering as text.
+    broken: bool,
+    // If true, this element was explicitly defined and closed.
+    explicit: bool,
 }
 
 impl Element {
@@ -54,6 +58,7 @@ impl Element {
             Tag::HorizontalRule => ElementDisplay::Selfclosing,
             Tag::Plain => ElementDisplay::Plain,
             Tag::Code => ElementDisplay::Preformatted,
+            Tag::Image => ElementDisplay::Plain,
             _ => ElementDisplay::Inline,
         };
 
@@ -135,6 +140,10 @@ impl Element {
         }
     }
 
+    pub fn clear_contents(&mut self) {
+        self.contents = None;
+    }
+
     pub fn extract_contents(&mut self) -> Option<Element> {
         let res = match &self.contents {
             Some(text) => Some(Self::new_text(text)),
@@ -156,10 +165,26 @@ impl Element {
         self.tag.as_ref()
     }
 
+    pub fn is_broken(&self) -> bool {
+        self.broken
+    }
+
+    pub fn is_explicit(&self) -> bool {
+        self.explicit
+    }
+
     pub fn is_tag(&self, other: &String) -> bool {
         match &self.tag {
             Some(ours) => ours == other,
             None => false,
         }
+    }
+
+    pub fn set_broken(&mut self) {
+        self.broken = true;
+    }
+
+    pub fn set_explicit(&mut self) {
+        self.explicit = true;
     }
 }

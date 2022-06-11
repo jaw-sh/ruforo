@@ -1,5 +1,5 @@
 use rctree::Node;
-use std::cell::Ref;
+use std::cell::RefMut;
 
 use super::{Element, Tag};
 
@@ -11,33 +11,33 @@ impl Constructor {
         Self {}
     }
 
-    pub fn build(&self, node: &Node<Element>) -> String {
+    pub fn build(&self, mut node: Node<Element>) -> String {
         let mut output: String = "".to_string();
-        let el = node.borrow();
 
-        output.push_str(&self.element_open(node.borrow()));
+        output.push_str(&self.element_open(node.borrow_mut()));
 
         // If we have children, loop through them.
         if node.has_children() {
             for child in node.children() {
-                output.push_str(&self.build(&child))
+                output.push_str(&self.build(child))
             }
         }
         // If we do not have children, add our text.
         else {
+            let el = node.borrow();
             match el.get_contents() {
                 Some(el) => output.push_str(el),
                 None => {} // unreachable!(),
             }
         }
 
-        output.push_str(&self.element_close(node.borrow()));
+        output.push_str(&self.element_close(node.borrow_mut()));
 
         output
     }
 
-    fn element_open(&self, el: Ref<Element>) -> String {
-        use super::tag::{get_tag_by_name, open_simple_tag, self_closing_tag};
+    fn element_open(&self, el: RefMut<Element>) -> String {
+        use super::tag::*;
 
         if let Some(tag) = el.get_tag_name() {
             match get_tag_by_name(tag) {
@@ -52,13 +52,15 @@ impl Constructor {
                 Tag::Strikethrough => return open_simple_tag("s"),
 
                 Tag::Code => return open_simple_tag("pre"),
+
+                Tag::Image => return open_img_tag(el),
             }
         }
 
         "".to_string()
     }
 
-    fn element_close(&self, el: Ref<Element>) -> String {
+    fn element_close(&self, el: RefMut<Element>) -> String {
         use super::tag::{close_simple_tag, get_tag_by_name};
 
         if let Some(tag) = el.get_tag_name() {
@@ -74,6 +76,12 @@ impl Constructor {
                 Tag::Strikethrough => return close_simple_tag("s"),
 
                 Tag::Code => return close_simple_tag("pre"),
+
+                Tag::Image => {
+                    if el.is_broken() && el.is_explicit() {
+                        return "[/img]".to_owned();
+                    }
+                }
             }
         }
 
@@ -100,7 +108,7 @@ mod tests {
         }
         child.append(Node::new(Element::new_text(&"Hello, world!".to_owned())));
 
-        let out = con.build(&ast);
+        let out = con.build(ast);
         assert_eq!(out, "Hello, world!".to_owned());
     }
 
@@ -111,7 +119,7 @@ mod tests {
 
         let con = Constructor::new();
         let ast = Node::new(Element::new_text(&"Hello, world!".to_owned()));
-        let out = con.build(&ast);
+        let out = con.build(ast);
 
         assert_eq!(out, "Hello, world!".to_owned());
     }
