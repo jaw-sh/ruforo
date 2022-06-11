@@ -2,12 +2,12 @@
 #[derive(Debug, PartialEq)]
 pub enum ReadMode {
     Text,
-    Escape,
     Linebreak,
     Tag,
     TagArg,
     TagArgQuote,
     TagClose,
+    Url(bool),
 }
 
 impl Default for ReadMode {

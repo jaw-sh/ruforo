@@ -21,7 +21,7 @@ pub fn parse(input: &str) -> String {
     let tokens = lexer.tokenize(input);
 
     let mut parser = Parser::new();
-    let ast = parser.parse(tokens);
+    let ast = parser.parse(&tokens);
 
     let constructor = Constructor::new();
     constructor.build(ast)

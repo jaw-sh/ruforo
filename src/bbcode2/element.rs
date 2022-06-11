@@ -78,6 +78,12 @@ impl Element {
             },
             Token::Tag(tag, arg) => Self::new_for_tag(tag, arg),
             Token::Text(text) => Self::new_text(text),
+            Token::Url(url) => Self {
+                tag: Some("url".to_owned()),
+                contents: Some(url.to_owned()),
+                explicit: true,
+                ..Default::default()
+            },
             _ => unreachable!(),
         }
     }

@@ -6,6 +6,7 @@ pub enum Token {
     Tag(String, Option<String>),
     TagClose(String),
     Text(String),
+    Url(String),
 }
 
 impl Token {
@@ -26,6 +27,7 @@ impl Token {
             Self::Tag(tag, arg) => tag.len() == 0 && arg.is_none(),
             Self::TagClose(tag) => tag.len() == 0,
             Self::Text(text) => text.len() == 0,
+            Self::Url(url) => url.len() == 0,
         }
     }
 
@@ -40,6 +42,7 @@ impl Token {
             },
             Self::TagClose(tag) => format!("{}", tag),
             Self::Text(text) => format!("{}", text),
+            Self::Url(url) => format!("{}", url),
         }
     }
 

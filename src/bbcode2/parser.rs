@@ -1,5 +1,6 @@
 use super::{Element, ElementDisplay, Token};
 use rctree::Node;
+use url::Url;
 
 /// Struct for parsing BbCode Tokens into an Element tree.
 pub struct Parser {
@@ -29,6 +30,7 @@ impl Parser {
                 Token::Tag(_, _) => self.open_tag(token, Element::new_from_token(token)),
                 Token::TagClose(tag) => self.close_tag(token, tag),
                 Token::Text(text) => self.add_text(text),
+                Token::Url(url) => self.add_url(token, url),
             }
         }
 
@@ -62,6 +64,17 @@ impl Parser {
 
     fn add_text(&mut self, text: &String) {
         self.node.borrow_mut().add_text(text);
+    }
+
+    fn add_url(&mut self, token: &Token, url: &String) {
+        match Url::parse(url) {
+            Ok(_) => {
+                self.insert_element(Element::new_from_token(token));
+            }
+            Err(_) => {
+                self.add_text(url);
+            }
+        }
     }
 
     // Attempts to close the currently open tag.
