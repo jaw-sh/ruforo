@@ -44,6 +44,7 @@ impl Element {
     pub fn new_from_token(token: &Token) -> Self {
         match token {
             Token::Linebreak => Self {
+                tag: Some("br".to_owned()),
                 is_void: true,
                 ..Self::default()
             },

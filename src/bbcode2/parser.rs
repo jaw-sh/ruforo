@@ -238,25 +238,25 @@ mod tests {
         use super::{Parser, Token};
 
         let mut parser = Parser::new();
-        parser.parse(&[
+        let ast = parser.parse(&[
             Token::Text("a".to_owned()),
             Token::Linebreak,
             Token::Text("b".to_owned()),
         ]);
 
-        let children = parser.root.children();
+        let children = ast.children();
         assert_eq!(children.count(), 3);
 
-        let mut children = parser.root.children();
+        let mut children = ast.children();
         assert_eq!(
             children.nth(0).unwrap().borrow().get_contents(),
             Some(&"a".to_owned())
         );
 
-        let mut children = parser.root.children();
+        let mut children = ast.children();
         assert_eq!(children.nth(1).unwrap().borrow().is_void(), true);
 
-        let mut children = parser.root.children();
+        let mut children = ast.children();
         assert_eq!(
             children.nth(2).unwrap().borrow().get_contents(),
             Some(&"b".to_owned())

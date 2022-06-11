@@ -68,7 +68,9 @@ impl Lexer {
     /// Intreprets char as plain text input, expecting new tokens.
     fn parse_text(&mut self, character: char) {
         match character {
-            '\\' => self.mode = ReadMode::Escape,
+            '\\' => {
+                self.mode = ReadMode::Escape;
+            }
             '[' => {
                 self.commit_token();
                 self.mode = ReadMode::Tag;
