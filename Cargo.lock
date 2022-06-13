@@ -2591,6 +2591,7 @@ dependencies = [
  "linkify",
  "log",
  "mime",
+ "nom",
  "once_cell",
  "phf",
  "rand 0.8.5",

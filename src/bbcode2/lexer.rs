@@ -1,26 +1,53 @@
 use super::ReadMode;
 use super::Token;
-use linkify::{LinkFinder, LinkKind};
+use linkify::LinkFinder;
 use url::Url;
 
 /// Struct for BbCode tokenization.
 #[derive(Default)]
-pub struct Lexer {
+pub struct Lexer<'a> {
+    input: &'a str,
     mode: ReadMode,
     current_token: Token,
     tokens: Vec<Token>,
     link_finder: LinkFinder,
 }
 
-impl Lexer {
+impl<'a> Lexer<'a> {
     pub fn new() -> Self {
-        Default::default()
+        Self::default()
     }
 
     /// Reads and tokenizes BbCode into individual Tokens.
-    pub fn tokenize(&mut self, bbcode: &str) -> &Vec<Token> {
-        for character in bbcode.chars() {
-            self.parse(character);
+    pub fn tokenize(&mut self, input: &'a str) -> &Vec<Token> {
+        self.input = input;
+        self.current_token = Token::Null;
+        self.tokens = Vec::<Token>::with_capacity(input.len() / 2);
+
+        for character in self.input.chars() {
+            match self.mode {
+                ReadMode::Linebreak => {
+                    self.parse_linebreak(&character);
+                }
+                ReadMode::Tag => {
+                    self.parse_tag(&character);
+                }
+                ReadMode::TagArg => {
+                    self.parse_tag_arg(&character, false);
+                }
+                ReadMode::TagArgQuote => {
+                    self.parse_tag_arg(&character, true);
+                }
+                ReadMode::TagClose => {
+                    self.parse_tag_close(&character);
+                }
+                ReadMode::Text => {
+                    self.parse_text(&character);
+                }
+                ReadMode::Url(explicit) => {
+                    self.parse_url(&character, explicit);
+                }
+            }
         }
 
         self.commit_token();
@@ -107,35 +134,8 @@ impl Lexer {
         self.current_token = Token::Null;
     }
 
-    #[inline]
-    fn parse(&mut self, character: char) {
-        match self.mode {
-            ReadMode::Linebreak => {
-                self.parse_linebreak(character);
-            }
-            ReadMode::Tag => {
-                self.parse_tag(character);
-            }
-            ReadMode::TagClose => {
-                self.parse_tag_close(character);
-            }
-            ReadMode::TagArg => {
-                self.parse_tag_arg(character, false);
-            }
-            ReadMode::TagArgQuote => {
-                self.parse_tag_arg(character, true);
-            }
-            ReadMode::Text => {
-                self.parse_text(character);
-            }
-            ReadMode::Url(explicit) => {
-                self.parse_url(character, explicit);
-            }
-        }
-    }
-
     /// Intreprets char as plain text input, expecting new tokens.
-    fn parse_text(&mut self, character: char) {
+    fn parse_text(&mut self, character: &char) {
         match character {
             //'\\' => {
             //    self.mode = ReadMode::Escape;
@@ -150,24 +150,22 @@ impl Lexer {
                 self.commit_token();
                 self.mode = ReadMode::Linebreak;
             }
-            '>' | '<' | '&' | '"' | '\'' => {
+            '<' => {
                 match self.current_token {
                     Token::Text(ref mut contents) => {
-                        contents.push_str(&Self::sanitize(character));
+                        contents.push(*character);
                     }
                     _ => {
-                        self.current_token = Token::Text(Self::sanitize(character).to_string());
+                        self.current_token = Token::Text(character.to_string());
                     }
                 }
 
-                if character == '<' {
-                    self.commit_token();
-                    self.mode = ReadMode::Url(true);
-                }
+                self.commit_token();
+                self.mode = ReadMode::Url(true);
             }
             _ => match self.current_token {
                 Token::Text(ref mut contents) => {
-                    contents.push(character);
+                    contents.push(*character);
                 }
                 _ => {
                     self.current_token = Token::Text(character.to_string());
@@ -177,7 +175,7 @@ impl Lexer {
     }
 
     /// Parses new lines and discards whitespace until next token.
-    fn parse_linebreak(&mut self, character: char) {
+    fn parse_linebreak(&mut self, character: &char) {
         match character {
             // Consume tabs.
             '\t' => {}
@@ -196,29 +194,7 @@ impl Lexer {
         }
     }
 
-    fn parse_escape(&mut self, character: char) {
-        self.mode = ReadMode::Text;
-        match character {
-            '>' | '<' | '&' | '"' | '\'' | '\\' => match self.current_token {
-                Token::Tag(ref mut contents, _) => {
-                    contents.push_str(&Self::sanitize(character));
-                }
-                _ => {
-                    self.current_token = Token::Text(Self::sanitize(character));
-                }
-            },
-            _ => match self.current_token {
-                Token::Text(ref mut contents) => {
-                    contents.push(character);
-                }
-                _ => {
-                    self.current_token = Token::Text(character.to_string());
-                }
-            },
-        }
-    }
-
-    fn parse_tag(&mut self, character: char) {
+    fn parse_tag(&mut self, character: &char) {
         match character {
             // End the tag.
             ']' => {
@@ -263,7 +239,7 @@ impl Lexer {
             // Add letters
             _ => match self.current_token {
                 Token::Tag(ref mut contents, _) => {
-                    contents.push(character);
+                    contents.push(*character);
                 }
                 _ => {
                     self.current_token = Token::Tag(character.to_string(), None);
@@ -274,7 +250,7 @@ impl Lexer {
 
     /// Parse arguments in a tag.
     /// Arguments are any text after the tag name, before the ].
-    fn parse_tag_arg(&mut self, character: char, literal: bool) {
+    fn parse_tag_arg(&mut self, character: &char, literal: bool) {
         // If the character should be added to the arg string.
         match character {
             // Close tag if we're not being literal.
@@ -312,7 +288,7 @@ impl Lexer {
             Token::Tag(ref contents, ref mut args) => match args {
                 // Add to the Some(string)
                 Some(ref mut args) => {
-                    args.push(character);
+                    args.push(*character);
                 }
                 // Change token to include an arg string.
                 None => {
@@ -326,7 +302,7 @@ impl Lexer {
         };
     }
 
-    fn parse_tag_close(&mut self, character: char) {
+    fn parse_tag_close(&mut self, character: &char) {
         match character {
             // close tag
             ']' => {
@@ -338,7 +314,7 @@ impl Lexer {
                 if character.is_ascii_alphabetic() {
                     match self.current_token {
                         Token::TagClose(ref mut contents) => {
-                            contents.push(character);
+                            contents.push(*character);
                         }
                         _ => self.current_token = Token::TagClose(character.to_string()),
                     }
@@ -353,16 +329,16 @@ impl Lexer {
 
     /// Accepts a character expecting to build a URL.
     /// `explicit` is set when the URL is to be encapsulated in an <> like email.
-    fn parse_url(&mut self, character: char, explicit: bool) {
+    fn parse_url(&mut self, character: &char, explicit: bool) {
         match character {
             // Explicit terminators.
             '\n' => {
                 self.commit_token();
-                self.mode = ReadMode::Text;
+                self.mode = ReadMode::Linebreak;
                 self.parse_linebreak(character);
                 return;
             }
-            '>' => {
+            '<' | '>' => {
                 self.commit_token();
                 self.mode = ReadMode::Text;
                 self.parse_text(character);
@@ -382,7 +358,7 @@ impl Lexer {
 
         match self.current_token {
             Token::Url(ref mut url) => {
-                url.push(character);
+                url.push(*character);
             }
             _ => {
                 self.current_token = Token::Url(character.to_string());
@@ -392,7 +368,7 @@ impl Lexer {
 
     /// Aborts the current ReadMode to Text and converts current token to Text.
     /// Supplied char is what choked the parser.
-    fn reset_parse_to_text(&mut self, character: char) {
+    fn reset_parse_to_text(&mut self, character: &char) {
         // Recover existing input.
         let text: String = match &self.current_token {
             Token::Text(content) => {
@@ -411,20 +387,6 @@ impl Lexer {
         self.current_token = Token::Text(text);
         self.parse_text(character);
     }
-
-    /// Sanitizes a char for HTML.
-    fn sanitize(character: char) -> String {
-        match character {
-            '<' => "&lt;",
-            '>' => "&gt;",
-            '&' => "&amp;",
-            '"' => "&quot;",
-            '\'' => "&#x27;",
-            '\\' => "&#x2F;",
-            _ => unreachable!(),
-        }
-        .to_owned()
-    }
 }
 
 mod tests {
@@ -432,8 +394,9 @@ mod tests {
     fn linebreak() {
         use super::{Lexer, Token};
 
+        let input = "a\n\rb\n\r\r\r\rc\r";
         let mut t = Lexer::new();
-        t.tokenize("a\n\rb\n\r\r\r\rc\r");
+        t.tokenize(input);
 
         assert_eq!(t.tokens.len(), 5);
 
@@ -449,30 +412,12 @@ mod tests {
     }
 
     #[test]
-    fn sanitize() {
-        use super::{Lexer, Token};
-
-        let mut t = Lexer::new();
-        t.tokenize("<strong>HTML</strong>");
-
-        let mut output = String::with_capacity(64);
-
-        for token in &t.tokens {
-            match token {
-                Token::Text(ref text) => output.push_str(text),
-                _ => unreachable!(),
-            }
-        }
-
-        assert_eq!("&lt;strong&gt;HTML&lt;/strong&gt;", output);
-    }
-
-    #[test]
     fn tag_and_close() {
         use super::{Lexer, Token};
 
+        let input = "[b]Bold[/b]";
         let mut t = Lexer::new();
-        t.tokenize("[b]Bold[/b]");
+        t.tokenize(input);
 
         assert_eq!(t.tokens.len(), 3);
 
@@ -499,8 +444,9 @@ mod tests {
     fn tag_close_terminates() {
         use super::{Lexer, Token};
 
+        let input = "[b]Bold[//b]";
         let mut t = Lexer::new();
-        t.tokenize("[b]Bold[//b]");
+        t.tokenize(input);
 
         assert_eq!(t.tokens.len(), 3);
 
@@ -564,8 +510,9 @@ mod tests {
         // This content can be parsed as correct because the Lexer does not care
         // about the validity of the arguments.
         const GIBBERISH: &str = "   👍 wow nice \"[test]\"";
+        let input = format!("[url{}]Text[/url]", GIBBERISH);
         let mut t = Lexer::new();
-        t.tokenize(&format!("[url{}]Text[/url]", GIBBERISH));
+        t.tokenize(&input);
 
         assert_eq!(t.tokens.len(), 3);
         match &t.tokens[0] {
@@ -592,9 +539,9 @@ mod tests {
         use super::{Lexer, Token};
 
         const GIBBERISH: &str = "   👍 wow nice [ test ]";
+        let input = &format!("[url{}]Text[/url]", GIBBERISH);
         let mut t = Lexer::new();
-        t.tokenize(&format!("[url{}]Text[/url]", GIBBERISH));
-        //println!("{:?}", t.tokens);
+        t.tokenize(&input);
 
         assert_eq!(t.tokens.len(), 3);
 
@@ -666,7 +613,7 @@ mod tests {
         }
 
         assert!(found_url, "Did not encounter URL token.");
-        assert_eq!("&lt;https://zombo.com/&gt;", output);
+        assert_eq!("<https://zombo.com/>", output);
     }
 
     #[test]

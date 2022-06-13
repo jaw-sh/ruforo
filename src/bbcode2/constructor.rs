@@ -4,7 +4,9 @@ use std::cell::RefMut;
 use super::{Element, Tag};
 
 /// Converts a Parser's AST into rendered HTML.
-pub struct Constructor {}
+pub struct Constructor {
+    // TODO: Build string here, return in build().
+}
 
 impl Constructor {
     pub fn new() -> Self {
@@ -26,7 +28,7 @@ impl Constructor {
         else {
             let el = node.borrow();
             match el.get_contents() {
-                Some(el) => output.push_str(el),
+                Some(el) => output.push_str(&Self::sanitize(el)),
                 None => {} // unreachable!(),
             }
         }
@@ -40,20 +42,21 @@ impl Constructor {
         use super::tag::*;
 
         if let Some(tag) = el.get_tag_name() {
-            match get_tag_by_name(tag) {
-                Tag::HorizontalRule => self_closing_tag("hr"),
-                Tag::Linebreak => self_closing_tag("br"),
+            match Tag::get_by_name(tag) {
+                Tag::HorizontalRule => Tag::self_closing_tag("hr"),
+                Tag::Linebreak => Tag::self_closing_tag("br"),
                 Tag::Plain => String::new(), // Not rendered.
 
-                Tag::Bold => open_simple_tag("b"),
-                Tag::Italics => open_simple_tag("i"),
-                Tag::Underline => open_simple_tag("u"),
-                Tag::Strikethrough => open_simple_tag("s"),
+                Tag::Bold => Tag::open_simple_tag("b"),
+                Tag::Color => Tag::open_color_tag(el),
+                Tag::Italics => Tag::open_simple_tag("i"),
+                Tag::Underline => Tag::open_simple_tag("u"),
+                Tag::Strikethrough => Tag::open_simple_tag("s"),
 
-                Tag::Code => open_simple_tag("pre"),
+                Tag::Code => Tag::open_simple_tag("pre"),
 
-                Tag::Image => open_img_tag(el),
-                Tag::Link => open_url_tag(el),
+                Tag::Image => Tag::open_img_tag(el),
+                Tag::Link => Tag::open_url_tag(el),
 
                 _ => el.to_open_str(),
             }
@@ -63,45 +66,47 @@ impl Constructor {
     }
 
     fn element_close(&self, el: RefMut<Element>) -> String {
-        use super::tag::{close_simple_tag, get_tag_by_name};
-
+        // Only named elements close with output.
         if let Some(tag) = el.get_tag_name() {
-            match get_tag_by_name(tag) {
-                Tag::Invalid => {
-                    if el.is_explicit() {
-                        el.to_close_str()
-                    } else {
-                        String::new()
-                    }
+            // Only unbroken tags render HTML.
+            if !el.is_broken() {
+                match Tag::get_by_name(tag) {
+                    Tag::Invalid => el.to_close_str(),
+
+                    Tag::Bold => Tag::close_simple_tag("b"),
+                    Tag::Color => Tag::close_simple_tag("span"),
+                    Tag::Italics => Tag::close_simple_tag("i"),
+                    Tag::Underline => Tag::close_simple_tag("u"),
+                    Tag::Strikethrough => Tag::close_simple_tag("s"),
+
+                    Tag::Code => Tag::close_simple_tag("pre"),
+
+                    Tag::Link => Tag::close_simple_tag("a"),
+
+                    // Self-closing tags do not close.
+                    _ => String::new(),
                 }
-
-                Tag::Bold => close_simple_tag("b"),
-                Tag::Italics => close_simple_tag("i"),
-                Tag::Underline => close_simple_tag("u"),
-                Tag::Strikethrough => close_simple_tag("s"),
-
-                Tag::Code => close_simple_tag("pre"),
-
-                Tag::Image => {
-                    if el.is_broken() && el.is_explicit() {
-                        "[/img]".to_owned()
-                    } else {
-                        String::new()
-                    }
-                }
-                Tag::Link => {
-                    if el.is_broken() && el.is_explicit() {
-                        "[/url]".to_owned()
-                    } else {
-                        String::new()
-                    }
-                }
-
-                _ => String::new(),
             }
-        } else {
+            // Broken tags reverse to original input.
+            else {
+                el.to_close_str()
+            }
+        }
+        // Unnamed tags reverse to nothing.
+        else {
             String::new()
         }
+    }
+
+    /// Sanitizes a char for HTML.
+    fn sanitize(input: &String) -> String {
+        input
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+            .replace('&', "&amp;")
+            .replace('"', "&quot;")
+            .replace('\'', "&#x27;")
+            .replace('\\', "&#x2F;")
     }
 }
 

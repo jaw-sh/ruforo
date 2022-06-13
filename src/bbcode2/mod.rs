@@ -59,6 +59,26 @@ mod tests {
         assert_eq!("<b><i>Test</i></b>", parse("[b][i]Test[/i]"));
         assert_eq!("<b><i>Test</i></b>", parse("[b][i]Test[/b]"));
         assert_eq!("<b><i>Test</i></b>", parse("[b][i]Test"));
+
+        const GOOD_COLORS: &[&str] = &["red", "#ff0000"];
+        const BAD_COLORS: &[&str] = &["RED", "ff0000", "sneed", ""];
+
+        for good in GOOD_COLORS {
+            assert_eq!(
+                format!(
+                    "<span class=\"bbCode tagColor\" style=\"color: {}\">Hello!</span>",
+                    good
+                ),
+                parse(&format!("[color={}]Hello![/color]", good))
+            );
+        }
+
+        for bad in BAD_COLORS {
+            assert_eq!(
+                format!("[color={}]Hello![/color]", bad),
+                parse(&format!("[color={}]Hello![/color]", bad))
+            );
+        }
     }
 
     #[test]

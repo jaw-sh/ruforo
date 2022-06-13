@@ -43,8 +43,6 @@ pub struct Element {
 
 impl Element {
     fn new_for_tag(tag: &String, arg: &Option<String>) -> Self {
-        use super::tag::get_tag_by_name;
-
         let mut el = Self {
             tag: Some(tag.to_owned()),
             argument: arg.to_owned(),
@@ -52,7 +50,7 @@ impl Element {
         };
 
         // Adjust display
-        el.display = match get_tag_by_name(tag) {
+        el.display = match Tag::get_by_name(tag) {
             Tag::Invalid => {
                 el.broken = true;
                 ElementDisplay::Inline
@@ -163,6 +161,10 @@ impl Element {
         res
     }
 
+    pub fn get_argument(&self) -> Option<&String> {
+        self.argument.as_ref()
+    }
+
     pub fn get_contents(&self) -> Option<&String> {
         self.contents.as_ref()
     }
@@ -214,9 +216,16 @@ impl Element {
 
     /// Unwinds element into an closing tag string.
     pub fn to_close_str(&self) -> String {
-        match &self.tag {
-            Some(tag) => format!("[/{}]", tag),
-            None => "[/]".to_string(),
+        // Only explicitly closed tags reverse to BbCode
+        if self.is_explicit() {
+            match &self.tag {
+                Some(tag) => format!("[/{}]", tag),
+                None => "[/]".to_string(),
+            }
+        }
+        // Broken, implicitly closed tags reverse to nothing.
+        else {
+            String::new()
         }
     }
 }
