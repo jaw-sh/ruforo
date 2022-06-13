@@ -81,14 +81,7 @@ impl Tag {
         }
 
         // If we have no content, we are broken.
-        el.borrow_mut().set_broken();
-
-        // Return raw bbcode
-        if let Some(contents) = el.get_contents() {
-            format!("[img]{}", contents)
-        } else {
-            "[img]".to_string()
-        }
+        Tag::open_broken_tag(el)
     }
 
     pub fn open_url_tag(mut el: RefMut<Element>) -> String {
@@ -111,13 +104,6 @@ impl Tag {
         }
 
         // If we have no content, we are broken.
-        el.borrow_mut().set_broken();
-
-        // Return raw bbcode
-        if let Some(contents) = el.get_contents() {
-            format!("[url]{}", contents)
-        } else {
-            "[url]".to_string()
-        }
+        Tag::open_broken_tag(el)
     }
 }
