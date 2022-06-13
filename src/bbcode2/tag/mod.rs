@@ -1,3 +1,6 @@
+extern crate nom;
+
+mod embed;
 mod font;
 
 use super::Element;
@@ -81,29 +84,6 @@ impl Tag {
         }
 
         // If we have no content, we are broken.
-        Tag::open_broken_tag(el)
-    }
-
-    pub fn open_url_tag(mut el: RefMut<Element>) -> String {
-        // Our URL comes from inside the tag.
-        if let Some(contents) = el.get_contents() {
-            match Url::parse(contents) {
-                Ok(url) => match url.scheme() {
-                    "http" | "https" => {
-                        el.clear_contents();
-                        return format!(
-                            "<a href=\"{}\" rel=\"nofollow\">{}",
-                            url.as_str(),
-                            url.as_str()
-                        );
-                    }
-                    _ => {}
-                },
-                Err(_) => {}
-            }
-        }
-
-        // If we have no content, we are broken.
-        Tag::open_broken_tag(el)
+        Self::open_broken_tag(el)
     }
 }

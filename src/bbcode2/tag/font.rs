@@ -1,5 +1,3 @@
-extern crate nom;
-
 use super::Element;
 use nom::{
     bytes::complete::{tag, take_while_m_n},
