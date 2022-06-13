@@ -101,9 +101,9 @@ impl Constructor {
     /// Sanitizes a char for HTML.
     fn sanitize(input: &String) -> String {
         input
+            .replace('&', "&amp;")
             .replace('<', "&lt;")
             .replace('>', "&gt;")
-            .replace('&', "&amp;")
             .replace('"', "&quot;")
             .replace('\'', "&#x27;")
             .replace('\\', "&#x2F;")

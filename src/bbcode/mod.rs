@@ -177,4 +177,11 @@ mod tests {
         assert_eq!("<pre>Test</pre>", parse("[code]Test[/code]"));
         assert_eq!("<pre>Foo\n\rbar</pre>", parse("[code]Foo\n\rbar[/code]"));
     }
+
+    #[test]
+    fn sanitize() {
+        use super::parse;
+
+        assert_eq!("&lt;b&gt;Test&lt;/b&gt;", parse("<b>Test</b>"));
+    }
 }

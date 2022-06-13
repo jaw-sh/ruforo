@@ -145,6 +145,12 @@ document.addEventListener("DOMContentLoaded", function () {
             //template.querySelector('.right-content').remove();
         }
 
+        // TODO: FIND SOMETHING BETTER FOR THIS
+        // Force set URLs to target new tab.
+        Array.from(template.querySelectorAll('.tagUrl')).forEach(function (el) {
+            el.target = "_blank";
+        });
+
         // Check tagging.
         if (message.message.includes(`@${APP.user.username}`)) {
             template.children[0].classList.add("chat-message--highlightYou");
