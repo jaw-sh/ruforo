@@ -1,8 +1,8 @@
 use super::message;
+use crate::bbcode::{Constructor, Lexer, Parser};
 use crate::compat::xf::session::XfAuthor;
 use actix::prelude::*;
 use rand::{self, rngs::ThreadRng, Rng};
-use redis::aio::MultiplexedConnection as RedisConnection;
 use sea_orm::DatabaseConnection;
 use std::collections::{HashMap, HashSet};
 
@@ -10,25 +10,36 @@ use std::collections::{HashMap, HashSet};
 /// session. implementation is super primitive
 pub struct ChatServer {
     db: DatabaseConnection,
-    redis: RedisConnection,
-
     rng: ThreadRng,
 
     /// Random Id -> Recipient Addr
     connections: HashMap<usize, Recipient<message::ServerMessage>>,
     rooms: HashMap<usize, HashSet<usize>>,
+
+    /// Message BbCode Constructor
+    constructor: Constructor,
 }
 
 impl ChatServer {
-    pub async fn new_from_xf(db: DatabaseConnection, redis: RedisConnection) -> ChatServer {
+    pub async fn new_from_xf(db: DatabaseConnection) -> ChatServer {
         log::info!("New ChatServer from XF Compat");
 
         // Populate rooms
         let rooms = crate::compat::xf::room::get_room_list(&db).await;
 
+        // Constructor
+        let constructor = Constructor {
+            emojis: Some(
+                crate::compat::xf::smilie::get_smilie_list(&db)
+                    .await
+                    .into_iter()
+                    .map(|smilie| (smilie.replace.to_string(), smilie.to_html()))
+                    .collect(),
+            ),
+        };
+
         ChatServer {
             db,
-            redis,
             rng: rand::thread_rng(),
             connections: HashMap::new(),
             rooms: HashMap::from_iter(
@@ -36,7 +47,27 @@ impl ChatServer {
                     .into_iter()
                     .map(|r| (r.room_id as usize, HashSet::<usize>::default())),
             ),
+            constructor,
         }
+    }
+
+    /// Prepares a ClientMessage to be sent.
+    fn prepare_message(&self, message: &message::ClientMessage) -> String {
+        let mut lexer = Lexer::new();
+        let tokens = lexer.tokenize(&message.message);
+
+        let mut parser = Parser::new();
+        let ast = parser.parse(&tokens);
+
+        serde_json::to_string(&message::ClientMessage {
+            id: message.id,
+            author: message.author.clone(),
+            room_id: message.room_id,
+            message_id: message.message_id,
+            message_date: message.message_date,
+            message: self.constructor.build(ast),
+        })
+        .expect("ClientMessage stringify failed.")
     }
 
     /// Send message to all users in a room
@@ -106,17 +137,12 @@ impl Handler<message::ClientMessage> for ChatServer {
     ) -> Self::Result {
         if message.author.can_send_message() {
             let db = self.db.clone();
-            let mut redis = self.redis.clone();
 
             Box::pin(
                 async move { crate::compat::xf::message::insert_chat_message(&message, &db).await }
                     .into_actor(self)
                     .map(move |message, actor, _ctx| {
-                        actor.send_message(
-                            &message.room_id,
-                            &serde_json::to_string(&message)
-                                .expect("ClientMessage stringify failed."),
-                        );
+                        actor.send_message(&message.room_id, &actor.prepare_message(&message));
                     }),
             )
         } else {
@@ -211,7 +237,7 @@ impl Handler<message::Join> for ChatServer {
                             },
                             message_id: message.message_id,
                             message_date: message.message_date.try_into().unwrap(),
-                            message: message.message_text.to_owned(),
+                            message: message.message_text,
                         };
                         actor.send_message_to(
                             id,

@@ -189,6 +189,7 @@ document.addEventListener("DOMContentLoaded", function () {
             scrollEl.classList.add('ScrollAnchorConsume');
             messagesDelete();
             messageSend(`/join ${id}`);
+            document.getElementById("chat-input").focus();
             return true;
         }
 

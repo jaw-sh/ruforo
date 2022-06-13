@@ -4,5 +4,6 @@ pub mod prelude;
 
 pub mod chat_message;
 pub mod chat_room;
+pub mod smilie;
 pub mod user;
 pub mod user_ignored;

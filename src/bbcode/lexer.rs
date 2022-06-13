@@ -50,7 +50,10 @@ impl<'a> Lexer<'a> {
             }
         }
 
+        // Reset active parse, use return carriage because we ignore it all the time.
+        self.reset_parse_to_text(&'\r');
         self.commit_token();
+
         &self.tokens
     }
 
@@ -372,7 +375,7 @@ impl<'a> Lexer<'a> {
         // Recover existing input.
         let text: String = match &self.current_token {
             Token::Text(content) => {
-                log::warn!("Resetting text parse back to text. Should not occur.");
+                //log::warn!("Resetting text parse back to text. Should not occur.");
                 content.to_string()
             }
             Token::Tag(tag, arg) => match arg {
@@ -409,6 +412,43 @@ mod tests {
             Token::Text(text) => assert_eq!("c", text),
             _ => assert!(false, "5th token was not text."),
         }
+    }
+
+    #[test]
+    fn reusable() {
+        use super::{Lexer, Token};
+
+        let input = "[";
+        let mut t = Lexer::new();
+        let tokens = t.tokenize(input);
+
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0], Token::Text("[".to_owned()));
+
+        // Attempt to re-use lexer without interference.
+        let input = "1\n\r[3=three]four[/five]\n\rseven\n\rhttp://nine.nine";
+        let tokens = t.tokenize(input);
+
+        assert_eq!(tokens.len(), 9);
+        assert_eq!(tokens[0], Token::Text("1".to_owned()));
+        assert_eq!(tokens[1], Token::Linebreak);
+        assert_eq!(
+            tokens[2],
+            Token::Tag("3".to_owned(), Some("=three".to_owned()))
+        );
+        assert_eq!(tokens[3], Token::Text("four".to_owned()));
+        assert_eq!(tokens[4], Token::TagClose("five".to_owned()));
+        assert_eq!(tokens[5], Token::Linebreak);
+        assert_eq!(tokens[6], Token::Text("seven".to_owned()));
+        assert_eq!(tokens[7], Token::Linebreak);
+        assert_eq!(tokens[8], Token::Url("http://nine.nine".to_owned()));
+
+        // and once more
+        let input = "[b]foo\nbar[/b]";
+        let tokens = t.tokenize(input);
+        assert_eq!(tokens.len(), 5);
+        assert_eq!(tokens[1], Token::Text("foo".to_owned()));
+        assert_eq!(tokens[3], Token::Text("bar".to_owned()));
     }
 
     #[test]

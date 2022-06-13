@@ -67,9 +67,7 @@ async fn main() -> std::io::Result<()> {
             panic!("{:?}", err);
         }
     };
-    let chat = ChatServer::new_from_xf(mysql.clone(), redis.clone())
-        .await
-        .start();
+    let chat = ChatServer::new_from_xf(mysql.clone()).await.start();
 
     HttpServer::new(move || {
         App::new()

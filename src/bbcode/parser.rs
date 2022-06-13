@@ -282,6 +282,50 @@ mod tests {
     }
 
     #[test]
+    fn reusable() {
+        use super::{Parser, Token};
+
+        let mut parser = Parser::new();
+        let ast = parser.parse(&[
+            Token::Text("foo".to_owned()),
+            Token::Linebreak,
+            Token::Text("bar".to_owned()),
+        ]);
+
+        assert_eq!(ast.children().count(), 3);
+        assert_eq!(
+            ast.children().nth(0).unwrap().borrow().get_contents(),
+            Some(&"foo".to_owned())
+        );
+
+        // re-use it
+        let ast = parser.parse(&[
+            Token::Text("bar".to_owned()),
+            Token::Linebreak,
+            Token::Text("foo".to_owned()),
+        ]);
+
+        assert_eq!(ast.children().count(), 3);
+        assert_eq!(
+            ast.children().nth(0).unwrap().borrow().get_contents(),
+            Some(&"bar".to_owned())
+        );
+
+        // once more for good luck
+        let ast = parser.parse(&[
+            Token::Text("fris".to_owned()),
+            Token::Linebreak,
+            Token::Text("bee".to_owned()),
+        ]);
+
+        assert_eq!(ast.children().count(), 3);
+        assert_eq!(
+            ast.children().nth(2).unwrap().borrow().get_contents(),
+            Some(&"bee".to_owned())
+        );
+    }
+
+    #[test]
     fn root_linebreak() {
         use super::{Parser, Token};
 

@@ -1,16 +1,20 @@
 use rctree::Node;
-use std::cell::RefMut;
+use std::{cell::RefMut, collections::HashMap};
 
 use super::{Element, Tag};
 
 /// Converts a Parser's AST into rendered HTML.
+#[derive(Default)]
 pub struct Constructor {
     // TODO: Build string here, return in build().
+    pub emojis: Option<HashMap<String, String>>,
 }
 
 impl Constructor {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            ..Default::default()
+        }
     }
 
     pub fn build(&self, mut node: Node<Element>) -> String {
@@ -28,7 +32,12 @@ impl Constructor {
         else {
             let el = node.borrow();
             match el.get_contents() {
-                Some(el) => output.push_str(&Self::sanitize(el)),
+                Some(content) => {
+                    output.push_str(&match el.can_parent() {
+                        true => self.replace_emojis(Self::sanitize(content)),
+                        false => Self::sanitize(content),
+                    });
+                }
                 None => {} // unreachable!(),
             }
         }
@@ -98,6 +107,19 @@ impl Constructor {
         }
     }
 
+    /// Add emojis
+    pub fn replace_emojis(&self, input: String) -> String {
+        let mut result = input;
+
+        if let Some(emojis) = &self.emojis {
+            for emoji in emojis {
+                result = result.replace(emoji.0, emoji.1);
+            }
+        }
+
+        result
+    }
+
     /// Sanitizes a char for HTML.
     fn sanitize(input: &String) -> String {
         input
@@ -111,6 +133,28 @@ impl Constructor {
 }
 
 mod tests {
+    #[test]
+    fn reusable() {
+        use super::{Constructor, Element};
+        use rctree::Node;
+
+        let con = Constructor::new();
+
+        // First pass
+        let mut ast = Node::new(Element::new_root());
+        ast.append(Node::new(Element::new_text(&"Hello, world!".to_owned())));
+
+        assert_eq!(ast.children().count(), 1);
+        assert_eq!(con.build(ast), "Hello, world!".to_owned());
+
+        // Second pass
+        let mut ast = Node::new(Element::new_root());
+        ast.append(Node::new(Element::new_text(&"Foo, bar!".to_owned())));
+
+        assert_eq!(ast.children().count(), 1);
+        assert_eq!(con.build(ast), "Foo, bar!".to_owned());
+    }
+
     #[test]
     fn text_in_empty_nest() {
         use super::{Constructor, Element};
