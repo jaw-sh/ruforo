@@ -217,7 +217,7 @@ impl Handler<message::Join> for ChatServer {
             //    self.send_message(&this_room, &format!("{} left the room.", &author.username));
             //}
 
-            let db = self.db.clone();
+            //let db = self.db.clone();
 
             Box::pin(
                 async move {
@@ -226,25 +226,30 @@ impl Handler<message::Join> for ChatServer {
                 }
                 .into_actor(self)
                 .map(move |messages, actor, _ctx| {
-                    for message in messages {
-                        let client_msg = message::ClientMessage {
-                            id,
-                            room_id,
-                            author: XfAuthor {
-                                id: message.user_id.unwrap_or(0) as u32,
-                                username: message.username,
-                                avatar_date: 1,
-                            },
-                            message_id: message.message_id,
-                            message_date: message.message_date.try_into().unwrap(),
-                            message: message.message_text,
-                        };
-                        actor.send_message_to(
-                            id,
-                            &serde_json::to_string(&client_msg)
-                                .expect("ClientMessage stringify failed."),
-                        );
-                    }
+                    //for message in messages {
+                    //    let client_msg = message::ClientMessage {
+                    //        id,
+                    //        room_id,
+                    //        author: XfAuthor {
+                    //            id: message.user_id.unwrap_or(0) as u32,
+                    //            username: message.username,
+                    //            avatar_date: 1,
+                    //        },
+                    //        message_id: message.message_id,
+                    //        message_date: message.message_date.try_into().unwrap(),
+                    //        message: message.message_text,
+                    //    };
+                    //    actor.send_message_to(
+                    //        id,
+                    //        &serde_json::to_string(&client_msg)
+                    //            .expect("ClientMessage stringify failed."),
+                    //    );
+                    //}
+
+                    self.send_message_to(
+                        message.id,
+                        "Chat history is disabled until tomorrow. - Null",
+                    );
 
                     // Put user in room now so messages don't load in during history.
                     actor
