@@ -179,6 +179,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function roomJoin(id) {
         if (Number.isInteger(id) && id > 0) {
+            scrollEl.classList.remove('ScrollAnchored');
             scrollEl.classList.add('ScrollAnchorConsume');
             messagesDelete();
             messageSend(`/join ${id}`);
