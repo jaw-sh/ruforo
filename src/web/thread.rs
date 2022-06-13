@@ -54,7 +54,7 @@ pub struct ThreadTemplate<'a> {
 
 mod filters {
     pub fn ugc(s: &str) -> ::askama::Result<String> {
-        Ok(crate::bbcode::bbcode_to_html(s))
+        Ok(crate::bbcode::parse(s))
     }
 }
 

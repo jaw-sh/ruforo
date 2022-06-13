@@ -1,102 +1,60 @@
-use crate::bbcode::ast::GroupType;
-use crate::bbcode::lexer::Lexer;
-use phf::phf_set;
+use super::Element;
+use nom::{
+    bytes::complete::{tag, take_while_m_n},
+    character::complete::alpha1,
+    combinator::{all_consuming, verify},
+    IResult,
+};
+use std::cell::RefMut;
 
-impl Lexer {
-    pub(crate) fn cmd_color_open(&mut self, arg: &str) {
-        if (arg.starts_with('#') && arg.len() == 7
-            || arg.len() == 4
-                && arg
-                    .trim_start_matches('#')
-                    .chars()
-                    .all(|c| c.is_ascii_hexdigit()))
-            || WEB_COLOURS.contains(arg)
-        {
-            self.new_group(GroupType::Colour);
-            self.current_node.borrow_mut().set_arg(arg);
-        } else {
-            self.new_group(GroupType::Kaput(Box::new(GroupType::Colour), "color"));
-            self.current_node.borrow_mut().set_arg(arg);
-        }
-    }
-
-    pub(crate) fn cmd_color_bare_open(&mut self) {
-        self.new_group(GroupType::Kaput(Box::new(GroupType::Colour), "color"));
-    }
-
-    pub(crate) fn cmd_color_close(&mut self) {
-        self.end_group(GroupType::Colour);
-    }
-
-    pub(crate) fn cmd_opacity_open(&mut self, arg: &str) {
-        let mut divisor = 1.0;
-        let arg_string;
-        if arg.ends_with('%') {
-            arg_string = arg.trim_end_matches('%');
-            divisor = 100.0;
-        } else {
-            arg_string = arg;
-        }
-        match arg_string.parse::<f32>() {
-            Ok(mut val) => {
-                val /= divisor;
-                if val < 0.0 {
-                    val = 0.0;
-                } else if val > 1.0 {
-                    val = 1.0;
+impl super::Tag {
+    pub fn open_color_tag(el: RefMut<Element>) -> String {
+        match el.get_argument() {
+            Some(arg) => match color_from(arg) {
+                Ok((_, color)) => {
+                    return format!(
+                        "<span class=\"bbCode tagColor\" style=\"color: {}\">",
+                        color
+                    )
                 }
-                self.new_group(GroupType::Opacity);
-                self.current_node.borrow_mut().set_arg(&val.to_string());
-            }
-            Err(_) => {
-                self.new_group(GroupType::Kaput(Box::new(GroupType::Opacity), "opacity"));
-                self.current_node.borrow_mut().set_arg(arg);
-            }
+                Err(_) => {}
+            },
+            None => {}
         }
-    }
-    pub(crate) fn cmd_opacity_bare_open(&mut self) {
-        self.new_group(GroupType::Kaput(Box::new(GroupType::Opacity), "opacity"));
-    }
-    pub(crate) fn cmd_opacity_close(&mut self) {
-        self.end_group(GroupType::Opacity);
-    }
 
-    pub(crate) fn cmd_size_open(&mut self, arg: &str) {
-        let mut divisor = 1.0;
-        let arg_string;
-        if arg.ends_with("em") {
-            arg_string = arg.trim_end_matches("em");
-        } else {
-            arg_string = arg;
-            divisor = 16.0;
-        }
-        match arg_string.parse::<f32>() {
-            Ok(mut val) => {
-                val /= divisor;
-                if val < 0.5 {
-                    val = 0.5;
-                } else if val > 2.0 {
-                    val = 2.0;
-                }
-                self.new_group(GroupType::Size);
-                self.current_node.borrow_mut().set_arg(&val.to_string());
-            }
-            Err(_) => {
-                self.new_group(GroupType::Kaput(Box::new(GroupType::Size), "size"));
-                self.current_node.borrow_mut().set_arg(arg);
-            }
-        }
-    }
-    pub(crate) fn cmd_size_bare_open(&mut self) {
-        self.new_group(GroupType::Kaput(Box::new(GroupType::Size), "size"));
-    }
-    pub(crate) fn cmd_size_close(&mut self) {
-        self.end_group(GroupType::Size);
+        Self::open_broken_tag(el)
     }
 }
 
-/// Static compile-time set of valid HTML web colours.
-static WEB_COLOURS: phf::Set<&'static str> = phf_set! {
+//
+// Lexer logic
+//
+
+fn color_from(input: &str) -> IResult<&str, &str> {
+    let (input, _) = tag("=")(input)?;
+
+    match color_hex(input) {
+        Ok(result) => Ok(result),
+        Err(_) => color_websafe(input),
+    }
+}
+
+fn color_hex(input: &str) -> IResult<&str, &str> {
+    let (color, _) = tag("#")(input)?;
+    let (_, _) = all_consuming(take_while_m_n(6, 6, is_hex_digit))(color)?;
+
+    Ok(("", input))
+}
+
+fn color_websafe(input: &str) -> IResult<&str, &str> {
+    all_consuming(verify(alpha1, |s: &str| WEBSAFE_COLORS.contains(&s)))(input)
+}
+
+fn is_hex_digit(c: char) -> bool {
+    c.is_digit(16)
+}
+
+const WEBSAFE_COLORS: &[&str] = &[
     "aliceblue",
     "antiquewhite",
     "aqua",
@@ -246,4 +204,4 @@ static WEB_COLOURS: phf::Set<&'static str> = phf_set! {
     "whitesmoke",
     "yellow",
     "yellowgreen",
-};
+];

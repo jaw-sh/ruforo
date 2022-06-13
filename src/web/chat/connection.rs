@@ -178,7 +178,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                         id: self.id,
                         room_id: room_id,
                         author: XfAuthor::from(&self.session),
-                        message: crate::bbcode::bbcode_to_html(m),
+                        message: crate::bbcode::parse(m),
                         message_id: 0,
                         message_date: 0,
                     })
