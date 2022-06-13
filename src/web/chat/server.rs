@@ -217,7 +217,12 @@ impl Handler<message::Join> for ChatServer {
             //    self.send_message(&this_room, &format!("{} left the room.", &author.username));
             //}
 
-            //let db = self.db.clone();
+            let db = self.db.clone();
+
+            self.send_message_to(
+                message.id,
+                "Chat history is disabled until tomorrow. - Null",
+            );
 
             Box::pin(
                 async move {
@@ -245,11 +250,6 @@ impl Handler<message::Join> for ChatServer {
                     //            .expect("ClientMessage stringify failed."),
                     //    );
                     //}
-
-                    self.send_message_to(
-                        message.id,
-                        "Chat history is disabled until tomorrow. - Null",
-                    );
 
                     // Put user in room now so messages don't load in during history.
                     actor
