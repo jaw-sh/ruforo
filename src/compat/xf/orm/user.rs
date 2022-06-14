@@ -7,61 +7,28 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub user_id: u32,
-    #[sea_orm(unique)]
     pub username: String,
-    pub username_date: i32,
-    pub username_date_visible: i32,
     pub email: String,
     pub custom_title: String,
-    pub language_id: i32,
-    pub style_id: i32,
-    pub timezone: String,
-    pub visible: i8,
-    pub activity_visible: i8,
-    pub user_group_id: i32,
-    #[sea_orm(column_type = "Custom(\"VARBINARY(255)\".to_owned())")]
-    pub secondary_group_ids: String,
-    pub display_style_group_id: i32,
-    pub permission_combination_id: i32,
-    pub message_count: i32,
-    pub question_solution_count: i32,
-    pub conversations_unread: i16,
-    pub register_date: i32,
-    pub last_activity: i32,
-    pub last_summary_email_date: Option<i32>,
-    pub trophy_points: i32,
-    pub alerts_unviewed: i16,
-    pub alerts_unread: i16,
-    pub avatar_date: i32,
-    pub avatar_width: i16,
-    pub avatar_height: i16,
-    pub avatar_highdpi: i8,
-    pub gravatar: String,
-    #[sea_orm(
-        column_type = "Custom(\"ENUM ('valid', 'email_confirm', 'email_confirm_edit', 'moderated', 'email_bounce', 'rejected', 'disabled')\".to_owned())"
-    )]
-    pub user_state: String,
-    #[sea_orm(column_type = "Custom(\"ENUM ('', 'change', 'reset')\".to_owned())")]
-    pub security_lock: String,
-    pub is_moderator: i8,
-    pub is_admin: i8,
-    pub is_banned: i8,
-    pub reaction_score: i32,
-    pub vote_score: i32,
-    pub warning_points: i32,
-    pub is_staff: i8,
-    #[sea_orm(column_type = "Custom(\"VARBINARY(32)\".to_owned())")]
-    pub secret_key: String,
-    pub privacy_policy_accepted: i32,
-    pub terms_accepted: i32,
+    pub user_group_id: u32,
+    pub avatar_date: u32,
+    pub avatar_width: u16,
+    pub avatar_height: u16,
+    pub is_moderator: u8,
+    pub is_admin: u8,
+    pub is_banned: u8,
+    pub is_staff: u8,
 }
 
-#[derive(Copy, Clone, Debug, EnumIter)]
-pub enum Relation {}
+#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+pub enum Relation {
+    #[sea_orm(has_many = "super::chat_message::Entity")]
+    ChatMessages,
+}
 
-impl RelationTrait for Relation {
-    fn def(&self) -> RelationDef {
-        panic!("No RelationDef")
+impl Related<super::chat_message::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ChatMessages.def()
     }
 }
 

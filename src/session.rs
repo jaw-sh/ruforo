@@ -27,6 +27,10 @@ pub fn get_argon2() -> &'static Argon2<'static> {
     unsafe { ARGON2.get_unchecked() }
 }
 #[inline(always)]
+pub fn get_salt() -> &'static SaltString {
+    unsafe { SALT.get_unchecked() }
+}
+#[inline(always)]
 pub fn get_sess() -> &'static SessionMap {
     unsafe { SESSIONS.get_unchecked() }
 }

@@ -45,6 +45,7 @@ pub async fn service(req: HttpRequest, stream: web::Payload) -> Result<HttpRespo
 struct ChatTestTemplate {
     rooms: Vec<chat_room::Model>,
     app_json: String,
+    nonce: String,
     webpack_time: u64,
 }
 
@@ -79,10 +80,30 @@ pub async fn view_chat(req: HttpRequest) -> impl Responder {
         .app_data::<Data<DatabaseConnection>>()
         .expect("No database connection.");
     let session = get_user_from_request(db, &req).await;
+    let mut hasher = blake3::Hasher::new();
+
+    // Hash: Salt
+    match std::env::var("SALT") {
+        Ok(v) => hasher.update(v.as_bytes()),
+        Err(_) => hasher.update("NO_SALT".as_bytes()),
+    };
+    // Hash: Timestamp
+    use std::time::{SystemTime, UNIX_EPOCH};
+    hasher.update(
+        &SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("System close before 1970. Really?")
+            .as_millis()
+            .to_ne_bytes(),
+    );
+    // Hash: Session ID
+    match req.cookie("xf_session") {
+        Some(cookie) => hasher.update(cookie.value().as_bytes()),
+        None => hasher.update("NO_SESSION_TO_HASH".as_bytes()),
+    };
 
     ChatTestTemplate {
         rooms: get_room_list(db).await,
-        webpack_time,
         app_json: format!(
             "{{
                 chat_ws_url: \"{}\",
@@ -91,5 +112,7 @@ pub async fn view_chat(req: HttpRequest) -> impl Responder {
             std::env::var("XF_WS_URL").expect("XF_WS_URL needs to be set in .env"),
             serde_json::to_string(&session).expect("XfSession stringify failed"),
         ),
+        nonce: hasher.finalize().to_string(),
+        webpack_time,
     }
 }

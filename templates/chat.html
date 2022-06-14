@@ -3,8 +3,13 @@
 
 <head>
     <title>Rust Chat</title>
-    <link rel="stylesheet" type="text/css" href="/assets/style.css?{{ webpack_time }}" />
-    <script>
+
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'nonce-{{ nonce }}'" />
+
+    <link rel="stylesheet" type="text/css" nonce="{{ nonce }}" href="/assets/style.css?{{ webpack_time }}" />
+
+    <script type="application/javascript" nonce="{{ nonce }}">
         const APP = {{ app_json| safe }};
     </script>
 </head>
@@ -32,7 +37,7 @@
         {% include "ugc/chat_message.html" %}
     </template>
 
-    <script src="/assets/chat.js?{{ webpack_time }} type=" module"></script>
+    <script type="application/javascript" src="/assets/chat.js?{{ webpack_time }}" nonce="{{ nonce }}"></script>
 </body>
 
 </html>

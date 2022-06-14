@@ -49,4 +49,5 @@ module.exports = {
         contentBase: path.resolve(__dirname, './public'),
         hot: true
     },
+    devtool: false
 };

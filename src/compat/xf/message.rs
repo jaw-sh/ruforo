@@ -1,4 +1,4 @@
-use super::orm::chat_message;
+use super::orm::{chat_message, user};
 use crate::web::chat::message::ClientMessage;
 use sea_orm::{entity::*, prelude::*, query::*, DatabaseConnection, QueryFilter};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -7,11 +7,22 @@ pub async fn get_chat_room_history(
     db: &DatabaseConnection,
     id: &u32,
     count: usize,
-) -> Vec<chat_message::Model> {
+) -> Vec<(chat_message::Model, Option<user::Model>)> {
+    println!(
+        "{:?}",
+        chat_message::Entity::find()
+            .filter(chat_message::Column::RoomId.eq(id.to_owned()))
+            .order_by_desc(chat_message::Column::MessageId)
+            .limit(count as u64)
+            .find_also_related(user::Entity)
+            .all(db)
+            .await
+    );
     chat_message::Entity::find()
         .filter(chat_message::Column::RoomId.eq(id.to_owned()))
         .order_by_desc(chat_message::Column::MessageId)
         .limit(count as u64)
+        .find_also_related(user::Entity)
         .all(db)
         .await
         .unwrap_or(Vec::default())
@@ -50,5 +61,6 @@ pub async fn insert_chat_message(
         message_date: model.message_date.try_into().unwrap(),
         author: message.author.to_owned(),
         message: message.message.to_owned(),
+        sanitized: false,
     }
 }

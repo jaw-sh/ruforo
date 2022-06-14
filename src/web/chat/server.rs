@@ -1,6 +1,5 @@
 use super::message;
 use crate::bbcode::{Constructor, Lexer, Parser};
-use crate::compat::xf::session::XfAuthor;
 use actix::prelude::*;
 use rand::{self, rngs::ThreadRng, Rng};
 use sea_orm::DatabaseConnection;
@@ -66,6 +65,7 @@ impl ChatServer {
             message_id: message.message_id,
             message_date: message.message_date,
             message: self.constructor.build(ast),
+            sanitized: true,
         })
         .expect("ClientMessage stringify failed.")
     }
@@ -219,11 +219,6 @@ impl Handler<message::Join> for ChatServer {
 
             let db = self.db.clone();
 
-            self.send_message_to(
-                message.id,
-                "Chat history is disabled until tomorrow. - Null",
-            );
-
             Box::pin(
                 async move {
                     use crate::compat::xf::message::get_chat_room_history;
@@ -231,25 +226,15 @@ impl Handler<message::Join> for ChatServer {
                 }
                 .into_actor(self)
                 .map(move |messages, actor, _ctx| {
-                    //for message in messages {
-                    //    let client_msg = message::ClientMessage {
-                    //        id,
-                    //        room_id,
-                    //        author: XfAuthor {
-                    //            id: message.user_id.unwrap_or(0) as u32,
-                    //            username: message.username,
-                    //            avatar_date: 1,
-                    //        },
-                    //        message_id: message.message_id,
-                    //        message_date: message.message_date.try_into().unwrap(),
-                    //        message: message.message_text,
-                    //    };
-                    //    actor.send_message_to(
-                    //        id,
-                    //        &serde_json::to_string(&client_msg)
-                    //            .expect("ClientMessage stringify failed."),
-                    //    );
-                    //}
+                    for models in messages {
+                        actor.send_message_to(
+                            id,
+                            &actor.prepare_message(&message::ClientMessage::from_xf(
+                                &models.0,
+                                models.1.as_ref(),
+                            )),
+                        );
+                    }
 
                     // Put user in room now so messages don't load in during history.
                     actor

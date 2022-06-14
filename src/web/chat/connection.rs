@@ -179,6 +179,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                         room_id,
                         author: XfAuthor::from(&self.session),
                         message: m.to_string(),
+                        sanitized: false,
                         message_id: 0,
                         message_date: 0,
                     })
