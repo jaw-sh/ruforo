@@ -16,13 +16,17 @@ struct XfSession {
 }
 
 pub fn avatar_uri(id: u32, date: u32) -> String {
-    format!(
-        "{}/data/avatars/m/{}/{}.jpg?{}",
-        std::env::var("XF_PUBLIC_URL").expect("XF_PUBLIC_URL must be set in .env"),
-        id / 1000,
-        id,
-        date
-    )
+    if date > 0 {
+        format!(
+            "{}/data/avatars/m/{}/{}.jpg?{}",
+            std::env::var("XF_PUBLIC_URL").expect("XF_PUBLIC_URL must be set in .env"),
+            id / 1000,
+            id,
+            date
+        )
+    } else {
+        String::new()
+    }
 }
 
 impl Default for XfSession {
@@ -130,7 +134,7 @@ pub async fn get_session_with_user_id(db: &DatabaseConnection, id: u32) -> imple
     implement::Session {
         id: session.id,
         username: session.username,
-        avatar_date: session.avatar_date,
+        avatar_url: avatar_uri(session.id, session.avatar_date),
         ignored_users,
     }
 }

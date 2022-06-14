@@ -24,7 +24,7 @@ pub async fn insert_chat_message(
     }
     .insert(db)
     .await
-    .expect("Failed to insert chat_messagemessage into XF database.");
+    .expect("Failed to insert chat_message into XF database.");
 
     message::ClientMessage {
         id: message.id,

@@ -138,8 +138,8 @@ document.addEventListener("DOMContentLoaded", function () {
             });
 
             // Add left-content details
-            if (author.avatar_date > 0) {
-                template.querySelector('.avatar').setAttribute('src', `/data/avatars/m/${Math.floor(author.id / 1000)}/${author.id}.jpg?${author.avatar_date}`);
+            if (author.avatar_url.length > 0) {
+                template.querySelector('.avatar').setAttribute('src', author.avatar_url);
             }
             else {
                 template.querySelector('.avatar').remove();

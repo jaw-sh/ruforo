@@ -14,7 +14,7 @@ impl From<&Session> for Author {
         Self {
             id: session.id,
             username: session.username.to_owned(),
-            avatar_url: "".to_owned(), //session.get_avatar_uri(),
+            avatar_url: session.avatar_url.to_owned(),
         }
     }
 }
@@ -38,7 +38,7 @@ pub struct Room {
 pub struct Session {
     pub id: u32,
     pub username: String,
-    pub avatar_date: u32,
+    pub avatar_url: String,
     pub ignored_users: Vec<u32>,
 }
 
@@ -47,7 +47,7 @@ impl Default for Session {
         Self {
             id: 0,
             username: "Guest".to_owned(),
-            avatar_date: 0,
+            avatar_url: String::new(),
             ignored_users: Default::default(),
         }
     }
