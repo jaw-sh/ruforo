@@ -189,7 +189,7 @@ document.addEventListener("DOMContentLoaded", function () {
             scrollEl.classList.add('ScrollAnchorConsume');
             messagesDelete();
             messageSend(`/join ${id}`);
-            //document.getElementById("chat-input").focus();
+            document.getElementById("chat-input").focus({ preventScroll: true });
             return true;
         }
 
@@ -338,7 +338,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Form
     document.getElementById('chat-input').addEventListener('keydown', function (event) {
-        if (event.key === "Enter") {
+        if (event.key === "Enter" || event.keyCode == 13) {
             event.preventDefault();
 
             //let formData = new FormData(this.parentElement);
@@ -351,6 +351,18 @@ document.addEventListener("DOMContentLoaded", function () {
             return false;
         }
     });
+
+    document.getElementById('chat-submit').addEventListener('click', function (event) {
+        event.preventDefault();
+        let input = document.getElementById('chat-input');
+
+        messageSend(input.value);
+
+        input.value = "";
+        input.focus({ preventScroll: true });
+        return false;
+    });
+
 
     window.addEventListener('hashchange', roomJoinByHash, false);
     window.addEventListener('resize', function (event) {
