@@ -8,16 +8,6 @@ pub async fn get_chat_room_history(
     id: &u32,
     count: usize,
 ) -> Vec<(chat_message::Model, Option<user::Model>)> {
-    println!(
-        "{:?}",
-        chat_message::Entity::find()
-            .filter(chat_message::Column::RoomId.eq(id.to_owned()))
-            .order_by_desc(chat_message::Column::MessageId)
-            .limit(count as u64)
-            .find_also_related(user::Entity)
-            .all(db)
-            .await
-    );
     chat_message::Entity::find()
         .filter(chat_message::Column::RoomId.eq(id.to_owned()))
         .order_by_desc(chat_message::Column::MessageId)
