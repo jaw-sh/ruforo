@@ -1,5 +1,4 @@
-use crate::compat::xf::orm::{chat_message::Model as XfMsgModel, user::Model as XfUserModel};
-use crate::compat::xf::session::{XfAuthor, XfSession};
+use super::implement::{Author, Session};
 use actix::prelude::*;
 use serde::Serialize;
 
@@ -13,7 +12,7 @@ pub struct ClientMessage {
     /// Conn Id
     pub id: usize,
     /// Author Session
-    pub author: XfAuthor,
+    pub author: Author,
     /// Recipient room
     pub room_id: usize,
     /// Message ID from database
@@ -26,31 +25,6 @@ pub struct ClientMessage {
     pub sanitized: bool,
 }
 
-impl ClientMessage {
-    pub fn from_xf(message: &XfMsgModel, user: Option<&XfUserModel>) -> Self {
-        Self {
-            id: 0,
-            message_id: message.message_id,
-            message_date: message.message_date.try_into().unwrap(),
-            message: message.message_text.to_owned(),
-            sanitized: false,
-            room_id: message.room_id as usize,
-            author: match user {
-                Some(user) => XfAuthor {
-                    id: user.user_id as u32,
-                    username: user.username.to_owned(),
-                    avatar_date: user.avatar_date as u32,
-                },
-                None => XfAuthor {
-                    id: 0,
-                    username: "Guest".to_owned(),
-                    avatar_date: 0,
-                },
-            },
-        }
-    }
-}
-
 impl Message for ClientMessage {
     type Result = ();
 }
@@ -60,7 +34,7 @@ impl Message for ClientMessage {
 #[rtype(usize)]
 pub struct Connect {
     pub addr: Recipient<ServerMessage>,
-    pub session: XfSession,
+    pub session: Session,
 }
 
 /// Session is disconnected
@@ -80,7 +54,7 @@ pub struct Join {
     /// Room Id
     pub room_id: usize,
     /// Author Session
-    pub author: XfSession,
+    pub author: Session,
 }
 
 /// List of available rooms

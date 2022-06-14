@@ -1,32 +1,12 @@
-mod attachment;
-mod auth_2fa;
-mod bbcode;
-mod create_user;
-mod db;
-mod ffmpeg;
-mod filesystem;
-mod global;
-mod group;
-mod middleware;
-mod orm;
-mod permission;
-mod s3;
-mod session;
-mod template;
-mod ugc;
-mod url;
-mod user;
-mod web;
-
-mod compat;
-
-extern crate dotenv;
-extern crate ffmpeg_next;
-
-use crate::db::{get_db_pool, init_db};
-use crate::middleware::ClientCtx;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
+use actix_web::cookie::Key;
+use actix_web::http::StatusCode;
+use actix_web::middleware::{ErrorHandlers, Logger};
+use actix_web::web::Data;
+use actix_web::{App, HttpServer};
 use env_logger::Env;
+use ruforo::db::{get_db_pool, init_db};
+use ruforo::middleware::ClientCtx;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -34,19 +14,13 @@ async fn main() -> std::io::Result<()> {
     init_our_mods();
     init_db(std::env::var("DATABASE_URL").expect("DATABASE_URL must be set.")).await;
 
-    use actix_web::cookie::Key;
-    use actix_web::http::StatusCode;
-    use actix_web::middleware::{ErrorHandlers, Logger};
-    use actix_web::web::Data;
-    use actix_web::{App, HttpServer};
-
     // TODO: Chat stuff is not being used right now.
     //use actix::Actor;
     //let chat = chat::ChatServer::new().start();
     //.app_data(Data::new(chat.clone()))
     //.service(resource("/chat").to(crate::hub::chat_route))
 
-    let permissions = crate::permission::new()
+    let permissions = ruforo::permission::new()
         .await
         .expect("Permission System failed to initialize.");
     let secret_key = Key::generate(); // TODO: Should be from .env file
@@ -60,7 +34,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(Data::new(permissions.clone()))
             .wrap(ErrorHandlers::new().handler(
                 StatusCode::INTERNAL_SERVER_ERROR,
-                crate::web::error::render_500,
+                ruforo::web::error::render_500,
             ))
             .wrap(ClientCtx::new())
             .wrap(SessionMiddleware::new(
@@ -68,7 +42,7 @@ async fn main() -> std::io::Result<()> {
                 secret_key.clone(),
             ))
             .wrap(Logger::new("%a %{User-Agent}i"))
-            .configure(web::configure)
+            .configure(ruforo::web::configure)
     })
     // https://www.restapitutorial.com/lessons/httpmethods.html
     // GET    edit_ (get edit form)
@@ -94,7 +68,7 @@ pub fn init_our_mods() {
     // This should be a list of simple function calls.
     // Each module should work mostly independent of others.
     // This way, we can unit test individual modules without loading the entire application.
-    global::init();
-    session::init();
-    filesystem::init();
+    ruforo::global::init();
+    ruforo::session::init();
+    ruforo::filesystem::init();
 }

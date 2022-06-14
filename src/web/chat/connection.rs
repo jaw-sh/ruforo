@@ -1,7 +1,7 @@
+use super::implement::{Author, Session};
 use super::message;
 use super::server::ChatServer;
 use super::{CLIENT_TIMEOUT, HEARTBEAT_INTERVAL};
-use crate::compat::xf::session::{XfAuthor, XfSession};
 use actix::*;
 use actix_web_actors::ws;
 use std::time::Instant;
@@ -10,7 +10,7 @@ pub struct Connection {
     /// connection id
     pub id: usize,
     /// peer session
-    pub session: XfSession,
+    pub session: Session,
     /// Last Heartbeat
     /// Client must send ping at least once per 10 seconds (CLIENT_TIMEOUT), otherwise we drop connection.
     pub hb: Instant,
@@ -177,7 +177,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                     self.addr.do_send(message::ClientMessage {
                         id: self.id,
                         room_id,
-                        author: XfAuthor::from(&self.session),
+                        author: Author::from(&self.session),
                         message: m.to_string(),
                         sanitized: false,
                         message_id: 0,

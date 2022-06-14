@@ -120,7 +120,17 @@ document.addEventListener("DOMContentLoaded", function () {
                 el.setAttribute('datetime', message.message_date);
 
                 if (el.classList.contains('relative')) {
-                    el.innerHTML = time.toLocaleDateString("en-US") + " " + time.toLocaleTimeString("en-US")
+                    let dayThen = new Date(message.message_date * 1000).setHours(0, 0, 0, 0);
+                    let dayNow = new Date().setHours(0, 0, 0, 0);
+
+                    // Same day, only show clock
+                    if (dayThen == dayNow) {
+                        el.innerHTML = time.toLocaleTimeString();
+                    }
+                    // Different days, show date too.
+                    else {
+                        el.innerHTML = time.toLocaleDateString() + " " + time.toLocaleTimeString()
+                    }
                 }
                 else {
                     el.innerHTML = (hours % 12) + ":" + minutes + " " + (hours >= 12 ? "PM" : "AM");

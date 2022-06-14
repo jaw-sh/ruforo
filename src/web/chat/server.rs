@@ -1,55 +1,28 @@
+use super::implement::ChatLayer;
 use super::message;
 use crate::bbcode::{Constructor, Lexer, Parser};
 use actix::prelude::*;
 use rand::{self, rngs::ThreadRng, Rng};
-use sea_orm::DatabaseConnection;
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 /// `ChatServer` manages chat rooms and responsible for coordinating chat
 /// session. implementation is super primitive
 pub struct ChatServer {
-    db: DatabaseConnection,
-    rng: ThreadRng,
+    pub rng: ThreadRng,
+    pub layer: Arc<dyn ChatLayer>,
 
     /// Random Id -> Recipient Addr
-    connections: HashMap<usize, Recipient<message::ServerMessage>>,
-    rooms: HashMap<usize, HashSet<usize>>,
+    pub connections: HashMap<usize, Recipient<message::ServerMessage>>,
+    pub rooms: HashMap<usize, HashSet<usize>>,
 
     /// Message BbCode Constructor
-    constructor: Constructor,
+    pub constructor: Constructor,
 }
 
 impl ChatServer {
-    pub async fn new_from_xf(db: DatabaseConnection) -> ChatServer {
-        log::info!("New ChatServer from XF Compat");
-
-        // Populate rooms
-        let rooms = crate::compat::xf::room::get_room_list(&db).await;
-
-        // Constructor
-        let constructor = Constructor {
-            emojis: Some(
-                crate::compat::xf::smilie::get_smilie_list(&db)
-                    .await
-                    .into_iter()
-                    .map(|smilie| (smilie.replace.to_string(), smilie.to_html()))
-                    .collect(),
-            ),
-        };
-
-        ChatServer {
-            db,
-            rng: rand::thread_rng(),
-            connections: HashMap::new(),
-            rooms: HashMap::from_iter(
-                rooms
-                    .into_iter()
-                    .map(|r| (r.room_id as usize, HashSet::<usize>::default())),
-            ),
-            constructor,
-        }
-    }
-
     /// Prepares a ClientMessage to be sent.
     fn prepare_message(&self, message: &message::ClientMessage) -> String {
         let mut lexer = Lexer::new();
@@ -136,10 +109,10 @@ impl Handler<message::ClientMessage> for ChatServer {
         _ctx: &mut Context<Self>,
     ) -> Self::Result {
         if message.author.can_send_message() {
-            let db = self.db.clone();
+            let layer = self.layer.clone();
 
             Box::pin(
-                async move { crate::compat::xf::message::insert_chat_message(&message, &db).await }
+                async move { layer.insert_chat_message(&message).await }
                     .into_actor(self)
                     .map(move |message, actor, _ctx| {
                         actor.send_message(&message.room_id, &actor.prepare_message(&message));
@@ -217,32 +190,23 @@ impl Handler<message::Join> for ChatServer {
             //    self.send_message(&this_room, &format!("{} left the room.", &author.username));
             //}
 
-            let db = self.db.clone();
+            let layer = self.layer.clone();
 
             Box::pin(
-                async move {
-                    use crate::compat::xf::message::get_chat_room_history;
-                    get_chat_room_history(&db, &(room_id as u32), 20).await
-                }
-                .into_actor(self)
-                .map(move |messages, actor, _ctx| {
-                    for models in messages {
-                        actor.send_message_to(
-                            id,
-                            &actor.prepare_message(&message::ClientMessage::from_xf(
-                                &models.0,
-                                models.1.as_ref(),
-                            )),
-                        );
-                    }
+                async move { layer.get_room_history(room_id, 20).await }
+                    .into_actor(self)
+                    .map(move |messages, actor, _ctx| {
+                        for message in messages {
+                            actor.send_message_to(id, &actor.prepare_message(&message));
+                        }
 
-                    // Put user in room now so messages don't load in during history.
-                    actor
-                        .rooms
-                        .entry(room_id.clone())
-                        .or_insert_with(HashSet::new)
-                        .insert(id);
-                }),
+                        // Put user in room now so messages don't load in during history.
+                        actor
+                            .rooms
+                            .entry(room_id.clone())
+                            .or_insert_with(HashSet::new)
+                            .insert(id);
+                    }),
             )
         } else {
             self.send_message_to(message.id, "You cannot join this room.");
