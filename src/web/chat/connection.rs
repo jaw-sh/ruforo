@@ -72,9 +72,9 @@ impl Actor for Connection {
             .then(|res, act, ctx| {
                 match res {
                     Ok(res) => act.id = res,
-                    _ => {
+                    Err(err) => {
                         // something is wrong with chat server
-                        println!("Failed to assign conection id");
+                        log::warn!("Failed to assign conection id: {:?}", err);
                         ctx.stop();
                     }
                 }
