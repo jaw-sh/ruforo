@@ -55,7 +55,7 @@ impl Element {
                 el.broken = true;
                 ElementDisplay::Inline
             }
-            Tag::Linebreak => unreachable!(),
+            Tag::Linebreak => ElementDisplay::Selfclosing,
             Tag::HorizontalRule => ElementDisplay::Selfclosing,
             Tag::Plain => ElementDisplay::Plain,
             Tag::Code => ElementDisplay::Preformatted,

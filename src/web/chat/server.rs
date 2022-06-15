@@ -2,6 +2,7 @@ use super::implement::ChatLayer;
 use super::message;
 use crate::bbcode::{Constructor, Lexer, Parser};
 use actix::prelude::*;
+//use actix_broker::BrokerSubscribe;
 use rand::{self, rngs::ThreadRng, Rng};
 use std::{
     collections::{HashMap, HashSet},
@@ -64,12 +65,6 @@ impl ChatServer {
     }
 }
 
-//impl Default for ChatServer {
-//    fn default() -> Self {
-//        Self::new()
-//    }
-//}
-
 /// Make actor from `ChatServer`
 impl Actor for ChatServer {
     /// We are going to use simple Context, we just need ability to communicate with other actors.
@@ -83,17 +78,9 @@ impl Handler<message::Connect> for ChatServer {
     type Result = usize;
 
     fn handle(&mut self, msg: message::Connect, _: &mut Context<Self>) -> Self::Result {
-        println!("{} joined chat.", msg.session.username);
-
-        // regifter session with random id
+        // register session with random id
         let id = self.rng.gen::<usize>();
         self.connections.insert(id, msg.addr);
-
-        // auto join session to Main room
-        //self.rooms
-        //    .entry("Main".to_owned())
-        //    .or_insert_with(HashSet::new)
-        //    .insert(id);
 
         id
     }
@@ -141,11 +128,6 @@ impl Handler<message::Disconnect> for ChatServer {
                 }
             }
         }
-
-        // send message to other users
-        //for room in rooms {
-        //    self.send_message(&room, "Someone disconnected");
-        //}
     }
 }
 
@@ -185,11 +167,6 @@ impl Handler<message::Join> for ChatServer {
                 }
             }
 
-            // send message to other users
-            //for this_room in rooms {
-            //    self.send_message(&this_room, &format!("{} left the room.", &author.username));
-            //}
-
             let layer = self.layer.clone();
 
             Box::pin(
@@ -214,3 +191,6 @@ impl Handler<message::Join> for ChatServer {
         }
     }
 }
+
+//impl SystemService for ChatServer {}
+//impl Supervised for ChatServer {}

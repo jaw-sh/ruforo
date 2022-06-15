@@ -46,15 +46,9 @@ impl Connection {
             ctx.ping(b"");
         });
     }
-}
 
-impl Actor for Connection {
-    type Context = ws::WebsocketContext<Self>;
-
-    /// Method is called on actor start.
-    /// We register ws session with ChatServer
-    fn started(&mut self, ctx: &mut Self::Context) {
-        // we'll start heartbeat process on session start.
+    fn start_heartbeat(&self, ctx: &mut ws::WebsocketContext<Self>) {
+        // start heartbeat process on session start.
         self.hb(ctx);
 
         // register self in chat server. `AsyncContext::wait` register
@@ -62,10 +56,9 @@ impl Actor for Connection {
         // before processing any other events.
         // HttpContext::state() is instance of WsConnectionState, state is shared
         // across all routes within application
-        let addr = ctx.address();
         self.addr
             .send(message::Connect {
-                addr: addr.recipient(),
+                addr: ctx.address().recipient(),
                 session: self.session.to_owned(),
             })
             .into_actor(self)
@@ -81,6 +74,16 @@ impl Actor for Connection {
                 fut::ready(())
             })
             .wait(ctx);
+    }
+}
+
+impl Actor for Connection {
+    type Context = ws::WebsocketContext<Self>;
+
+    /// Method is called on actor start.
+    /// We register ws session with ChatServer
+    fn started(&mut self, ctx: &mut Self::Context) {
+        self.start_heartbeat(ctx);
     }
 
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
