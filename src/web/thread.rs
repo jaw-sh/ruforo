@@ -77,7 +77,7 @@ pub fn get_url_for_pos(thread_id: i32, pos: i32) -> String {
         "/threads/{}/{}",
         thread_id,
         if page == 1 {
-            "".to_owned()
+            String::new()
         } else {
             format!("page-{}", page)
         }
@@ -236,7 +236,7 @@ pub async fn create_reply(
     use crate::ugc::{create_ugc, NewUgcPartial};
     use futures::{future::try_join_all, StreamExt, TryStreamExt};
 
-    let mut content: String = "".to_owned();
+    let mut content: String = String::new();
     let mut uploads: Vec<(_, UploadResponse)> = Vec::new();
 
     // interpret user input

@@ -1,62 +1,39 @@
 /// A single Token output by the tokenizer.
 #[derive(Debug, PartialEq, Clone)]
-pub enum Token {
+pub enum Token<'a> {
     Null,
-    Linebreak,
-    Tag(String, Option<String>),
-    TagClose(String),
-    Text(String),
-    Url(String),
+    Linebreak(&'a str),
+    Tag(&'a str, &'a str, Option<&'a str>),
+    TagClose(&'a str, &'a str),
+    Text(&'a str),
+    Url(&'a str),
 }
 
-impl Token {
-    /// Provides an empty BbCode tag token.
-    pub fn empty_tag() -> Self {
-        Self::Tag("".to_owned(), None)
+impl<'a> Token<'a> {
+    pub fn as_raw(&'a self) -> &'a str {
+        match self {
+            Self::Null => "",
+            Self::Linebreak(raw) => raw,
+            Self::Tag(raw, _, _) => raw,
+            Self::TagClose(raw, _) => raw,
+            Self::Text(text) => text,
+            Self::Url(url) => url,
+        }
     }
 
-    /// Provides an empty BbCode closing tag token.
-    pub fn empty_tag_close() -> Self {
-        Self::TagClose("".to_owned())
-    }
-
-    pub fn is_empty(&self) -> bool {
+    pub fn is_empty(self) -> bool {
         match self {
             Self::Null => true,
-            Self::Linebreak => false,
-            Self::Tag(tag, arg) => tag.len() == 0 && arg.is_none(),
-            Self::TagClose(tag) => tag.len() == 0,
-            Self::Text(text) => text.len() == 0,
-            Self::Url(url) => url.len() == 0,
-        }
-    }
-
-    /// Converts token to string, without syntax.
-    pub fn to_inner_string(&self) -> String {
-        match self {
-            Self::Null => String::new(),
-            Self::Linebreak => "\n\r".to_string(),
-            Self::Tag(tag, arg) => match arg {
-                Some(arg) => format!("{}{}", tag, arg),
-                None => format!("{}", tag),
-            },
-            Self::TagClose(tag) => format!("{}", tag),
-            Self::Text(text) => format!("{}", text),
-            Self::Url(url) => format!("{}", url),
-        }
-    }
-
-    /// Reverses token to string.
-    pub fn to_tag_string(&self) -> String {
-        match self {
-            Self::Tag(_, _) => format!("[{}]", self.to_inner_string()),
-            Self::TagClose(_) => format!("[/{}]", self.to_inner_string()),
-            _ => self.to_inner_string(),
+            Self::Linebreak(_) => false,
+            Self::Tag(_, tag, arg) => tag.is_empty() && arg.is_none(),
+            Self::TagClose(_, tag) => tag.is_empty(),
+            Self::Text(text) => text.is_empty(),
+            Self::Url(url) => url.is_empty(),
         }
     }
 }
 
-impl Default for Token {
+impl<'a> Default for Token<'a> {
     fn default() -> Self {
         Token::Null
     }
@@ -66,53 +43,51 @@ mod tests {
     #[test]
     fn reverse_null() {
         use super::Token;
-        let inst = Token::Null;
 
-        assert_eq!(inst.to_inner_string(), "");
-        assert_eq!(inst.to_tag_string(), "");
+        let inst = Token::Null;
+        assert_eq!(inst.as_raw(), "");
     }
 
     #[test]
     fn reverse_linebreak() {
         use super::Token;
-        let inst = Token::Linebreak;
 
-        assert_eq!(inst.to_inner_string(), "\n\r");
-        assert_eq!(inst.to_tag_string(), "\n\r");
+        let inst = Token::Linebreak("\n\r");
+        assert_eq!(inst.as_raw(), "\n\r");
+
+        let inst = Token::Linebreak("\n\r");
+        assert_eq!(inst.as_raw(), "\n\r");
     }
 
     #[test]
     fn reverse_tag() {
         use super::Token;
-        let tag = "quotebox".to_string();
-        let inst = Token::Tag(tag, None);
 
-        assert_eq!(inst.to_inner_string(), "quotebox");
-        assert_eq!(inst.to_tag_string(), "[quotebox]");
+        let inst = Token::Tag("[foo]", "foo", None);
+        assert_eq!(inst.as_raw(), "[foo]");
 
-        let tag2 = "url".to_string();
-        let inst2 = Token::Tag(tag2, Some("=https://zombo.com/".to_string()));
-        assert_eq!(inst2.to_inner_string(), "url=https://zombo.com/");
-        assert_eq!(inst2.to_tag_string(), "[url=https://zombo.com/]");
+        let inst = Token::Tag(
+            "[url=https://zombo.com/]",
+            "url",
+            Some("=https://zombo.com/"),
+        );
+        assert_eq!(inst.as_raw(), "[url=https://zombo.com/]");
     }
 
     #[test]
     fn reverse_tag_close() {
         use super::Token;
-        let tag = "quotebox".to_string();
-        let inst = Token::TagClose(tag);
 
-        assert_eq!(inst.to_inner_string(), "quotebox");
-        assert_eq!(inst.to_tag_string(), "[/quotebox]");
+        let inst = Token::TagClose("[/foo]", "foo");
+        assert_eq!(inst.as_raw(), "[/foo]");
     }
 
     #[test]
     fn reverse_text() {
         use super::Token;
-        let text = "text input :)".to_string();
-        let inst = Token::Text(text);
 
-        assert_eq!(inst.to_inner_string(), "text input :)");
-        assert_eq!(inst.to_tag_string(), "text input :)");
+        let text = "text input :)";
+        let inst = Token::Text(text);
+        assert_eq!(inst.as_raw(), text);
     }
 }

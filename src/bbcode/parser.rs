@@ -1,16 +1,15 @@
 use super::{Element, ElementDisplay, Token};
 use rctree::Node;
-use url::Url;
 
 /// Struct for parsing BbCode Tokens into an Element tree.
-pub struct Parser {
+pub struct Parser<'str> {
     /// DOM root
-    root: Node<Element>,
+    root: Node<Element<'str>>,
     /// Current traversal node.
-    node: Node<Element>,
+    node: Node<Element<'str>>,
 }
 
-impl Parser {
+impl<'str> Parser<'str> {
     pub fn new() -> Self {
         // The rctree's Node<> is a modified RefCell, so cloning is just a ref.
         // See: https://docs.rs/rctree/latest/rctree/struct.Node.html#impl-Clone
@@ -20,15 +19,15 @@ impl Parser {
         Self { root, node }
     }
 
-    pub fn parse(&mut self, tokens: &[Token]) -> Node<Element> {
+    pub fn parse(&mut self, tokens: &'str [Token]) -> Node<Element<'str>> {
         for token in tokens {
             match token {
                 Token::Null => {
                     log::warn!("BbCode Lexer received Null instruction, which should not happen.");
                 }
-                Token::Linebreak => self.add_linebreak(token),
-                Token::Tag(_, _) => self.open_tag(token, Element::new_from_token(token)),
-                Token::TagClose(tag) => self.close_tag(token, tag),
+                Token::Linebreak(_) => self.add_linebreak(token),
+                Token::Tag(_, _, _) => self.open_tag(token, Element::new_from_token(token)),
+                Token::TagClose(_, tag) => self.close_tag(token, tag),
                 Token::Text(text) => self.add_text(text),
                 Token::Url(url) => self.add_url(token, url),
             }
@@ -47,14 +46,14 @@ impl Parser {
         ast
     }
 
-    fn add_linebreak(&mut self, token: &Token) {
+    fn add_linebreak(&mut self, token: &'str Token) {
         // If we can linebreak, add a <br />.
         if self.node.borrow().can_linebreak() {
             self.insert_element(Element::new_from_token(token));
         }
         // If we cannot linebreak but can have content, add a regular newline.
         else if self.node.borrow().can_have_content() {
-            self.node.borrow_mut().add_text(&token.to_inner_string());
+            self.insert_element_broken(Element::new_from_token(token));
         }
         // Should not happen.
         else {
@@ -62,23 +61,16 @@ impl Parser {
         }
     }
 
-    fn add_text(&mut self, text: &String) {
-        self.node.borrow_mut().add_text(text);
+    fn add_text(&mut self, text: &'str str) {
+        if self.node.borrow().can_have_content() {
+            self.insert_element(Element::new_from_text(text));
+        } else {
+            unreachable!();
+        }
     }
 
-    fn add_url(&mut self, token: &Token, url: &String) {
-        if self.node.borrow().can_parent() {
-            match Url::parse(url) {
-                Ok(_) => {
-                    self.insert_element(Element::new_from_token(token));
-                }
-                Err(_) => {
-                    self.add_text(url);
-                }
-            }
-        } else {
-            self.add_text(url);
-        }
+    fn add_url(&mut self, token: &'str Token, _: &'str str) {
+        self.insert_element(Element::new_from_token(token));
     }
 
     // Attempts to close the currently open tag.
@@ -105,7 +97,7 @@ impl Parser {
     }
 
     /// Attempts to close tag, or all tags to tag we are closing.
-    fn close_tag(&mut self, token: &Token, tag: &String) {
+    fn close_tag(&mut self, token: &'str Token, tag: &'str str) {
         let mut tag_matched = false;
         let mut closed_tags = 0;
 
@@ -148,7 +140,8 @@ impl Parser {
 
         // If we did not find the tag, we add the closing tag as text instead.
         if !tag_matched {
-            return self.add_text(&token.to_tag_string());
+            self.insert_element(Element::new_from_token(token));
+            return;
         }
 
         // Close all tags needed.
@@ -163,7 +156,7 @@ impl Parser {
 
     fn insert_contents_as_node(&mut self) {
         // rctree will panic if you try DOM manipulation with borrowed elements.
-        let el = {
+        let el: Option<Element<'str>> = {
             let mut mutel = self.node.borrow_mut();
             mutel.extract_contents()
         };
@@ -174,7 +167,7 @@ impl Parser {
         }
     }
 
-    fn insert_element(&mut self, el: Element) -> Node<Element> {
+    fn insert_element(&mut self, el: Element<'str>) -> Node<Element<'str>> {
         self.insert_contents_as_node();
 
         // Append the linebreak itself, if we can.
@@ -184,58 +177,57 @@ impl Parser {
         node
     }
 
+    fn insert_element_broken(&mut self, el: Element<'str>) -> Node<Element<'str>> {
+        let mut node = self.insert_element(el);
+
+        node.borrow_mut().set_broken();
+
+        node
+    }
+
     /// Attempts to add element as child to current node and move current node to new element.
-    fn open_tag(&mut self, token: &Token, el: Element) {
+    fn open_tag(&mut self, token: &'str Token, el: Element<'str>) {
+        // Can this tag parent any other element?
         if self.node.borrow().can_parent() {
-            // Insert the new element as a child.
-            if !el.can_have_content() {
-                // If we are inserting a void element, do not move pointer.
-                self.insert_element(el);
-                return;
-            } else {
-                // Otherwise, insert the element and move our pointer.
+            //  Can the new tag have any content at all?
+            if el.can_have_content() {
+                // Insert the element and move our pointer.
                 self.node = self.insert_element(el);
-                return;
+            } else {
+                // If we are inserting a void element, insert then do not move pointer.
+                self.insert_element(el);
             }
         }
-        // Literals consume tags as literal text instead of parsing them.
+        // No, so it is a Literal tag like [code][/code].
         else if self.node.borrow().can_have_content() {
-            self.add_text(&token.to_tag_string());
-            return;
+            self.add_text(token.as_raw());
         }
-
-        unreachable!("Parser attempting to open tag in element that cannot parent or have content.")
+        // This is a self-closing tag, like [img]. Try to insert as an argument.
+        else {
+            // Do we already have contents?
+            if !self.node.borrow().has_argument() {
+                self.node.borrow_mut().set_argument(token.as_raw());
+            }
+            // Argument present, so the node is just broken.
+            else {
+                self.node.borrow_mut().set_broken();
+                self.add_text(token.as_raw());
+            }
+        }
     }
 }
 
 mod tests {
     #[test]
-    fn add_text_to_img() {
-        use super::{Parser, Token};
-
-        let mut parser = Parser::new();
-        let ast = parser.parse(&[
-            Token::Tag("img".to_owned(), None),
-            Token::Text("https://zombo.com/images/zombocom.png".to_owned()),
-            Token::TagClose("img".to_owned()),
-        ]);
-
-        assert_eq!(
-            ast.first_child().unwrap().borrow().get_contents(),
-            Some(&"https://zombo.com/images/zombocom.png".to_string())
-        );
-    }
-
-    #[test]
     fn add_text_to_root() {
         use super::{Parser, Token};
 
         let mut parser = Parser::new();
-        let ast = parser.parse(&[Token::Text("Foobar".to_owned())]);
+        let ast = parser.parse(&[Token::Text("Foobar")]);
 
         assert_eq!(
             ast.first_child().unwrap().borrow().get_contents(),
-            Some(&"Foobar".to_string())
+            Some("Foobar")
         );
     }
 
@@ -245,18 +237,18 @@ mod tests {
 
         let mut parser = Parser::new();
         let ast = parser.parse(&[
-            Token::Tag("b".to_owned(), None),
-            Token::Text("Foobar".to_owned()),
-            Token::TagClose("b".to_owned()),
+            Token::Tag("[b]", "b", None),
+            Token::Text("Foobar"),
+            Token::TagClose("[b]", "b"),
         ]);
 
         assert_eq!(ast.borrow().get_contents(), None);
         match ast.first_child() {
             Some(child) => {
-                assert_eq!(child.borrow().get_tag_name(), Some(&"b".to_string()));
+                assert_eq!(child.borrow().get_tag_name(), Some("b"));
                 match child.first_child() {
                     Some(child) => {
-                        assert_eq!(child.borrow().get_contents(), Some(&"Foobar".to_string()));
+                        assert_eq!(child.borrow().get_contents(), Some("Foobar"));
                     }
                     None => unreachable!(),
                 }
@@ -271,10 +263,10 @@ mod tests {
 
         let mut parser = Parser::new();
         parser.parse(&[
-            Token::Tag("b".to_owned(), None),
-            Token::Tag("i".to_owned(), None),
-            Token::Text("Foobar".to_owned()),
-            Token::TagClose("b".to_owned()),
+            Token::Tag("[b]", "b", None),
+            Token::Tag("[i]", "i", None),
+            Token::Text("Foobar"),
+            Token::TagClose("[b]", "b"),
         ]);
 
         assert_eq!(parser.root.borrow().get_contents(), None);
@@ -287,41 +279,41 @@ mod tests {
 
         let mut parser = Parser::new();
         let ast = parser.parse(&[
-            Token::Text("foo".to_owned()),
-            Token::Linebreak,
-            Token::Text("bar".to_owned()),
+            Token::Text("foo"),
+            Token::Linebreak("\n\r"),
+            Token::Text("bar"),
         ]);
 
         assert_eq!(ast.children().count(), 3);
         assert_eq!(
             ast.children().nth(0).unwrap().borrow().get_contents(),
-            Some(&"foo".to_owned())
+            Some("foo")
         );
 
         // re-use it
         let ast = parser.parse(&[
-            Token::Text("bar".to_owned()),
-            Token::Linebreak,
-            Token::Text("foo".to_owned()),
+            Token::Text("bar"),
+            Token::Linebreak("\n\r"),
+            Token::Text("foo"),
         ]);
 
         assert_eq!(ast.children().count(), 3);
         assert_eq!(
             ast.children().nth(0).unwrap().borrow().get_contents(),
-            Some(&"bar".to_owned())
+            Some("bar")
         );
 
         // once more for good luck
         let ast = parser.parse(&[
-            Token::Text("fris".to_owned()),
-            Token::Linebreak,
-            Token::Text("bee".to_owned()),
+            Token::Text("fris"),
+            Token::Linebreak("\n\r"),
+            Token::Text("bee"),
         ]);
 
         assert_eq!(ast.children().count(), 3);
         assert_eq!(
             ast.children().nth(2).unwrap().borrow().get_contents(),
-            Some(&"bee".to_owned())
+            Some("bee")
         );
     }
 
@@ -331,28 +323,33 @@ mod tests {
 
         let mut parser = Parser::new();
         let ast = parser.parse(&[
-            Token::Text("a".to_owned()),
-            Token::Linebreak,
-            Token::Text("b".to_owned()),
+            Token::Tag("[b]", "b", None),
+            Token::Text("a"),
+            Token::Linebreak("\n\r"),
+            Token::Text("b"),
+            Token::TagClose("[b]", "b"),
         ]);
 
         let children = ast.children();
+        assert_eq!(children.count(), 1);
+
+        let b = ast.children().nth(0).unwrap();
+
+        assert_eq!(b.borrow().get_tag_name(), Some("b"));
+        assert_eq!(b.borrow().is_explicit(), true);
+        assert_eq!(b.borrow().is_broken(), false);
+
+        let children = b.children();
         assert_eq!(children.count(), 3);
 
-        let mut children = ast.children();
-        assert_eq!(
-            children.nth(0).unwrap().borrow().get_contents(),
-            Some(&"a".to_owned())
-        );
+        let mut children = b.children();
+        assert_eq!(children.nth(0).unwrap().borrow().get_contents(), Some("a"));
 
-        let mut children = ast.children();
+        let mut children = b.children();
         assert_eq!(children.nth(1).unwrap().borrow().can_have_content(), false);
 
-        let mut children = ast.children();
-        assert_eq!(
-            children.nth(2).unwrap().borrow().get_contents(),
-            Some(&"b".to_owned())
-        );
+        let mut children = b.children();
+        assert_eq!(children.nth(2).unwrap().borrow().get_contents(), Some("b"));
     }
 
     #[test]
@@ -360,12 +357,11 @@ mod tests {
         use super::{Parser, Token};
 
         let mut parser = Parser::new();
-        let ast = parser.parse(&[Token::TagClose("quote".to_owned())]);
+        let ast = parser.parse(&[Token::TagClose("[/quote]", "quote")]);
+        let el = ast.first_child().unwrap();
 
-        assert_eq!(
-            ast.first_child().unwrap().borrow().get_contents(),
-            Some(&"[/quote]".to_owned())
-        );
+        assert_eq!(el.borrow().get_tag_name(), Some("quote"));
+        assert_eq!(el.borrow().is_broken(), true);
         assert_eq!(parser.node, parser.root);
     }
 }

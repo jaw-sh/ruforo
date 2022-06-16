@@ -5,47 +5,64 @@ version = "0.1.0"
 
 [dependencies]
 actix = "^0.13"
-#actix-broker = "0.4" 
-actix-files = "0.6.0-beta.16" 
-actix-multipart = "0.4.0-beta.13" 
-actix-session = {version = "^0.6", features = ["cookie-session"]} 
-actix-utils = "^3" 
-actix-web = "^4" 
-actix-web-actors = "^4" 
-argon2 = "0.3.2" 
-askama = {git = "https://github.com/djc/askama", default-features = false, features = ["with-actix-web", "mime", "mime_guess"]} 
-askama_actix = {git = "https://github.com/djc/askama"} 
-async-trait = "^0.1" # used by ChatLayer
-bitflags = "^1" 
-blake3 = "1.3.0" 
-chrono = {version = "0.4.19", features = ["serde"]} 
-dashmap = "5.3.3" 
-derive_more = "^0" 
-dotenv = "0.15.0" 
-env_logger = "0.9.0" 
-ffmpeg-next = "^5" 
-futures = {version = "0.3.19", default-features = false} 
-futures-util = {version = "0.3.19", default-features = false} 
-google-authenticator = {version = "0.3.0", features = ["with-qrcode"]} 
-lettre = {version = "0.10.0-rc.4", default-features = false, features = ["rustls", "smtp-transport", "pool", "hostname", "builder"]} 
-linkify = "^0.4" # BbCode Parser
-log = "0.4.14" 
-mime = "0.3.16" 
-nom = "7" 
-once_cell = "1.9.0" 
-phf = {version = "0.10.1", features = ["macros"]} 
-rand = "0.8.4" 
-rctree = "0.4.0" 
-redis = {version = "^0.21", features = ["tokio-comp", "tokio-native-tls-comp"]}# xf compat         
-regex = "1.5" 
-rusoto_core = "0.47.0" 
-rusoto_s3 = "0.47.0" 
-sea-orm = {version = "^0", features = ["sqlx-postgres", "sqlx-mysql", "runtime-actix-rustls", "macros"], default-features = false}# mysql for xf compat          
-serde = "1.0.133" 
-serde_json = "1.0.74" 
-serde_php = "^0" # xf compat
-url = "^2" 
-uuid = {version = "0.8.2", default-features = false, features = ["v4"]} 
+actix-files = "0.6.1"
+actix-multipart = "0.4.0"
+actix-session = { version = "^0.6", features = ["cookie-session"] }
+actix-utils = "^3"
+actix-web = "^4"
+actix-web-actors = "^4"
+argon2 = "0.3.2"
+askama = { version = "^0.11", default-features = false, features = [
+    "with-actix-web",
+    "mime",
+    "mime_guess",
+] }
+askama_actix = "^0.13"
+async-trait = "^0.1" # dyn ChatLayer async support
+bitflags = "^1"
+blake3 = "1.3.0"
+chrono = { version = "0.4.19", features = ["serde"] }
+dashmap = "5.3.3"
+derive_more = "^0"
+dotenv = "0.15.0"
+env_logger = "0.9.0"
+ffmpeg-next = "^5"
+futures = { version = "0.3.19", default-features = false }
+futures-util = { version = "0.3.19", default-features = false }
+google-authenticator = { version = "0.3.0", features = ["with-qrcode"] }
+lettre = { version = "0.10.0-rc.4", default-features = false, features = [
+    "rustls",
+    "smtp-transport",
+    "pool",
+    "hostname",
+    "builder",
+] }
+linkify = "^0.4" # BbCode parser
+log = "0.4.14"
+mime = "0.3.16"
+nom = "^7" # BbCode parser 
+once_cell = "1.9.0"
+phf = { version = "0.10.1", features = ["macros"] }
+rand = "0.8.4"
+rctree = "0.4.0" # BbCode lexer
+redis = { version = "^0.21", features = [
+    "tokio-comp",
+    "tokio-native-tls-comp",
+] } # XF Session compat   
+regex = "1.5" # XF Session parser
+rusoto_core = "0.47.0"
+rusoto_s3 = "0.47.0"
+sea-orm = { version = "^0", features = [
+    "sqlx-postgres",
+    "sqlx-mysql",
+    "runtime-actix-rustls",
+    "macros",
+], default-features = false } # XF MySQL compat
+serde = "^1.0"
+serde_json = "^1.0"
+serde_php = "^0" # XF Compat
+url = "^2"
+uuid = { version = "0.8.2", default-features = false, features = ["v4"] }
 
 [dev-dependencies]
 actix-rt = "2.7.0"

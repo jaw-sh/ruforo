@@ -2,28 +2,33 @@ extern crate linkify;
 
 mod constructor;
 mod element;
-mod lexer;
 mod parser;
 mod read_mode;
 mod tag;
 mod token;
+mod tokenize;
 
 pub use constructor::Constructor;
 pub use element::{Element, ElementDisplay};
-pub use lexer::Lexer;
 pub use parser::Parser;
 pub use read_mode::ReadMode;
 pub use tag::Tag;
 pub use token::Token;
+pub use tokenize::tokenize;
 
 /// Generates a string of HTML from an &str of BbCode.
 #[no_mangle]
 pub fn parse(input: &str) -> String {
-    let mut lexer = Lexer::new();
-    let tokens = lexer.tokenize(input);
+    let tokens: Vec<Token> = tokenize(input).expect("Failed to unwrap tokens.").1;
+
+    //println!("TOKENS: {:?}", tokens);
 
     let mut parser = Parser::new();
     let ast = parser.parse(&tokens);
+
+    //for node in ast.descendants() {
+    //    println!("{:?}", node);
+    //}
 
     let constructor = Constructor::new();
     constructor.build(ast)
@@ -34,8 +39,6 @@ mod tests {
     fn img() {
         use super::parse;
 
-        assert_eq!("[img]", parse("[img]"));
-        assert_eq!("[img][/img]", parse("[img][/img]"));
         assert_eq!(
             "<img src=\"https://zombo.com/images/zombocom.png\" />",
             parse("[img]https://zombo.com/images/zombocom.png[/img]")
@@ -44,6 +47,10 @@ mod tests {
             "<img src=\"https://zombo.com/images/zombocom.png\" />",
             parse("[img]https://zombo.com/images/zombocom.png")
         );
+        assert_eq!("[img][/img]", parse("[img][/img]"));
+        assert_eq!("[img]", parse("[img]"));
+        assert_eq!("[img]not a link[/img]", parse("[img]not a link[/img]"));
+        assert_eq!("[img]not a link", parse("[img]not a link"));
     }
 
     #[test]
@@ -97,7 +104,7 @@ mod tests {
         assert_eq!(
             "<b>СМЕРТЬ</b><br />ВСІМ, ХТО НА ПИРИШКОДІ<br />ДОБУТЬЯ ВІЛЬНОСТІ<br />ТРУДОВОМУ ЛЮДУ.",
             parse(
-                "[b]СМЕРТЬ[/b]\n\rВСІМ, ХТО НА ПИРИШКОДІ\n\rДОБУТЬЯ ВІЛЬНОСТІ\n\rТРУДОВОМУ ЛЮДУ."
+                "[b]СМЕРТЬ[/b]\r\nВСІМ, ХТО НА ПИРИШКОДІ\r\nДОБУТЬЯ ВІЛЬНОСТІ\r\nТРУДОВОМУ ЛЮДУ."
             )
         );
         assert_eq!("😂🔫", parse("😂🔫"));
@@ -117,10 +124,10 @@ mod tests {
     fn linebreaks() {
         use super::parse;
 
-        assert_eq!("Foo<br />bar", parse("Foo\n\rbar"));
         assert_eq!("Foo<br />bar", parse("Foo\r\nbar"));
-        assert_eq!("Foo<br />bar", parse("Foo\r\n\rbar"));
         assert_eq!("Foo<br />bar", parse("Foo\nbar"));
+        assert_eq!("Foo<br />\rbar", parse("Foo\n\rbar"));
+        assert_eq!("Foo<br />\rbar", parse("Foo\r\n\rbar"));
 
         assert_eq!("Foo<br /><br /><br />bar", parse("Foo\n\n\nbar"));
         assert_eq!(
@@ -146,6 +153,13 @@ mod tests {
             "Welcome, to <a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"https://zombo.com/\">Zombo.com</a>!",
             parse("Welcome, to [url=https://zombo.com/]Zombo.com[/url]!")
         );
+        assert_eq!(
+            "Welcome, to [url][/url]!",
+            parse("Welcome, to [url][/url]!")
+        );
+        assert_eq!("Welcome, to [url]!", parse("Welcome, to [url]!"));
+        assert_eq!("[url][/url]", parse("[url][/url]"));
+        assert_eq!("[url]", parse("[url]"));
     }
 
     #[test]
@@ -175,7 +189,7 @@ mod tests {
         use super::parse;
 
         assert_eq!("<pre>Test</pre>", parse("[code]Test[/code]"));
-        assert_eq!("<pre>Foo\n\rbar</pre>", parse("[code]Foo\n\rbar[/code]"));
+        assert_eq!("<pre>Foo\r\nbar</pre>", parse("[code]Foo\r\nbar[/code]"));
     }
 
     #[test]

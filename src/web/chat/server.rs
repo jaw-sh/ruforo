@@ -1,6 +1,6 @@
 use super::implement::ChatLayer;
 use super::message;
-use crate::bbcode::{Constructor, Lexer, Parser};
+use crate::bbcode::{tokenize, Constructor, Parser};
 use actix::prelude::*;
 //use actix_broker::BrokerSubscribe;
 use rand::{self, rngs::ThreadRng, Rng};
@@ -18,16 +18,20 @@ pub struct ChatServer {
     /// Random Id -> Recipient Addr
     pub connections: HashMap<usize, Recipient<message::ServerMessage>>,
     pub rooms: HashMap<usize, HashSet<usize>>,
-
-    /// Message BbCode Constructor
+    // Message BbCode Constructor
     pub constructor: Constructor,
 }
 
 impl ChatServer {
     /// Prepares a ClientMessage to be sent.
     fn prepare_message(&self, message: &message::ClientMessage) -> String {
-        let mut lexer = Lexer::new();
-        let tokens = lexer.tokenize(&message.message);
+        let tokens = match tokenize(&message.message) {
+            Ok((_, tokens)) => tokens,
+            Err(err) => {
+                log::warn!("Tokenizer error: {:?}", err);
+                return String::new();
+            }
+        };
 
         let mut parser = Parser::new();
         let ast = parser.parse(&tokens);

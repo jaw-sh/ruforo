@@ -42,7 +42,7 @@ pub async fn get_room_history(
                 None => Author {
                     id: 0,
                     username: "Guest".to_owned(),
-                    avatar_url: "".to_owned(),
+                    avatar_url: String::new(),
                 },
             },
         })

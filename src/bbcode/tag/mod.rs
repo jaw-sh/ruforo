@@ -5,7 +5,6 @@ mod font;
 
 use super::Element;
 use std::{borrow::BorrowMut, cell::RefMut};
-use url::Url;
 
 pub enum Tag {
     // Unique Tags
@@ -66,24 +65,5 @@ impl Tag {
     /// Returns <tagname />
     pub fn self_closing_tag(tag: &str) -> String {
         format!("<{} />", &tag)
-    }
-
-    pub fn open_img_tag(mut el: RefMut<Element>) -> String {
-        // Our URL comes from inside the tag.
-        if let Some(contents) = el.get_contents() {
-            match Url::parse(contents) {
-                Ok(url) => match url.scheme() {
-                    "http" | "https" => {
-                        el.clear_contents();
-                        return format!("<img src=\"{}\" />", url.as_str());
-                    }
-                    _ => {}
-                },
-                Err(_) => {}
-            }
-        }
-
-        // If we have no content, we are broken.
-        Self::open_broken_tag(el)
     }
 }

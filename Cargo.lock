@@ -59,7 +59,7 @@ dependencies = [
  "actix-service",
  "actix-utils",
  "actix-web",
- "askama_escape 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "askama_escape",
  "bitflags",
  "bytes",
  "derive_more",
@@ -478,38 +478,35 @@ checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 
 [[package]]
 name = "askama"
-version = "0.11.2"
-source = "git+https://github.com/djc/askama#71267bc88554c15caf4ee1e7c0d256556303e0e8"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb98f10f371286b177db5eeb9a6e5396609555686a35e1d4f7b9a9c6d8af0139"
 dependencies = [
  "askama_derive",
- "askama_escape 0.10.3 (git+https://github.com/djc/askama)",
- "humansize",
- "num-traits",
- "percent-encoding",
+ "askama_escape",
+ "askama_shared",
 ]
 
 [[package]]
 name = "askama_actix"
-version = "0.13.1"
-source = "git+https://github.com/djc/askama#71267bc88554c15caf4ee1e7c0d256556303e0e8"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c52f74f8382a142ecfc052100b21abc33f2c069e20fe345808e7ed914b179449"
 dependencies = [
  "actix-web",
  "askama",
+ "askama_shared",
 ]
 
 [[package]]
 name = "askama_derive"
-version = "0.12.0"
-source = "git+https://github.com/djc/askama#71267bc88554c15caf4ee1e7c0d256556303e0e8"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87bf87e6e8b47264efa9bde63d6225c6276a52e05e91bf37eaa8afd0032d6b71"
 dependencies = [
- "mime",
- "mime_guess",
- "nom",
+ "askama_shared",
  "proc-macro2",
- "quote",
- "serde",
  "syn",
- "toml",
 ]
 
 [[package]]
@@ -519,9 +516,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "619743e34b5ba4e9703bba34deac3427c72507c7159f5fd030aea8cac0cfe341"
 
 [[package]]
-name = "askama_escape"
-version = "0.10.3"
-source = "git+https://github.com/djc/askama#71267bc88554c15caf4ee1e7c0d256556303e0e8"
+name = "askama_shared"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf722b94118a07fcbc6640190f247334027685d4e218b794dbfe17c32bf38ed0"
+dependencies = [
+ "askama_escape",
+ "humansize",
+ "mime",
+ "mime_guess",
+ "nom",
+ "num-traits",
+ "percent-encoding",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn",
+ "toml",
+]
 
 [[package]]
 name = "async-stream"

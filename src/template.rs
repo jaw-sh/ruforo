@@ -90,7 +90,7 @@ impl PaginatorToHtml for Paginator {
                 buffer
             }
         } else {
-            "".to_owned()
+            String::new()
         }
     }
 }
