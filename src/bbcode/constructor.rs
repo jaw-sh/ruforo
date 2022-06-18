@@ -27,16 +27,24 @@ impl Constructor {
             if node.borrow().can_parent() {
                 // Build each child node and append the string to our output.
                 for child in node.children() {
+                    // Sanity check on tag-in-tag logic.
                     let mut render = true;
-                    if let Some(tag) = node.borrow().get_tag_name() {
-                        let mut some_parent = node.parent();
-                        while let Some(parent) = some_parent {
-                            render = parent.borrow().can_parent_tag(tag);
-                            if !render {
-                                break;
-                            } else {
-                                some_parent = parent.parent();
+                    // If we have a tag name, check if this tag can go into our parents.
+                    if let Some(tag) = child.borrow().get_tag_name() {
+                        // Check first if this node can accept this tag.
+                        if node.borrow().can_parent_tag(tag) {
+                            // Then, check each parent upwards.
+                            let mut some_parent = node.parent();
+                            while let Some(parent) = some_parent {
+                                render = parent.borrow().can_parent_tag(tag);
+                                if !render {
+                                    break;
+                                } else {
+                                    some_parent = parent.parent();
+                                }
                             }
+                        } else {
+                            render = false;
                         }
                     }
 

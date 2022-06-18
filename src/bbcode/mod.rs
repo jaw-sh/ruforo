@@ -34,6 +34,7 @@ pub fn parse(input: &str) -> String {
     constructor.build(ast)
 }
 
+#[cfg(test)]
 mod tests {
     #[test]
     fn img() {
@@ -150,8 +151,16 @@ mod tests {
             parse("Welcome, to [url]https://zombo.com/[/url]!")
         );
         assert_eq!(
+            "Welcome, to <b><a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"https://zombo.com/\">https://zombo.com/</a></b>!",
+            parse("Welcome, to [b][url]https://zombo.com/[/url][/b]!")
+        );
+        assert_eq!(
             "Welcome, to <a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"https://zombo.com/\">Zombo.com</a>!",
             parse("Welcome, to [url=https://zombo.com/]Zombo.com[/url]!")
+        );
+        assert_eq!(
+            "<a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"https://zombo.com/\"><img src=\"https://zombo.com/images/zombocom.png\" /></a>",
+            parse("[url=https://zombo.com/][img]https://zombo.com/images/zombocom.png[/img][/url]")
         );
         assert_eq!(
             "Welcome, to [url][/url]!",

@@ -28,14 +28,14 @@ fn parse(input: &str) -> IResult<&str, Token> {
 
 /// Anticipates a line ending, returns Token::Linebreak.
 fn parse_linebreak(input: &str) -> IResult<&str, Token> {
-    map(line_ending, |raw: &str| Token::Linebreak(raw))(input)
+    map(line_ending, Token::Linebreak)(input)
 }
 
 /// Anticipates a closing tag, returns Token::TagClose.
 fn parse_tag_close(input: &str) -> IResult<&str, Token> {
     map(
         consumed(delimited(tag("[/"), alpha1, tag("]"))),
-        |(raw, tag): (&str, &str)| Token::TagClose(raw, tag),
+        |(raw, tag): (&str, &str)| (Token::TagClose(raw, tag)),
     )(input)
 }
 

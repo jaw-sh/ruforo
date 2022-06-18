@@ -20,8 +20,9 @@ pub enum Tag {
     Underline,
     Strikethrough,
 
-    // Block Tags
+    // Formatting Tags
     Code,
+    Pre,
 
     // Embed Tags
     Image,

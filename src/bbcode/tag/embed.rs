@@ -33,7 +33,6 @@ impl super::Tag {
     }
 
     pub fn fill_url_tag(mut el: RefMut<Element>, contents: String) -> String {
-        print!("fill_url_tag");
         let mut url: Option<Url> = None;
 
         if let Some(arg) = el.get_argument() {

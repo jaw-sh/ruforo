@@ -63,7 +63,7 @@ impl<'str> Element<'str> {
             Tag::Plain => ElementDisplay::Plain,
             Tag::Code => ElementDisplay::Preformatted,
             Tag::Image => ElementDisplay::Plain,
-            Tag::Link => ElementDisplay::Plain,
+            Tag::Link => ElementDisplay::Inline,
             _ => ElementDisplay::Inline,
         };
 
