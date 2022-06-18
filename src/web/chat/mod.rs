@@ -4,6 +4,7 @@ pub mod message;
 pub mod server;
 
 use actix::Addr;
+use actix_web::web::resource;
 use actix_web::{get, web, web::Data, Error, HttpRequest, HttpResponse, Responder};
 use actix_web_actors::ws;
 use askama_actix::Template;
@@ -13,11 +14,17 @@ use std::{
     time::{Duration, Instant},
 };
 
+use crate::middleware::ClientCtx;
+
 /// How often heartbeat pings are sent
 pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
 /// How long before lack of client response causes a timeout
 pub const CLIENT_TIMEOUT: Duration = Duration::from_secs(5);
 
+pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
+    conf.service(resource("/chat.ws").to(service))
+        .service(view_chat);
+}
 /// Entry point for our websocket route
 pub async fn service(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
     let layer = req
@@ -45,6 +52,36 @@ pub async fn service(req: HttpRequest, stream: web::Payload) -> Result<HttpRespo
 
 #[derive(Template)]
 #[template(path = "chat.html")]
+struct ChatTemplate {
+    client: ClientCtx,
+    rooms: Vec<Room>,
+    app_json: String,
+}
+
+#[get("/chat")]
+pub async fn view_chat(client: ClientCtx, req: HttpRequest) -> impl Responder {
+    let layer = req
+        .app_data::<Data<Arc<dyn ChatLayer>>>()
+        .expect("No chat layer.");
+    let user_id = layer.get_user_id_from_request(&req);
+    let session = layer.get_session_from_user_id(user_id).await;
+
+    ChatTemplate {
+        client,
+        app_json: format!(
+            "{{
+                chat_ws_url: \"{}\",
+                user: {},
+            }}",
+            std::env::var("XF_WS_URL").expect("XF_WS_URL needs to be set in .env"),
+            serde_json::to_string(&session).expect("XfSession stringify failed"),
+        ),
+        rooms: layer.get_room_list().await,
+    }
+}
+
+#[derive(Template)]
+#[template(path = "chat_shim.html")]
 struct ChatTestTemplate {
     rooms: Vec<Room>,
     app_json: String,
@@ -53,7 +90,7 @@ struct ChatTestTemplate {
 }
 
 #[get("/test-chat")]
-pub async fn view_chat(req: HttpRequest) -> impl Responder {
+pub async fn view_chat_shim(req: HttpRequest) -> impl Responder {
     let webpack_time: u64 = match std::fs::metadata(format!(
         "{}/chat.js",
         std::env::var("CHAT_ASSET_DIR").unwrap_or(".".to_string())

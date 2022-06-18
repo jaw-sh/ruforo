@@ -1,3 +1,8 @@
+{% extends "container/public.html" %}
+
+{% block content %}
+<h1>Error {{ status.as_str() }}</h1>
 <p>There has been an error.</p>
 <code>I can't sneed.</code>
 <p><em>That's all we know.</em></p>
+{% endblock %}

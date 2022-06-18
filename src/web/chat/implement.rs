@@ -112,3 +112,82 @@ pub trait ChatLayer {
     async fn insert_chat_message(&self, message: &message::ClientMessage)
         -> message::ClientMessage;
 }
+
+// When we diverge from the XF compat, this can probably be compressed out of a trait.
+pub mod default {
+    use crate::middleware::ClientCtx;
+    use rand::Rng;
+    use sea_orm::DatabaseConnection;
+    use std::time::SystemTime;
+
+    pub struct Layer {
+        pub db: DatabaseConnection,
+    }
+
+    #[async_trait::async_trait]
+    impl super::ChatLayer for Layer {
+        async fn get_room_list(&self) -> Vec<super::Room> {
+            vec![super::Room {
+                room_id: 1,
+                title: "Test".to_owned(),
+                description: "Dummy room for testing".to_owned(),
+                motd: None,
+                display_order: 1,
+            }]
+        }
+
+        async fn get_room_history(
+            &self,
+            room_id: usize,
+            limit: usize,
+        ) -> Vec<super::message::ClientMessage> {
+            Vec::new()
+        }
+
+        async fn get_smilie_list(&self) -> Vec<super::Smilie> {
+            Vec::new()
+        }
+
+        async fn get_session_from_user_id(&self, id: u32) -> super::Session {
+            match crate::user::ClientUser::fetch_by_user_id(&self.db, id as i32).await {
+                Some(user) => super::Session {
+                    id,
+                    username: user.name,
+                    avatar_url: "".to_owned(),
+                    ignored_users: Vec::new(),
+                },
+                None => super::Session {
+                    id: 0,
+                    username: "Guest".to_owned(),
+                    avatar_url: "".to_owned(),
+                    ignored_users: Vec::new(),
+                },
+            }
+        }
+
+        fn get_user_id_from_request(&self, req: &actix_web::HttpRequest) -> u32 {
+            match req.app_data::<ClientCtx>() {
+                Some(client) => client.get_id().unwrap_or(0) as u32,
+                None => 0,
+            }
+        }
+
+        async fn insert_chat_message(
+            &self,
+            message: &super::message::ClientMessage,
+        ) -> super::message::ClientMessage {
+            let mut rng = rand::thread_rng();
+            let now = SystemTime::now();
+
+            super::message::ClientMessage {
+                id: rng.gen(),
+                message_id: rng.gen(),
+                author: message.author.to_owned(),
+                room_id: message.room_id,
+                message_date: now.elapsed().unwrap().as_secs() as i32,
+                message: message.message.to_owned(),
+                sanitized: false,
+            }
+        }
+    }
+}

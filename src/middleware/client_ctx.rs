@@ -17,15 +17,17 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 pub struct ClientCtxInner {
     pub client: Option<ClientUser>,
     pub groups: Vec<i32>,
+    pub nonce: Option<String>,
     pub permissions: Option<Arc<PermissionData>>,
     pub request_start: Instant,
 }
 
-impl ClientCtxInner {
-    fn new() -> Self {
+impl Default for ClientCtxInner {
+    fn default() -> Self {
         Self {
             client: None,
             groups: Vec::new(),
+            nonce: None,
             permissions: None,
             request_start: Instant::now(),
         }
@@ -37,18 +39,20 @@ impl ClientCtxInner {
 #[derive(Clone, Debug)]
 pub struct ClientCtx(Rc<RefCell<ClientCtxInner>>);
 
-impl ClientCtx {
-    pub fn new() -> Self {
-        Self(Rc::new(RefCell::new(ClientCtxInner::new())))
+impl Default for ClientCtx {
+    fn default() -> Self {
+        Self(Rc::new(RefCell::new(ClientCtxInner::default())))
     }
+}
 
+impl ClientCtx {
     fn get_client_ctx(extensions: &mut Extensions, permissions: &Arc<PermissionData>) -> Self {
         let ctx = match extensions.get::<Rc<RefCell<ClientCtxInner>>>() {
             // Existing record in extensions; pull it.
             Some(s_impl) => Self(Rc::clone(s_impl)),
             // No existing record; create and insert it.
             None => {
-                let inner = Rc::new(RefCell::new(ClientCtxInner::new()));
+                let inner = Rc::new(RefCell::new(ClientCtxInner::default()));
                 extensions.insert(inner.clone());
                 Self(inner)
             }
@@ -117,6 +121,35 @@ impl ClientCtx {
         // TODO: In XenForo, users cannot view their own deleted posts.
         // This should be a moderator setting. Maybe a 'can view own deleted posts' option.
         post.deleted_at.is_none() || self.get_id() == post.user_id
+    }
+
+    /// Returns a hash unique to each request used for CSP.
+    /// See: <https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/nonce>
+    /// and <https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP>
+    pub fn get_nonce(&self) -> String {
+        if self.0.borrow().nonce == None {
+            let mut hasher = blake3::Hasher::new();
+
+            // Hash: Salt
+            match std::env::var("SALT") {
+                Ok(v) => hasher.update(v.as_bytes()),
+                Err(_) => hasher.update("NO_SALT_FOR_NONCE".as_bytes()),
+            };
+
+            // Hash: Timestamp
+            use std::time::{SystemTime, UNIX_EPOCH};
+            hasher.update(
+                &SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("System clock before 1970. Really?")
+                    .as_millis()
+                    .to_ne_bytes(),
+            );
+
+            self.0.borrow_mut().nonce = Some(hasher.finalize().to_string())
+        }
+
+        self.0.borrow().nonce.as_ref().unwrap().to_owned()
     }
 
     /// Returns Duration representing request time.

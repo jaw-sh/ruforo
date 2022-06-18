@@ -61,7 +61,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(Data::new(mysql.clone()))
             .app_data(chat.clone())
             .service(resource("/chat").to(ruforo::web::chat::service))
-            .service(ruforo::web::chat::view_chat)
+            .service(ruforo::web::chat::view_chat_shim)
     })
     .bind(std::env::var("CHAT_WS_BIND").unwrap_or("127.0.0.1:8080".to_owned()))?
     .run()

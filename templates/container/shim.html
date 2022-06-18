@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html class="chat">
+
+<head>
+    <title>Rust Chat</title>
+
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'nonce-{{ nonce }}'" />
+
+    <link rel="stylesheet" type="text/css" nonce="{{ nonce }}" href="/assets/style.css?{{ webpack_time }}" />
+</head>
+
+<body>
+    {% block content %}{% endblock %}
+
+    <script type="application/javascript" nonce="{{ nonce }}">
+        const APP = {{ app_json| safe }};
+    </script>
+
+    <script type="application/javascript" src="/assets/chat.js?{{ webpack_time }}" nonce="{{ nonce }}"></script>
+</body>
+
+</html>

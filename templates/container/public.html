@@ -5,18 +5,20 @@
     {% block head %}
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'nonce-{{ client.get_nonce() }}'" />
 
     <title>{% block title %}るふろ{% endblock %}</title>
 
-    <script type="module">
+    <script type="module" nonce="{{ client.get_nonce() }}">
         document.documentElement.classList.remove('no-js');
         document.documentElement.classList.add('js');
     </script>
 
     {% block stylesheets %}
-    <link rel="stylesheet" type="text/css" href="/public/assets/style.css" />
+    <link rel="stylesheet" type="text/css" href="/public/assets/style.css" nonce="{{ client.get_nonce() }}" />
     {#
-    <link rel="stylesheet" type="text/css" href="/public/assets/print.css" media="print" /> #}
+    <link rel="stylesheet" type="text/css" href="/public/assets/print.css" media="print"
+        nonce="{{ client.get_nonce() }}" /> #}
     {% endblock %}
 
     {# These are very important for SEO.
@@ -33,7 +35,7 @@
     #}
 
     {# More advanced templating options that will come later.
-    <link rel="icon" href="/favicon.ico">
+    <link rel="icon" href="/favicon.ico" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/my.webmanifest" />
@@ -43,26 +45,27 @@
 </head>
 
 <body>
+    {% block top %}
     <header>
         {% block header %}
-        <div class="container header-inner">
-            <h1>ruforo</h1>
-        </div>
         <nav id="primary-nav">
+            <div class="container header-inner">
+                <a href="/" class="brand">ruforo</a>
+            </div>
             <div class="container">
                 {% block navigation %}
                 <ul class="nav-main">
-                    <li><a href="/">Home</a></li>
-                    <li><a href="/forums">Forums</a></li>
-                    <li><a href="/members">Members</a></li>
+                    <li><a href="/forums" class="nav-link">Forums</a></li>
+                    <li><a href="/chat" class="nav-link">Chat</a></li>
+                    <li><a href="/members" class="nav-link">Members</a></li>
                 </ul>
                 <ul class="nav-side">
                     {% if client.is_user() %}
-                    <li><a href="/account">{{ client.get_name() }}</a></li>
-                    <li><a href="/logout">Logout</a></li>
+                    <li><a href="/account" class="nav-link">{{ client.get_name() }}</a></li>
+                    <li><a href="/logout" class="nav-link">Logout</a></li>
                     {% else %}
-                    <li><a href="/create_user">Register</a></li>
-                    <li><a href="/login">Login</a></li>
+                    <li><a href="/create_user" class="nav-link">Register</a></li>
+                    <li><a href="/login" class="nav-link">Login</a></li>
                     {% endif %}
                 </ul>
                 {% endblock %}
@@ -70,10 +73,15 @@
         </nav>
         {% endblock %}
     </header>
+    {% endblock %}
+
+    {% block main %}
     <main class="container">
-        {% block content %}
-        {% endblock %}
+        {% block content %}{% endblock %}
     </main>
+    {% endblock %}
+
+    {% block bottom %}
     <footer class="container">
         <div class="footer-inner">
             {% block footer %}
@@ -82,9 +90,10 @@
             {% endblock %}
         </div>
     </footer>
+    {% endblock %}
 
     {% block lazyjs %}
-    <script src="/public/assets/main.js" type="module"></script>
+    <script src="/public/assets/main.js" type="module" nonce="{{ client.get_nonce() }}"></script>
     {% endblock %}
 </body>
 

@@ -19,6 +19,7 @@ pub fn configure(conf: &mut actix_web::web::ServiceConfig) {
     index::configure(conf);
     account::configure(conf);
     asset::configure(conf);
+    chat::configure(conf);
     forum::configure(conf);
     login::configure(conf);
     logout::configure(conf);

@@ -321,7 +321,7 @@ pub async fn create_reply(
 
     // Insert attachments, if any.
     if !uploads.is_empty() {
-        let sneed = try_join_all(uploads.iter().map(|u| {
+        try_join_all(uploads.iter().map(|u| {
             ugc_attachments::ActiveModel {
                 attachment_id: Set(u.1.id),
                 ugc_id: Set(ugc_revision.ugc_id),

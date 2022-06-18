@@ -19,11 +19,12 @@ async fn view_file_by_hash(req: HttpRequest) -> impl Responder {
         }
     };
 
-    let name: String = req
-        .match_info()
-        .query("filename")
-        .parse()
-        .expect("Bad filename.");
+    //let name: String = req
+    //    .match_info()
+    //    .query("filename")
+    //    .parse()
+    //    .expect("Bad filename.");
+
     // Multimedia range
     let range: Option<String> = req
         .headers()

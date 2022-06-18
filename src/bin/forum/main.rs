@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use actix::Actor;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
 use actix_web::http::StatusCode;
@@ -25,18 +28,34 @@ async fn main() -> std::io::Result<()> {
         .expect("Permission System failed to initialize.");
     let secret_key = Key::generate(); // TODO: Should be from .env file
 
+    let layer = Arc::new(ruforo::web::chat::implement::default::Layer {
+        db: get_db_pool().to_owned(),
+    });
+    let chat = ruforo::web::chat::server::ChatServer::new(layer.clone())
+        .await
+        .start();
+
     HttpServer::new(move || {
+        let layer_data: Data<Arc<dyn ruforo::web::chat::implement::ChatLayer>> =
+            Data::new(layer.clone());
+
         // Order of middleware IS IMPORTANT and is in REVERSE EXECUTION ORDER.
         // However, services are read top->down, higher traffic routes should be
         // placed higher
         App::new()
             .app_data(Data::new(get_db_pool()))
             .app_data(Data::new(permissions.clone()))
-            .wrap(ErrorHandlers::new().handler(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ruforo::web::error::render_500,
-            ))
-            .wrap(ClientCtx::new())
+            .app_data(layer_data)
+            .app_data(chat.clone())
+            .wrap(
+                ErrorHandlers::new()
+                    .handler(StatusCode::NOT_FOUND, ruforo::web::error::render_404)
+                    .handler(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        ruforo::web::error::render_500,
+                    ),
+            )
+            .wrap(ClientCtx::default())
             .wrap(SessionMiddleware::new(
                 CookieSessionStore::default(),
                 secret_key.clone(),

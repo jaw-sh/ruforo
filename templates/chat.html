@@ -1,57 +1,11 @@
-<!DOCTYPE html>
-<html class="chat">
+{% extends "container/public.html" %}
 
-<head>
-    <title>Rust Chat</title>
+{% block main %}
+{% include "chat/main.html" %}
+{% endblock %}
 
-    <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'nonce-{{ nonce }}'" />
-
-    <link rel="stylesheet" type="text/css" nonce="{{ nonce }}" href="/assets/style.css?{{ webpack_time }}" />
-
-    <script type="application/javascript" nonce="{{ nonce }}">
-        const APP = {{ app_json| safe }};
-    </script>
-</head>
-
-<body>
-    <div id="chat">
-        {% if rooms.len() > 0 %}
-        <div id="chat-rooms">
-            {% for room in rooms %}
-            <a class="chat-room" role="button" href="#{{ room.room_id }}"
-                data-id="{{ room.room_id }}">{{room.title}}</a>
-            {% endfor %}
-        </div>
-        {% endif %}
-        <div id="chat-scroller">
-            <div id="chat-messages"></div>
-        </div>
-        <form id="chat-form">
-            <input id="chat-input-room" type="hidden" name="room" value="0" />
-
-            <div id="chat-form-fields">
-                <textarea id="chat-input" name="message" aria-label="Message the room" aria-multiline="true"></textarea>
-
-                <div id="chat-form-buttons">
-                    <button tabindex="0" id="chat-submit" class="submit">
-                        <div class="sprite">
-                            <svg width="24" height="24" viewBox="0 0 97.1 97.1" aria-hidden="false">
-                                <path
-                                    d="m93.82 0.37c-0.697-0.469-1.6-0.494-2.32-0.066l-88.112 52.281c-0.748 0.444-1.158 1.291-1.043 2.152 0.113 0.86 0.732 1.571 1.568 1.805l22.389 6.233c0.68 0.188 1.409 0.036 1.956-0.41l35.768-29.219-24.951 31.847c-0.301 0.382-0.462 0.854-0.462 1.339v28.602c0 0.966 0.636 1.814 1.563 2.083 0.201 0.06 0.405 0.087 0.607 0.087 0.728 0 1.425-0.366 1.83-1.004l15.577-24.45 22.772 6.338c0.598 0.167 1.24 0.067 1.764-0.271 0.521-0.339 0.873-0.885 0.967-1.499l11.06-73.725c0.125-0.828-0.238-1.655-0.933-2.123z" />
-                            </svg>
-                        </div>
-                    </button>
-                </div>
-            </div>
-        </form>
-    </div>
-
-    <template id="tmp-chat-message">
-        {% include "ugc/chat_message.html" %}
-    </template>
-
-    <script type="application/javascript" src="/assets/chat.js?{{ webpack_time }}" nonce="{{ nonce }}"></script>
-</body>
-
-</html>
+{% block bottom %}
+<script type="application/javascript" nonce="{{ client.get_nonce() }}">
+    const APP = {{ app_json| safe }};
+</script>
+{% endblock %}
