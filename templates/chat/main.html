@@ -1,4 +1,4 @@
-<div id="chat">
+<main id="chat">
     {% if rooms.len() > 0 %}
     <div id="chat-rooms">
         {% for room in rooms %}
@@ -27,6 +27,6 @@
             </div>
         </div>
     </form>
-</div>
+</main>
 
 {% include "chat/template.html" %}

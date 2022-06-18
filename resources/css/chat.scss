@@ -1,3 +1,5 @@
+@import 'variables';
+
 html.chat,
 html.chat body,
 html.chat #chat {
@@ -9,10 +11,11 @@ html.chat #chat {
 }
 
 #chat {
-    background: rgb(54, 57, 63);
     display: flex;
     flex-direction: column;
-    color: rgb(255, 255, 255);
+    margin: 0;
+    background: var(--background-color);
+    color: var(--text-color);
 }
 
 #chat-rooms {
@@ -21,7 +24,7 @@ html.chat #chat {
 }
 
 .chat-room {
-    color: rgb(255, 255, 255);
+    color: var(--text-color);
     text-decoration: none;
     border: 1px solid rgb(64, 68, 75);
     border-radius: 3px;
@@ -348,7 +351,7 @@ html.chat #chat {
     }
 
     .sprite svg {
-        fill: rgb(255, 255, 255);
+        fill: var(--text-color);
         height: 20px !important;
         width: 20px !important;
     }

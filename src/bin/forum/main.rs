@@ -17,12 +17,6 @@ async fn main() -> std::io::Result<()> {
     init_our_mods();
     init_db(std::env::var("DATABASE_URL").expect("DATABASE_URL must be set.")).await;
 
-    // TODO: Chat stuff is not being used right now.
-    //use actix::Actor;
-    //let chat = chat::ChatServer::new().start();
-    //.app_data(Data::new(chat.clone()))
-    //.service(resource("/chat").to(crate::hub::chat_route))
-
     let permissions = ruforo::permission::new()
         .await
         .expect("Permission System failed to initialize.");
