@@ -223,7 +223,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function scrollerScroll(event) {
-        const clampHeight = 32; // margin of error
+        const clampHeight = 64; // margin of error
 
         // if last scrollTop is lower (greater) than current scroll top,
         // we have scrolled down.
@@ -349,7 +349,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Scroll window
     scrollEl.addEventListener('scroll', scrollerScroll);
     //scrollEl.classList.add('ScrollLocked');
-    setInterval(scrollToNew, 64);
+    setInterval(scrollToNew, 32);
 
     // Form
     document.getElementById('chat-input').addEventListener('keydown', function (event) {

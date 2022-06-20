@@ -1,6 +1,9 @@
+@use 'variables';
+
 :root {
-    --background-color: $background-color;
-    --border-color: $border-color;
-    --text-color: $text-color;
-    --text-muted: $text-muted;
+    --background-color: rgb(242, 243, 245);
+    --border-color: rgb(116, 128, 0.24);
+    --input-background: rgb(235 237 239);
+    --text-color: rgb(46, 51, 56);
+    --text-muted: rgb(94, 103, 114);
 }
