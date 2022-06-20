@@ -1,6 +1,7 @@
 {% extends "container/public.html" %}
 
 {% block content %}
+<h1>{{ forum.label }}</h1>
 <h2>Threads</h2>
 <div class="struct-container">
     {% for thread in threads %}

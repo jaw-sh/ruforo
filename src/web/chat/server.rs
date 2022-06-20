@@ -24,7 +24,7 @@ pub struct ChatServer {
 
 impl ChatServer {
     pub async fn new(layer: Arc<dyn super::implement::ChatLayer>) -> Self {
-        log::info!("New ChatServer from XF Compat");
+        log::info!("Chat actor starting up.");
 
         // Populate rooms
         let rooms = layer.get_room_list().await;
@@ -41,7 +41,7 @@ impl ChatServer {
             ),
         };
 
-        ChatServer {
+        Self {
             rng: rand::thread_rng(),
             connections: HashMap::new(),
             rooms: HashMap::from_iter(
@@ -55,19 +55,19 @@ impl ChatServer {
     }
 
     /// Prepares a ClientMessage to be sent.
-    fn prepare_message(&self, message: &message::ClientMessage) -> String {
+    fn prepare_message(&self, message: &message::ClientMessage) -> message::ClientMessage {
         let tokens = match tokenize(&message.message) {
             Ok((_, tokens)) => tokens,
             Err(err) => {
                 log::warn!("Tokenizer error: {:?}", err);
-                return String::new();
+                unreachable!();
             }
         };
 
         let mut parser = Parser::new();
         let ast = parser.parse(&tokens);
 
-        serde_json::to_string(&message::ClientMessage {
+        message::ClientMessage {
             id: message.id,
             author: message.author.clone(),
             room_id: message.room_id,
@@ -75,8 +75,19 @@ impl ChatServer {
             message_date: message.message_date,
             message: self.constructor.build(ast),
             sanitized: true,
-        })
-        .expect("ClientMessage stringify failed.")
+        }
+    }
+
+    fn prepare_messages(&self, messages: &Vec<message::ClientMessage>) -> message::ClientMessages {
+        let mut data = message::ClientMessages {
+            messages: Vec::with_capacity(messages.len()),
+        };
+
+        for message in messages {
+            data.messages.push(self.prepare_message(&message));
+        }
+
+        data
     }
 
     /// Send message to all users in a room
@@ -137,7 +148,14 @@ impl Handler<message::ClientMessage> for ChatServer {
                 async move { layer.insert_chat_message(&message).await }
                     .into_actor(self)
                     .map(move |message, actor, _ctx| {
-                        actor.send_message(&message.room_id, &actor.prepare_message(&message));
+                        let room_id = message.room_id;
+                        let message = vec![message];
+
+                        actor.send_message(
+                            &room_id,
+                            &serde_json::to_string(&actor.prepare_messages(&message))
+                                .expect("ClientMessage serialize failure"),
+                        );
                     }),
             )
         } else {
@@ -208,9 +226,15 @@ impl Handler<message::Join> for ChatServer {
                 async move { layer.get_room_history(room_id, 20).await }
                     .into_actor(self)
                     .map(move |messages, actor, _ctx| {
-                        for message in messages {
-                            actor.send_message_to(id, &actor.prepare_message(&message));
-                        }
+                        //for message in messages {
+                        //    actor.send_message_to(id, &actor.prepare_message(&message));
+                        //}
+
+                        actor.send_message_to(
+                            id,
+                            &serde_json::to_string(&actor.prepare_messages(&messages))
+                                .expect("ClientMessages serialize failure"),
+                        );
 
                         // Put user in room now so messages don't load in during history.
                         actor

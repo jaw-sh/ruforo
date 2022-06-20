@@ -10,6 +10,13 @@ html.chat #chat {
     overflow: hidden;
 }
 
+body.style-dark {
+    --background-color: rgb(54, 57, 63);
+    --border-color: rgba(79, 84, 92, 0.48);
+    --text-color: rgb(220, 221, 222);
+    --text-muted: rgb(163, 166, 170);
+}
+
 #chat {
     display: flex;
     flex-direction: column;
@@ -26,18 +33,18 @@ html.chat #chat {
 .chat-room {
     color: var(--text-color);
     text-decoration: none;
-    border: 1px solid rgb(64, 68, 75);
+    border: var(--border-color);
     border-radius: 3px;
     padding: 6px;
     cursor: pointer;
 
     &.active {
-        background: rgb(64, 68, 75);
+        background: var(--border-color);
         text-decoration: underline;
     }
 
     &:hover {
-        background: rgb(64, 68, 75);
+        background: var(--border-color);
         text-decoration: underline;
     }
 }
@@ -143,6 +150,7 @@ html.chat #chat {
         font-size: 0.75rem;
         margin-left: 0.25rem;
         vertical-align: baseline;
+        color: var(--text-muted);
 
         &.static {
             position: absolute;
@@ -226,7 +234,7 @@ html.chat #chat {
 
 .chat-message--systemMsg {
     font-family: monospace;
-    color: #ccc;
+    color: var(--text-muted);
 }
 
 .chat-message--hasParent {

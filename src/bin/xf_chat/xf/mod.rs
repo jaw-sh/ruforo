@@ -5,10 +5,7 @@ pub mod session;
 pub mod smilie;
 
 use actix_web::web::Data;
-use ruforo::bbcode::Constructor;
-use ruforo::web::chat::{implement, message::ClientMessage, server::ChatServer};
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use ruforo::web::chat::{implement, message::ClientMessage};
 use std::time::Duration;
 
 pub struct XfLayer {
@@ -58,36 +55,5 @@ impl implement::ChatLayer for XfLayer {
 
     async fn insert_chat_message(&self, message: &ClientMessage) -> ClientMessage {
         message::insert_chat_message(&self.db, message).await
-    }
-}
-
-pub async fn start_chat_server(layer: Arc<dyn implement::ChatLayer>) -> ChatServer {
-    log::info!("New ChatServer from XF Compat");
-
-    // Populate rooms
-    let rooms = layer.get_room_list().await;
-
-    // Constructor
-    let constructor = Constructor {
-        emojis: Some(
-            layer
-                .get_smilie_list()
-                .await
-                .into_iter()
-                .map(|smilie| (smilie.replace.to_string(), smilie.to_html()))
-                .collect(),
-        ),
-    };
-
-    ChatServer {
-        rng: rand::thread_rng(),
-        connections: HashMap::new(),
-        rooms: HashMap::from_iter(
-            rooms
-                .into_iter()
-                .map(|r| (r.room_id as usize, HashSet::<usize>::default())),
-        ),
-        constructor,
-        layer,
     }
 }

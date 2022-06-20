@@ -1,12 +1,12 @@
 use super::{Element, Tag};
 use rctree::Node;
-use std::{cell::RefMut, collections::HashMap};
+use std::{cell::RefMut, collections::BTreeMap};
 
 /// Converts a Parser's AST into rendered HTML.
 #[derive(Default)]
 pub struct Constructor {
     // TODO: Build string here, return in build().
-    pub emojis: Option<HashMap<String, String>>,
+    pub emojis: Option<BTreeMap<String, String>>,
 }
 
 impl Constructor {

@@ -29,6 +29,16 @@ impl Message for ClientMessage {
     type Result = ();
 }
 
+/// Send multiple messages
+#[derive(Serialize)]
+pub struct ClientMessages {
+    pub messages: Vec<ClientMessage>,
+}
+
+impl Message for ClientMessages {
+    type Result = ();
+}
+
 /// New chat session is created
 #[derive(Message)]
 #[rtype(usize)]

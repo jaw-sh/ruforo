@@ -46,6 +46,7 @@ pub struct NewThreadFormData {
 #[template(path = "thread.html")]
 pub struct ThreadTemplate<'a> {
     pub client: ClientCtx,
+    pub forum: crate::orm::forums::Model,
     pub thread: crate::orm::threads::Model,
     pub paginator: Paginator,
     pub posts: &'a Vec<PostForTemplate>,
@@ -91,6 +92,7 @@ async fn get_thread_and_replies_for_page(
     page: i32,
 ) -> Result<impl Responder, Error> {
     use crate::attachment::get_attachments_for_ugc_by_id;
+    use crate::orm::forums;
     use crate::orm::user_names;
 
     let db = get_db_pool();
@@ -99,6 +101,11 @@ async fn get_thread_and_replies_for_page(
         .await
         .map_err(|_| error::ErrorInternalServerError("Could not look up thread."))?
         .ok_or_else(|| error::ErrorNotFound("Thread not found."))?;
+    let forum = forums::Entity::find_by_id(thread.forum_id)
+        .one(db)
+        .await
+        .map_err(|_| error::ErrorInternalServerError("Could not look up thread's forum."))?
+        .ok_or_else(|| error::ErrorNotFound("Forum not found."))?;
 
     // Update thread to include views.
     actix_web::rt::spawn(async move {
@@ -152,6 +159,7 @@ async fn get_thread_and_replies_for_page(
 
     Ok(ThreadTemplate {
         client,
+        forum,
         thread,
         posts: &posts,
         paginator,

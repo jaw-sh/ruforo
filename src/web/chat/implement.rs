@@ -177,7 +177,7 @@ pub mod default {
             message: &super::message::ClientMessage,
         ) -> super::message::ClientMessage {
             let mut rng = rand::thread_rng();
-            let now = SystemTime::now();
+            let now = SystemTime::UNIX_EPOCH;
 
             super::message::ClientMessage {
                 id: rng.gen(),

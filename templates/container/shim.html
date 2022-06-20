@@ -10,7 +10,7 @@
     <link rel="stylesheet" type="text/css" nonce="{{ nonce }}" href="/assets/style.css?{{ webpack_time }}" />
 </head>
 
-<body>
+<body class="style-{{ style }}">
     {% block content %}{% endblock %}
 
     <script type="application/javascript" nonce="{{ nonce }}">

@@ -177,13 +177,16 @@ impl FromRequest for ClientCtx {
 
     /// Create a Self from request parts asynchronously.
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let perm_arc = req
-            .app_data::<Data<Arc<PermissionData>>>()
-            .expect("No PermissionData in FromRequest.");
-        ok(ClientCtx::get_client_ctx(
-            &mut req.extensions_mut(),
-            perm_arc,
-        ))
+        if let Some(perm_arc) = req.app_data::<Data<Arc<PermissionData>>>() {
+            ok(ClientCtx::get_client_ctx(
+                &mut req.extensions_mut(),
+                perm_arc,
+            ))
+        }
+        //
+        else {
+            ok(ClientCtx::default())
+        }
     }
 }
 
@@ -234,31 +237,39 @@ where
         //let db = req
         //    .app_data::<&'static sea_orm::DatabaseConnection>()
         //    .expect("No database connection available through web server.");
-        let perm_arc = req
-            .app_data::<Data<Arc<PermissionData>>>()
-            .expect("No permission data available through web server.");
-        let ctx = ClientCtx::get_client_ctx(&mut *req.extensions_mut(), perm_arc);
-        let fut = self.service.call(req);
+        let perm_arc = req.app_data::<Data<Arc<PermissionData>>>();
+        //.expect("No permission data available through web server.");
 
-        Box::pin(async move {
-            use crate::group::get_group_ids_for_client;
-            use crate::session::authenticate_client_by_session;
+        // If we do not have permission data there is no client interface to access.
+        if let Some(perm_arc) = perm_arc {
+            let ctx = ClientCtx::get_client_ctx(&mut *req.extensions_mut(), perm_arc);
+            let fut = self.service.call(req);
 
-            match cookies {
-                Ok(cookies) => {
-                    let mut inner = ctx.0.borrow_mut();
+            Box::pin(async move {
+                use crate::group::get_group_ids_for_client;
+                use crate::session::authenticate_client_by_session;
 
-                    // Assign the user to our ClientCtx struct.
-                    inner.client = authenticate_client_by_session(&cookies).await;
+                match cookies {
+                    Ok(cookies) => {
+                        let mut inner = ctx.0.borrow_mut();
 
-                    // Add permission groups used by this connection.
-                    inner.groups = get_group_ids_for_client(get_db_pool(), &inner.client).await;
-                }
-                Err(e) => {
-                    log::error!("ClientCtxMiddleware: Session::extract(): {}", e);
-                }
-            };
-            Ok(fut.await?)
-        })
+                        // Assign the user to our ClientCtx struct.
+                        inner.client = authenticate_client_by_session(&cookies).await;
+
+                        // Add permission groups used by this connection.
+                        inner.groups = get_group_ids_for_client(get_db_pool(), &inner.client).await;
+                    }
+                    Err(e) => {
+                        log::error!("ClientCtxMiddleware: Session::extract(): {}", e);
+                    }
+                };
+                Ok(fut.await?)
+            })
+        }
+        // Move to future without doing anything.
+        else {
+            let fut = self.service.call(req);
+            Box::pin(async move { Ok(fut.await?) })
+        }
     }
 }

@@ -4,11 +4,11 @@ pub mod message;
 pub mod server;
 
 use actix::Addr;
-use actix_web::web::resource;
 use actix_web::{get, web, web::Data, Error, HttpRequest, HttpResponse, Responder};
 use actix_web_actors::ws;
 use askama_actix::Template;
 use implement::{ChatLayer, Room};
+use serde::Deserialize;
 use std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -22,16 +22,25 @@ pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
 pub const CLIENT_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
-    conf.service(resource("/chat.ws").to(service))
-        .service(view_chat);
+    conf.service(view_chat_socket).service(view_chat);
 }
 /// Entry point for our websocket route
-pub async fn service(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
+#[get("/chat.ws")]
+pub async fn view_chat_socket(
+    client: ClientCtx,
+    req: HttpRequest,
+    stream: web::Payload,
+) -> Result<HttpResponse, Error> {
     let layer = req
         .app_data::<Data<Arc<dyn ChatLayer>>>()
         .expect("No chat layer.");
-    let user_id = layer.get_user_id_from_request(&req);
-    let session = layer.get_session_from_user_id(user_id).await;
+
+    let session = if let Some(id) = client.get_id() {
+        layer.get_session_from_user_id(id as u32).await
+    } else {
+        let user_id = layer.get_user_id_from_request(&req);
+        layer.get_session_from_user_id(user_id).await
+    };
 
     ws::start(
         connection::Connection {
@@ -58,13 +67,15 @@ struct ChatTemplate {
     app_json: String,
 }
 
+/// Live chat in full application
 #[get("/chat")]
 pub async fn view_chat(client: ClientCtx, req: HttpRequest) -> impl Responder {
     let layer = req
         .app_data::<Data<Arc<dyn ChatLayer>>>()
         .expect("No chat layer.");
-    let user_id = layer.get_user_id_from_request(&req);
-    let session = layer.get_session_from_user_id(user_id).await;
+    let session = layer
+        .get_session_from_user_id(client.get_id().unwrap_or(0) as u32)
+        .await;
 
     ChatTemplate {
         client,
@@ -87,10 +98,17 @@ struct ChatTestTemplate {
     app_json: String,
     nonce: String,
     webpack_time: u64,
+    style: String,
 }
 
+#[derive(Deserialize)]
+pub struct ChatTestData {
+    pub style: Option<String>,
+}
+
+/// Chat shim
 #[get("/test-chat")]
-pub async fn view_chat_shim(req: HttpRequest) -> impl Responder {
+pub async fn view_chat_shim(req: HttpRequest, query: web::Query<ChatTestData>) -> impl Responder {
     let webpack_time: u64 = match std::fs::metadata(format!(
         "{}/chat.js",
         std::env::var("CHAT_ASSET_DIR").unwrap_or(".".to_string())
@@ -153,5 +171,11 @@ pub async fn view_chat_shim(req: HttpRequest) -> impl Responder {
         ),
         nonce: hasher.finalize().to_string(),
         webpack_time,
+        style: if query.style == Some("dark".to_string()) {
+            "dark"
+        } else {
+            "light"
+        }
+        .to_string(),
     }
 }

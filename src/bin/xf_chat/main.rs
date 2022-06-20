@@ -1,7 +1,7 @@
 mod xf;
 
 use actix::Actor;
-use actix_web::web::{resource, Data};
+use actix_web::web::Data;
 use actix_web::{App, HttpServer};
 use env_logger::Env;
 use sea_orm::{ConnectOptions, Database};
@@ -20,8 +20,8 @@ async fn main() -> std::io::Result<()> {
             std::env::var("XF_MYSQL_URL").expect("XF_MYSQL_URL required for chat binary."),
         );
         options
-            .max_connections(256)
-            .min_connections(5)
+            .max_connections(1024)
+            .min_connections(16)
             .connect_timeout(Duration::from_secs(1))
             .idle_timeout(Duration::from_secs(8))
             .max_lifetime(Duration::from_secs(8))
@@ -46,7 +46,9 @@ async fn main() -> std::io::Result<()> {
     };
 
     let layer = Arc::new(xf::XfLayer { db: mysql.clone() });
-    let chat = xf::start_chat_server(layer.clone()).await.start();
+    let chat = ruforo::web::chat::server::ChatServer::new(layer.clone())
+        .await
+        .start();
 
     HttpServer::new(move || {
         // Downcast so we can store in app_data
@@ -60,7 +62,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(Data::new(redis.clone()))
             .app_data(Data::new(mysql.clone()))
             .app_data(chat.clone())
-            .service(resource("/chat").to(ruforo::web::chat::service))
+            .service(ruforo::web::chat::view_chat_socket)
             .service(ruforo::web::chat::view_chat_shim)
     })
     .bind(std::env::var("CHAT_WS_BIND").unwrap_or("127.0.0.1:8080".to_owned()))?

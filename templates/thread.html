@@ -2,8 +2,8 @@
 
 {% block content %}
 <div class="thread">
-    <h2>{{ thread.title }}{% match thread.subtitle %}
-        {% when Some with (subtitle) %}<span class="subtitle"> - {{subtitle}}</span>{% when None %}{% endmatch %}</h2>
+    <h1>{{ thread.title }}{% match thread.subtitle %}
+        {% when Some with (subtitle) %}<span class="subtitle"> - {{subtitle}}</span>{% when None %}{% endmatch %}</h1>
     {{ paginator.as_html()|safe }}
 
     {% for post in posts %}

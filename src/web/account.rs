@@ -61,13 +61,17 @@ async fn update_avatar(client: ClientCtx, mutipart: Option<Multipart>) -> impl R
                             },
                         };
 
-                        user_avatars::Entity::insert(user_avatars::ActiveModel {
+                        match user_avatars::Entity::insert(user_avatars::ActiveModel {
                             user_id: Set(client.get_id().unwrap()),
                             attachment_id: Set(response.id),
                             created_at: Set(Utc::now().naive_utc()),
                         })
                         .exec(get_db_pool())
-                        .await;
+                        .await
+                        {
+                            Ok(_) => {}
+                            Err(err) => log::warn!("SQL error when inserting avatar: {:?}", err),
+                        };
                     }
                     _ => {
                         return Err(error::ErrorBadRequest(format!(

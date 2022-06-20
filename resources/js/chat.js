@@ -67,18 +67,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    function messagePush(data) {
-        let author = null;
-        let message = null;
-
-        // Try to parse JSON data.
-        try {
-            message = JSON.parse(data);
-            author = message.author;
-        }
-        // Not valid JSON, default
-        catch (error) {
-            message = { message: data }; // plain text
+    function messagePush(message, author) {
+        if (typeof message === 'string') {
+            message = { message: message };
         }
 
         let messagesEl = document.getElementById('chat-messages');
@@ -88,7 +79,7 @@ document.addEventListener("DOMContentLoaded", function () {
         template.querySelector('.message').innerHTML = message.message;
         template.children[0].dataset.received = timeNow.getTime();
 
-        if (author !== null) {
+        if (author) {
             template.children[0].id = `chat-message-${message.message_id}`;
             template.children[0].dataset.author = author.id;
 
@@ -186,6 +177,20 @@ document.addEventListener("DOMContentLoaded", function () {
         ws.send(message);
     }
 
+    function messagesReceive(data) {
+        // Try to parse JSON data.
+        try {
+            json = JSON.parse(data);
+            if (json.hasOwnProperty('messages')) {
+                json.messages.forEach(message => messagePush(message, message.author));
+            }
+        }
+        // Not valid JSON, default
+        catch (error) {
+            messagePush({ message: data }, null);
+        }
+    }
+
     function messagesDelete() {
         let messagesEl = document.getElementById('chat-messages');
         while (messagesEl.firstChild) {
@@ -199,7 +204,7 @@ document.addEventListener("DOMContentLoaded", function () {
             scrollEl.classList.add('ScrollAnchorConsume');
             messagesDelete();
             messageSend(`/join ${id}`);
-            document.getElementById("chat-input").focus({ preventScroll: true });
+            //document.getElementById("chat-input").focus({ preventScroll: true });
             return true;
         }
 
@@ -307,7 +312,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         ws.addEventListener('message', function (event) {
-            messagePush(event.data);
+            messagesReceive(event.data);
         });
 
         ws.addEventListener('open', function (event) {
