@@ -209,7 +209,7 @@ impl Handler<message::Join> for ChatServer {
             let message::Join {
                 id,
                 room_id,
-                author,
+                author: _,
             } = message;
             let mut rooms = Vec::new();
 

@@ -136,11 +136,7 @@ pub mod default {
             }]
         }
 
-        async fn get_room_history(
-            &self,
-            room_id: usize,
-            limit: usize,
-        ) -> Vec<super::message::ClientMessage> {
+        async fn get_room_history(&self, _: usize, _: usize) -> Vec<super::message::ClientMessage> {
             Vec::new()
         }
 
