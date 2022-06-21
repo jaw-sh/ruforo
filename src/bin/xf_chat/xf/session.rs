@@ -13,6 +13,7 @@ struct XfSession {
     pub id: u32,
     pub username: String,
     pub avatar_date: u32,
+    pub is_staff: bool,
 }
 
 pub fn avatar_uri(id: u32, date: u32) -> String {
@@ -35,6 +36,7 @@ impl Default for XfSession {
             id: 0,
             username: "Guest".to_owned(),
             avatar_date: 0,
+            is_staff: false,
         }
     }
 }
@@ -89,6 +91,7 @@ pub async fn get_session_with_user_id(db: &DatabaseConnection, id: u32) -> imple
             .column_as(user::Column::UserId, "id")
             .column(user::Column::Username)
             .column(user::Column::AvatarDate)
+            .column(user::Column::IsStaff)
             .filter(user::Column::UserId.eq(id))
             .filter(user::Column::IsBanned.eq(false))
             .into_model::<XfSession>()
@@ -136,5 +139,6 @@ pub async fn get_session_with_user_id(db: &DatabaseConnection, id: u32) -> imple
         username: session.username,
         avatar_url: avatar_uri(session.id, session.avatar_date),
         ignored_users,
+        is_staff: session.is_staff,
     }
 }

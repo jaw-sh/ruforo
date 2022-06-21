@@ -47,6 +47,18 @@ pub struct Connect {
     pub session: Session,
 }
 
+/// Instruction to delete a chat message.
+#[derive(Serialize)]
+pub struct Delete {
+    pub id: usize,
+    pub message_id: u32,
+    pub author: Session,
+}
+
+impl Message for Delete {
+    type Result = ();
+}
+
 /// Session is disconnected
 #[derive(Message)]
 #[rtype(result = "()")]

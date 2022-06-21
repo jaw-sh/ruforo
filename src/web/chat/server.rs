@@ -136,18 +136,14 @@ impl Handler<message::Connect> for ChatServer {
 impl Handler<message::ClientMessage> for ChatServer {
     type Result = ResponseActFuture<Self, ()>;
 
-    fn handle(
-        &mut self,
-        message: message::ClientMessage,
-        _ctx: &mut Context<Self>,
-    ) -> Self::Result {
-        if message.author.can_send_message() {
+    fn handle(&mut self, msg: message::ClientMessage, _: &mut Context<Self>) -> Self::Result {
+        if msg.author.can_send_message() {
             let layer = self.layer.clone();
 
             Box::pin(
-                async move { layer.insert_chat_message(&message).await }
+                async move { layer.insert_chat_message(&msg).await }
                     .into_actor(self)
-                    .map(move |message, actor, _ctx| {
+                    .map(move |message, actor, _| {
                         let room_id = message.room_id;
                         let message = vec![message];
 
@@ -159,12 +155,57 @@ impl Handler<message::ClientMessage> for ChatServer {
                     }),
             )
         } else {
-            self.send_message_to(message.id, "You cannot send messages.");
+            self.send_message_to(msg.id, "You cannot send messages.");
             Box::pin(async {}.into_actor(self))
         }
     }
 }
 
+/// Handler for Delete message.
+impl Handler<message::Delete> for ChatServer {
+    type Result = ResponseActFuture<Self, ()>;
+
+    fn handle(&mut self, msg: message::Delete, _: &mut Context<Self>) -> Self::Result {
+        let layer = self.layer.clone();
+
+        Box::pin(
+            async move {
+                // Get the message.
+                let res = layer.get_message(msg.message_id as i32).await;
+
+                // If we got the message, check if we can delete it.
+                if let Some(message) = &res {
+                    if message.user_id == msg.author.id || msg.author.is_staff {
+                        // Delete message.
+                        layer
+                            .delete_message(message.message_id.to_owned() as i32)
+                            .await;
+                    } else {
+                        log::warn!(
+                            "User {} tried to delete message {:?}",
+                            msg.author.id,
+                            msg.message_id
+                        );
+                        return None;
+                    }
+                }
+
+                res
+            }
+            .into_actor(self)
+            .map(move |message, actor, _ctx| {
+                if let Some(message) = message {
+                    actor.send_message(
+                        &(message.room_id as usize),
+                        &format!("{{\"delete\":[{}]}}", message.message_id),
+                    );
+                } else {
+                    actor.send_message_to(msg.id, "Could not delete message.");
+                }
+            }),
+        )
+    }
+}
 /// Handler for Disconnect message.
 impl Handler<message::Disconnect> for ChatServer {
     type Result = ();
@@ -205,6 +246,7 @@ impl Handler<message::Join> for ChatServer {
     type Result = ResponseActFuture<Self, ()>;
 
     fn handle(&mut self, message: message::Join, _: &mut Context<Self>) -> Self::Result {
+        // TODO: Check if room is valid.
         if true {
             let message::Join {
                 id,

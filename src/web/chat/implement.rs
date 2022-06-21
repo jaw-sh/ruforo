@@ -25,6 +25,14 @@ impl Author {
     }
 }
 
+pub struct Message {
+    pub user_id: u32,
+    pub room_id: u32,
+    pub message_id: u32,
+    pub message_date: i32,
+    pub message: String,
+}
+
 pub struct Room {
     pub room_id: u32,
     pub title: String,
@@ -40,6 +48,7 @@ pub struct Session {
     pub username: String,
     pub avatar_url: String,
     pub ignored_users: Vec<u32>,
+    pub is_staff: bool,
 }
 
 impl Default for Session {
@@ -49,6 +58,7 @@ impl Default for Session {
             username: "Guest".to_owned(),
             avatar_url: String::new(),
             ignored_users: Default::default(),
+            is_staff: false,
         }
     }
 }
@@ -104,6 +114,8 @@ impl From<&serde_json::Value> for SpriteParams {
 
 #[async_trait::async_trait]
 pub trait ChatLayer {
+    async fn delete_message(&self, message_id: i32);
+    async fn get_message(&self, message_id: i32) -> Option<Message>;
     async fn get_room_list(&self) -> Vec<Room>;
     async fn get_room_history(&self, room_id: usize, limit: usize) -> Vec<message::ClientMessage>;
     async fn get_smilie_list(&self) -> Vec<Smilie>;
@@ -126,6 +138,14 @@ pub mod default {
 
     #[async_trait::async_trait]
     impl super::ChatLayer for Layer {
+        async fn delete_message(&self, _: i32) {
+            // TODO
+        }
+
+        async fn get_message(&self, _: i32) -> Option<super::Message> {
+            None
+        }
+
         async fn get_room_list(&self) -> Vec<super::Room> {
             vec![super::Room {
                 room_id: 1,
@@ -151,13 +171,9 @@ pub mod default {
                     username: user.name,
                     avatar_url: "".to_owned(),
                     ignored_users: Vec::new(),
+                    is_staff: false,
                 },
-                None => super::Session {
-                    id: 0,
-                    username: "Guest".to_owned(),
-                    avatar_url: "".to_owned(),
-                    ignored_users: Vec::new(),
-                },
+                None => super::Session::default(),
             }
         }
 

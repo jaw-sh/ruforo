@@ -14,6 +14,14 @@ pub struct XfLayer {
 
 #[async_trait::async_trait]
 impl implement::ChatLayer for XfLayer {
+    async fn delete_message(&self, id: i32) {
+        message::delete_message(&self.db, id).await
+    }
+
+    async fn get_message(&self, id: i32) -> Option<implement::Message> {
+        message::get_message(&self.db, id).await
+    }
+
     async fn get_room_list(&self) -> Vec<implement::Room> {
         room::get_room_list(&self.db)
             .await

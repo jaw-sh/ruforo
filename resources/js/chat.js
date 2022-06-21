@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let messageHoverEl = null;
     let userHover = null;
     let scrollEl = document.getElementById('chat-scroller');
+    let lastScrollPos = 0;
 
     function messageAddEventListeners(element) {
         if (Object.keys(element.dataset).indexOf('author') > -1) {
@@ -21,6 +22,24 @@ document.addEventListener("DOMContentLoaded", function () {
             usernameEl.addEventListener('mouseenter', usernameEnter);
             usernameEl.addEventListener('mouseleave', usernameLeave);
         });
+    }
+
+    function messageDelete(message) {
+        let el = document.getElementById(`chat-message-${message}`);
+        let prev = el.previousElementSibling;
+        let next = el.nextElementSibling;
+
+        if (prev !== null && next !== null && prev.dataset.author == prev.dataset.author) {
+            // Allow to break into new groups if too much time has passed.
+            let timeLast = parseInt(prev.dataset.received, 10);
+            let timeNext = parseInt(next.dataset.received, 10);
+            if (timeNext - timeLast < 30000) {
+                next.classList.add("chat-message--hasParent");
+            }
+        }
+
+        el.remove();
+        lastScrollPos = 0;
     }
 
     function messageMouseEnter(event) {
@@ -163,6 +182,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Prune oldest messages.
         while (messagesEl.children.length > 200) {
             messagesEl.children[0].remove();
+            lastScrollPos = 0;
         }
 
         messagesEl.children[0].classList.remove("chat-message--hasParent");
@@ -181,8 +201,13 @@ document.addEventListener("DOMContentLoaded", function () {
         // Try to parse JSON data.
         try {
             json = JSON.parse(data);
+
             if (json.hasOwnProperty('messages')) {
                 json.messages.forEach(message => messagePush(message, message.author));
+            }
+
+            if (json.hasOwnProperty('delete')) {
+                json.delete.forEach(message => messageDelete(message));
             }
         }
         // Not valid JSON, default
@@ -227,7 +252,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // if last scrollTop is lower (greater) than current scroll top,
         // we have scrolled down.
-        if (this.lastScrollPos > this.scrollTop) {
+        if (lastScrollPos > this.scrollTop) {
             if (!this.classList.contains("ScrollAnchorConsume")) {
                 this.classList.add('ScrollAnchored');
             }
@@ -241,7 +266,7 @@ document.addEventListener("DOMContentLoaded", function () {
             this.classList.remove('ScrollAnchored');
         }
 
-        this.lastScrollPos = this.scrollTop;
+        lastScrollPos = this.scrollTop;
     }
 
     function scrollToNew() {

@@ -47,6 +47,66 @@ impl Connection {
         });
     }
 
+    fn cmd_delete(&self, ctx: &mut ws::WebsocketContext<Self>, args: Vec<&str>) {
+        if args.len() != 2 {
+            ctx.text("Invalid command (no message specified?)");
+            return;
+        }
+
+        match args[1].parse::<u32>() {
+            Ok(message_id) => {
+                self.addr.do_send(message::Delete {
+                    id: self.id,
+                    message_id: message_id,
+                    author: self.session.clone(),
+                });
+            }
+            Err(_) => ctx.text("Invalid message specified."),
+        }
+    }
+
+    fn cmd_join(&mut self, ctx: &mut ws::WebsocketContext<Self>, args: Vec<&str>) {
+        if args.len() != 2 {
+            ctx.text("Invalid command (no room specified?)");
+            return;
+        }
+
+        match args[1].parse::<usize>() {
+            Ok(room_id) => {
+                self.room = Some(room_id);
+                self.addr.do_send(message::Join {
+                    id: self.id,
+                    room_id: room_id,
+                    author: self.session.clone(),
+                });
+            }
+            Err(_) => ctx.text("Invalid room specified."),
+        }
+    }
+
+    fn cmd_list(&self, ctx: &mut ws::WebsocketContext<Self>) {
+        // Send ListRooms message to chat server and wait for
+        // response
+        self.addr
+            .send(message::ListRooms)
+            .into_actor(self)
+            .then(|res, _, ctx| {
+                match res {
+                    Ok(rooms) => {
+                        for room in rooms {
+                            ctx.text(format!("{}", room));
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+                fut::ready(())
+            })
+            // .wait(ctx) pauses all events in context,
+            // so actor wont receive any new messages until it get list
+            // of rooms back
+            .wait(ctx)
+    }
+
     fn start_heartbeat(&self, ctx: &mut ws::WebsocketContext<Self>) {
         // start heartbeat process on session start.
         self.hb(ctx);
@@ -132,47 +192,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                 if m.starts_with('/') {
                     let v: Vec<&str> = m.splitn(2, ' ').collect();
                     match v[0] {
-                        "/list" => {
-                            // Send ListRooms message to chat server and wait for
-                            // response
-                            println!("List rooms");
-                            self.addr
-                                .send(message::ListRooms)
-                                .into_actor(self)
-                                .then(|res, _, ctx| {
-                                    match res {
-                                        Ok(rooms) => {
-                                            for room in rooms {
-                                                ctx.text(format!("{}", room));
-                                            }
-                                        }
-                                        _ => println!("Something is wrong"),
-                                    }
-                                    fut::ready(())
-                                })
-                                .wait(ctx)
-                            // .wait(ctx) pauses all events in context,
-                            // so actor wont receive any new messages until it get list
-                            // of rooms back
-                        }
-                        "/join" => {
-                            if v.len() == 2 {
-                                match v[1].parse::<usize>() {
-                                    Ok(room_id) => {
-                                        self.room = Some(room_id);
-                                        self.addr.do_send(message::Join {
-                                            id: self.id,
-                                            room_id: room_id,
-                                            author: self.session.clone(),
-                                        });
-                                    }
-                                    Err(_) => ctx.text("!!! invalid room"),
-                                }
-                            } else {
-                                ctx.text("!!! room name is required");
-                            }
-                        }
-                        _ => ctx.text(format!("!!! unknown command: {:?}", m)),
+                        "/delete" => self.cmd_delete(ctx, v),
+                        "/list" => self.cmd_list(ctx),
+                        "/join" => self.cmd_join(ctx, v),
+                        _ => ctx.text(format!("Unknown command: {:?}", m)),
                     }
                 }
                 // Client Chat Messages
