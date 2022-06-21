@@ -360,8 +360,9 @@ mod tests {
         let ast = parser.parse(&[Token::TagClose("[/quote]", "quote")]);
         let el = ast.first_child().unwrap();
 
-        assert_eq!(el.borrow().get_tag_name(), Some("quote"));
-        assert_eq!(el.borrow().is_broken(), true);
+        assert_eq!(el.borrow().get_tag_name(), None);
+        assert_eq!(el.borrow().get_contents(), Some("[/quote]"));
+        assert_eq!(ast.borrow().is_broken(), false);
         assert_eq!(parser.node, parser.root);
     }
 }

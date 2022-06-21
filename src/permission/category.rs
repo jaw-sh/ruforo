@@ -30,8 +30,9 @@ impl Category {
     pub fn add_item(&mut self, id: &i32, label: &str) -> Result<&mut Item, Error> {
         let mut i: u8 = 0;
 
+        // Loop through permission options.
         for item in self.items.iter_mut() {
-            // Is a default permission
+            // Find the first default permission.
             if item.id == 0 {
                 *item = Item {
                     id: *id,

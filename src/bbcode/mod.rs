@@ -141,8 +141,8 @@ mod tests {
         use super::parse;
 
         assert_eq!(
-            "Welcome, to <a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"https://zombo.com/\">https://zombo.com/</a>!",
-            parse("Welcome, to https://zombo.com/!")
+            "Welcome, to <a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"https://zombo.com/\">https://zombo.com/</a>",
+            parse("Welcome, to https://zombo.com/")
         );
         assert_eq!(
             "Welcome, to <a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"https://zombo.com/\">https://zombo.com/</a>!",

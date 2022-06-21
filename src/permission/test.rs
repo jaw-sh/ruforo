@@ -81,13 +81,18 @@ fn test_init_structure() {
             for item_datum in item_data.iter() {
                 if item_datum.1 == col.categories[i].id {
                     match col.categories[i].add_item(&item_datum.0, &item_datum.2) {
-                        Ok(_) => {}
+                        Ok(_) => {
+                            println!("Added")
+                        }
                         Err(_) => assert!(false, "Category overflow?"),
                     }
                 }
             }
         }
     }
+
+    // Step 4. Build the item name -> item pos tuple dictionary.
+    col.build_dictionary();
 
     // test outside of block to ensure data survives
     assert_eq!(col.categories[0].id, 11);
