@@ -97,7 +97,7 @@ fn parse_text_until_terminator(input: &str) -> IResult<&str, &str> {
 
 fn parse_url(input: &str) -> IResult<&str, Token> {
     peek(tag("http"))(input)?;
-    let (input, url) = recognize(many1(none_of(" \r\n[>!?,")))(input)?;
+    let (input, url) = recognize(many1(none_of(" \r\n[>,")))(input)?;
 
     match Url::parse(url) {
         Ok(_) => Ok((input, Token::Url(url))),
