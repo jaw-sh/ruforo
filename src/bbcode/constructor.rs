@@ -1,12 +1,13 @@
-use super::{Element, Tag};
+use super::{Element, Smilies, Tag};
 use rctree::Node;
-use std::{cell::RefMut, collections::BTreeMap};
+use std::cell::RefMut;
+use std::collections::HashMap;
 
 /// Converts a Parser's AST into rendered HTML.
 #[derive(Default)]
 pub struct Constructor {
     // TODO: Build string here, return in build().
-    pub emojis: Option<BTreeMap<String, String>>,
+    pub smilies: Smilies,
 }
 
 impl Constructor {
@@ -168,11 +169,19 @@ impl Constructor {
     /// Add emojis
     pub fn replace_emojis(&self, input: String) -> String {
         let mut result = input;
+        let mut hits: u8 = 0;
+        let mut hit_map: HashMap<u8, &String> = HashMap::with_capacity(self.smilies.count());
 
-        if let Some(emojis) = &self.emojis {
-            for emoji in emojis {
-                result = result.replace(emoji.0, emoji.1);
+        for (code, replace_with) in self.smilies.iter() {
+            if result.find(code).is_some() {
+                hit_map.insert(hits, replace_with);
+                result = result.replace(code, &format!("\r{}", hits));
+                hits += 1;
             }
+        }
+
+        for (hit, replace_with) in hit_map {
+            result = result.replace(&format!("\r{}", hit), replace_with);
         }
 
         result
@@ -222,6 +231,28 @@ mod tests {
 
         assert_eq!(ast.children().count(), 1);
         assert_eq!(con.build(ast), "Foo, bar!");
+    }
+
+    #[test]
+    fn smilies() {
+        use super::{Constructor, Element, Smilies};
+        use rctree::Node;
+        use std::collections::HashMap;
+
+        let mut smilies: HashMap<String, String> = HashMap::default();
+        smilies.insert(":c".to_string(), "☹️".to_string());
+        smilies.insert("cookie".to_string(), "🍪".to_string());
+        smilies.insert("ookie".to_string(), "🤢".to_string());
+
+        let con = Constructor {
+            smilies: Smilies::new_from_hashmap(&smilies),
+        };
+
+        let mut ast = Node::new(Element::new_root());
+        ast.append(Node::new(Element::new_from_text(":c I want a cookie!")));
+
+        let out = con.build(ast);
+        assert_eq!(out, "☹️ I want a 🍪!");
     }
 
     #[test]

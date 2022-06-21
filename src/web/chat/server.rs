@@ -1,6 +1,6 @@
 use super::implement::ChatLayer;
 use super::message;
-use crate::bbcode::{tokenize, Constructor, Parser};
+use crate::bbcode::{tokenize, Constructor, Parser, Smilies};
 use actix::prelude::*;
 //use actix_broker::BrokerSubscribe;
 use rand::{self, rngs::ThreadRng, Rng};
@@ -31,7 +31,7 @@ impl ChatServer {
 
         // Constructor
         let constructor = Constructor {
-            emojis: Some(
+            smilies: Smilies::new_from_tuples(
                 layer
                     .get_smilie_list()
                     .await
