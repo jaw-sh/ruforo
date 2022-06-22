@@ -1,3 +1,5 @@
+import { MicroModal } from 'micromodal';
+
 document.addEventListener("DOMContentLoaded", function () {
     let ws = null;
     let room = null;
@@ -22,6 +24,63 @@ document.addEventListener("DOMContentLoaded", function () {
             usernameEl.addEventListener('mouseenter', usernameEnter);
             usernameEl.addEventListener('mouseleave', usernameLeave);
         });
+
+        Array.from(element.querySelectorAll('.button')).forEach(function (buttonEl) {
+            switch (buttonEl.classList[1]) {
+                case 'edit': buttonEl.addEventListener('click', messageButtonEdit); break;
+                case 'delete': buttonEl.addEventListener('click', messageButtonDelete); break;
+                case 'report': /* buttonEl.addEventListener('click', messageButtonReport); */ break;
+                default: console.log("Unable to find use for button.", buttonEl); break;
+            }
+        });
+    }
+
+    function messageButtonDelete() {
+        let messageEl = this.closest(".chat-message");
+        if (messageEl !== null) {
+            let template = document.getElementById('tmp-chat-modal-delete').content.cloneNode(true);
+            let modal = template.children[0];
+            modal.id = "chat-modal-delete";
+
+            let cloneEl = messageEl.cloneNode(true);
+            cloneEl.classList.remove("chat-message--hasParent");
+            cloneEl.querySelector('.right-content').remove();
+
+            modal.querySelector('.modal-message').appendChild(cloneEl);
+            modal.querySelector('.button.cancel').addEventListener('click', function () {
+                window.MicroModal.close(modal.id);
+            })
+            modal.querySelector('.button.delete').addEventListener('click', function () {
+                messageSend(`/delete ${messageEl.dataset.id}`);
+                window.MicroModal.close(modal.id);
+            })
+
+            document.body.appendChild(modal);
+
+            // https://micromodal.vercel.app/#configuration
+            window.MicroModal.show(modal.id, {
+                onClose: modal => document.getElementById(modal.id).remove(),
+                openClass: 'is-open',
+                disableScroll: true,
+                disableFocus: false,
+                awaitOpenAnimation: false,
+                awaitCloseAnimation: false,
+                debugMode: false
+            });
+        }
+        else {
+            console.log("Error: Cannot find chat message for delete button?");
+        }
+    }
+
+    function messageButtonEdit() {
+        let messageEl = this.closest(".chat-message");
+        if (messageEl !== null) {
+
+        }
+        else {
+            console.log("Error: Cannot find chat message for delete button?");
+        }
     }
 
     function messageDelete(message) {
@@ -100,6 +159,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (author) {
             template.children[0].id = `chat-message-${message.message_id}`;
+            template.children[0].dataset.id = message.message_id;
             template.children[0].dataset.author = author.id;
 
             // Ignored poster?
@@ -200,7 +260,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function messagesReceive(data) {
         // Try to parse JSON data.
         try {
-            json = JSON.parse(data);
+            let json = JSON.parse(data);
 
             if (json.hasOwnProperty('messages')) {
                 json.messages.forEach(message => messagePush(message, message.author));

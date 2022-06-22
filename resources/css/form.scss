@@ -1,9 +1,58 @@
-textarea, input[type='text'] {
+textarea,
+input[type='text'] {
     display: block;
     width: 100%;
     margin: 0 0 0.5rem 0;
 }
+
 input {
     font-size: 1.2rem;
     width: 100%;
+}
+
+
+.button {
+    box-sizing: border-box;
+    background: none;
+    border: none;
+    border-radius: 3px;
+    color: var(--button-text-color);
+    font-size: 14px;
+    font-weight: 500;
+    outline: none;
+    line-height: 16px;
+    padding: 2px 16px;
+    user-select: none;
+    cursor: pointer;
+
+    &:active {
+        background-color: var(--background-mod-active);
+    }
+
+    &:hover {
+        background-color: var(--background-mod-hover);
+    }
+
+    /// Dangerous button
+    &.delete {
+        background-color: var(--button-danger-background);
+
+        &:active {
+            background-color: var(--button-danger-background-active);
+        }
+
+        &:hover {
+            background-color: var(--button-danger-background-hover);
+        }
+    }
+
+    /// Plain button
+    &.cancel {
+
+        &:active,
+        &:hover {
+            background: none;
+            text-decoration: underline;
+        }
+    }
 }

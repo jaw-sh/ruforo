@@ -8,14 +8,6 @@ html.chat #chat {
     overflow: hidden;
 }
 
-body.style-dark {
-    --background-color: rgb(54, 57, 63);
-    --border-color: rgba(79, 84, 92, 0.48);
-    --input-background: rgb(64, 68, 75);
-    --text-color: rgb(220, 221, 222);
-    --text-muted: rgb(163, 166, 170);
-}
-
 #chat {
     display: flex;
     flex-direction: column;
@@ -138,11 +130,15 @@ body.style-dark {
     .author {
         font-weight: bold;
         margin-right: 0.25rem;
-        cursor: pointer;
-        cursor: copy;
-        cursor: alias;
         user-select: none;
+
+        #chat-messages>& {
+            cursor: pointer;
+            cursor: copy;
+            cursor: alias;
+        }
     }
+
 
     .timestamp {
         height: 1.25rem;
@@ -215,15 +211,27 @@ body.style-dark {
 
     .button {
         display: flex;
+        box-sizing: content-box;
         align-items: center;
         justify-content: center;
         height: 24px;
         padding: 4px;
         min-width: 24px;
         flex: 0 0 auto;
-        color: rgb(185 187 190);
-        cursor: pointer;
+        //color: rgb(185 187 190);
         position: relative;
+        border-radius: 0;
+    }
+
+    .button svg {
+        width: 20px;
+        height: 20px;
+        display: block;
+        object-fit: contain;
+    }
+
+    .button path {
+        fill: rgb(185 187 190);
     }
 
     &[id]:hover .right-content {
@@ -270,23 +278,23 @@ body.style-dark {
 .message {
 
     // Order is important. Later covers earlier.
-    .chat-message--highlightYou & {
+    #chat-messages>.chat-message--highlightYou & {
         border-left-color: rgba(255, 26, 26, .5);
         background-color: rgba(255, 26, 26, .1);
     }
 
-    .chat-message--highlightUser & {
+    #chat-messages>.chat-message--highlightUser & {
         border-left-color: rgba(255, 26, 255, 0.5);
         background-color: rgba(255, 26, 255, 0.1);
     }
 
-    .chat-message--highlightAuthor & {
+    #chat-messages>.chat-message--highlightAuthor & {
         border-left-color: rgba(26, 255, 26, 0.5);
         background-color: rgba(26, 255, 26, 0.1);
     }
 
-    .chat-message--highlight &,
-    .chat-message:hover & {
+    #chat-messages>.chat-message--highlight &,
+    #chat-messages>.chat-message:hover & {
         border-left-color: rgba(250, 166, 26, 0.5);
         background-color: rgba(250, 166, 26, 0.1);
     }
