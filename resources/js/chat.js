@@ -8,6 +8,20 @@ document.addEventListener("DOMContentLoaded", function () {
     let scrollEl = document.getElementById('chat-scroller');
     let lastScrollPos = 0;
 
+    function inputFocusEnd(el) {
+        setTimeout(function () {
+            let range = document.createRange();
+            range.setStart(el, el.childElementCount + 1);
+            range.setEnd(el, el.childElementCount + 1);
+            range.collapse(false);
+
+            let sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            el.focus();
+        }, 0);
+    }
+
     function messageAddEventListeners(element) {
         if (Object.keys(element.dataset).indexOf('author') > -1) {
             element.addEventListener('mouseenter', messageMouseEnter);
@@ -135,17 +149,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         // Apparently, .focus() doesn't work on contenteditable=true until one frame after.
-        setTimeout(function () {
-            let range = document.createRange();
-            range.setStart(inputEl, inputEl.childElementCount + 1);
-            range.setEnd(inputEl, inputEl.childElementCount + 1);
-            range.collapse(false);
-
-            let sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-            inputEl.focus();
-        }, 0);
+        inputFocusEnd(inputEl);
     }
 
     function messageEditReverse() {
@@ -426,10 +430,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function usernameClick(event) {
         // TODO: Replace with Dialog like Discord?
-        let input = document.getElementById('new-message-input')
-        input.value += `@${this.textContent}, `;
-        input.setSelectionRange(input.value.length, input.value.length);
-        input.focus();
+        let inputEl = document.getElementById('new-message-input')
+        inputEl.innerHTML += `@${this.textContent}, `;
+
+        inputFocusEnd(inputEl);
 
         event.preventDefault();
         return false;
