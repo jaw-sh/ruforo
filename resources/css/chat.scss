@@ -381,7 +381,7 @@ html.chat #chat {
 @media (max-height: 100px) {
 
     #chat-rooms,
-    #chat-form {
+    .chat-form {
         display: none;
     }
 }
