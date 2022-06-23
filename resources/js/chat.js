@@ -558,7 +558,7 @@ document.addEventListener("DOMContentLoaded", function () {
             case "Enter":
                 event.preventDefault();
 
-                messageSend(this.innerHTML);
+                messageSend(this.textContent);
                 this.innerHTML = "";
 
                 return false;
