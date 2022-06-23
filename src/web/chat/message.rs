@@ -21,8 +21,12 @@ pub struct ClientMessage {
     pub message_date: i32,
     /// Peer message
     pub message: String,
+    /// Original message
+    pub message_raw: String,
     /// If message has passed through sanitizer.
     pub sanitized: bool,
+    /// If the message text has been changed since it was published.
+    pub edited: bool,
 }
 
 impl Message for ClientMessage {
@@ -56,6 +60,19 @@ pub struct Delete {
 }
 
 impl Message for Delete {
+    type Result = ();
+}
+
+/// Instruction to edit a chat message.
+#[derive(Serialize)]
+pub struct Edit {
+    pub id: usize,
+    pub author: Session,
+    pub message: String,
+    pub message_id: u32,
+}
+
+impl Message for Edit {
     type Result = ();
 }
 

@@ -9,14 +9,15 @@
     <div id="chat-scroller">
         <div id="chat-messages"></div>
     </div>
-    <form id="chat-form">
+    <form id="new-message-form" class="chat-form">
         <input id="chat-input-room" type="hidden" name="room" value="0" />
 
-        <div id="chat-form-fields">
-            <textarea id="chat-input" name="message" aria-label="Message the room" aria-multiline="true"></textarea>
+        <div class="chat-fields">
+            <div id="new-message-input" class="chat-input" name="message" contenteditable="true"
+                aria-label="Message the room" aria-multiline="true"></div>
 
-            <div id="chat-form-buttons">
-                <button tabindex="0" id="chat-submit" class="submit">
+            <div class="chat-form-buttons">
+                <button tabindex="0" id="new-message-submit" class="submit">
                     <div class="sprite">
                         <svg width="24" height="24" viewBox="0 0 97.1 97.1" aria-hidden="false">
                             <path

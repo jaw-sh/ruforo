@@ -1,3 +1,4 @@
+use super::implement;
 use super::implement::ChatLayer;
 use super::message;
 use crate::bbcode::{tokenize, Constructor, Parser, Smilies};
@@ -54,6 +55,35 @@ impl ChatServer {
         }
     }
 
+    fn prepare_session_and_message(
+        &self,
+        session: &implement::Session,
+        message: &implement::Message,
+    ) -> message::ClientMessage {
+        let tokens = match tokenize(&message.message) {
+            Ok((_, tokens)) => tokens,
+            Err(err) => {
+                log::warn!("Tokenizer error: {:?}", err);
+                unreachable!();
+            }
+        };
+
+        let mut parser = Parser::new();
+        let ast = parser.parse(&tokens);
+
+        message::ClientMessage {
+            id: 0,
+            author: implement::Author::from(session),
+            room_id: message.room_id as usize,
+            message_id: message.message_id,
+            message_date: message.message_date,
+            message: self.constructor.build(ast),
+            message_raw: Constructor::sanitize(&message.message),
+            sanitized: true,
+            edited: message.edited,
+        }
+    }
+
     /// Prepares a ClientMessage to be sent.
     fn prepare_message(&self, message: &message::ClientMessage) -> message::ClientMessage {
         let tokens = match tokenize(&message.message) {
@@ -74,7 +104,9 @@ impl ChatServer {
             message_id: message.message_id,
             message_date: message.message_date,
             message: self.constructor.build(ast),
+            message_raw: Constructor::sanitize(&message.message),
             sanitized: true,
+            edited: message.edited,
         }
     }
 
@@ -206,6 +238,61 @@ impl Handler<message::Delete> for ChatServer {
         )
     }
 }
+
+/// Handler for Edit message.
+impl Handler<message::Edit> for ChatServer {
+    type Result = ResponseActFuture<Self, ()>;
+
+    fn handle(&mut self, msg: message::Edit, _: &mut Context<Self>) -> Self::Result {
+        let layer = self.layer.clone();
+        let author = msg.author.to_owned();
+
+        Box::pin(
+            async move {
+                // Get the message.
+                let res = layer.get_message(msg.message_id as i32).await;
+
+                // If we got the message, check if we can delete it.
+                if let Some(message) = &res {
+                    if message.user_id == msg.author.id {
+                        // Delete message.
+                        return layer
+                            .edit_message(
+                                message.message_id.to_owned() as i32,
+                                implement::Author::from(&msg.author),
+                                msg.message.to_owned(),
+                            )
+                            .await;
+                    } else {
+                        log::warn!(
+                            "User {} tried to edit message {:?}",
+                            msg.author.id,
+                            msg.message_id
+                        );
+                        return None;
+                    }
+                }
+
+                res
+            }
+            .into_actor(self)
+            .map(move |message, actor, _ctx| {
+                if let Some(message) = message {
+                    actor.send_message(
+                        &(message.room_id as usize),
+                        &serde_json::to_string(&message::ClientMessages {
+                            messages: vec![actor.prepare_session_and_message(&author, &message)],
+                        })
+                        .expect("ClientMessages serialize failure"),
+                    );
+                } else {
+                    actor.send_message_to(msg.id, "Could not delete message.");
+                }
+            }),
+        )
+    }
+}
+
 /// Handler for Disconnect message.
 impl Handler<message::Disconnect> for ChatServer {
     type Result = ();

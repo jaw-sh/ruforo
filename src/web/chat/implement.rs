@@ -31,6 +31,7 @@ pub struct Message {
     pub message_id: u32,
     pub message_date: i32,
     pub message: String,
+    pub edited: bool,
 }
 
 pub struct Room {
@@ -114,7 +115,8 @@ impl From<&serde_json::Value> for SpriteParams {
 
 #[async_trait::async_trait]
 pub trait ChatLayer {
-    async fn delete_message(&self, message_id: i32);
+    async fn delete_message(&self, id: i32);
+    async fn edit_message(&self, id: i32, author: Author, message: String) -> Option<Message>;
     async fn get_message(&self, message_id: i32) -> Option<Message>;
     async fn get_room_list(&self) -> Vec<Room>;
     async fn get_room_history(&self, room_id: usize, limit: usize) -> Vec<message::ClientMessage>;
@@ -142,7 +144,18 @@ pub mod default {
             // TODO
         }
 
+        async fn edit_message(
+            &self,
+            _: i32,
+            _: super::Author,
+            _: String,
+        ) -> Option<super::Message> {
+            // TODO
+            None
+        }
+
         async fn get_message(&self, _: i32) -> Option<super::Message> {
+            // TODO
             None
         }
 
@@ -198,7 +211,9 @@ pub mod default {
                 room_id: message.room_id,
                 message_date: now.elapsed().unwrap().as_secs() as i32,
                 message: message.message.to_owned(),
+                message_raw: message.message.to_owned(),
                 sanitized: false,
+                edited: message.edited,
             }
         }
     }

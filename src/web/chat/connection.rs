@@ -31,7 +31,6 @@ impl Connection {
             // check client heartbeats
             if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
                 // heartbeat timed out
-                println!("Websocket Client heartbeat failed, disconnecting!");
 
                 // notify chat server
                 act.addr.do_send(message::Disconnect { id: act.id });
@@ -65,9 +64,41 @@ impl Connection {
         }
     }
 
+    fn cmd_edit(&self, ctx: &mut ws::WebsocketContext<Self>, args: Vec<&str>) {
+        if args.len() != 2 {
+            ctx.text("Invalid command (no data supplied)");
+            return;
+        }
+
+        #[derive(serde::Deserialize)]
+        struct EditFragment {
+            id: u32,
+            message: String,
+        }
+
+        match serde_json::from_str::<EditFragment>(args[1]) {
+            Ok(v) => {
+                let msg = message::Edit {
+                    id: self.id,
+                    author: self.session.clone(),
+                    message_id: v.id,
+                    message: v.message.trim().to_string(),
+                };
+
+                if msg.message.len() > 0 {
+                    self.addr.do_send(msg);
+                }
+            }
+            Err(err) => {
+                println!("{:?}", err);
+                ctx.text("Unable to understand your input.");
+            }
+        };
+    }
+
     fn cmd_join(&mut self, ctx: &mut ws::WebsocketContext<Self>, args: Vec<&str>) {
         if args.len() != 2 {
-            ctx.text("Invalid command (no room specified?)");
+            ctx.text("Invalid command (no room specified)");
             return;
         }
 
@@ -193,6 +224,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                     let v: Vec<&str> = m.splitn(2, ' ').collect();
                     match v[0] {
                         "/delete" => self.cmd_delete(ctx, v),
+                        "/edit" => self.cmd_edit(ctx, v),
                         "/list" => self.cmd_list(ctx),
                         "/join" => self.cmd_join(ctx, v),
                         _ => ctx.text(format!("Unknown command: {:?}", m)),
@@ -205,9 +237,11 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                         room_id,
                         author: Author::from(&self.session),
                         message: m.to_string(),
+                        message_raw: m.to_string(),
                         sanitized: false,
                         message_id: 0,
                         message_date: 0,
+                        edited: false,
                     })
                 }
                 // Client message to nowhere

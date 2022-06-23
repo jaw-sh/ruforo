@@ -188,7 +188,7 @@ impl Constructor {
     }
 
     /// Sanitizes a char for HTML.
-    fn sanitize(input: &str) -> String {
+    pub fn sanitize(input: &str) -> String {
         // Some insane person did an extremely detailed benchmark of this.
         // https://lise-henry.github.io/articles/optimising_strings.html
         let len = input.len();

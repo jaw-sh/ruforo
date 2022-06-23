@@ -18,6 +18,15 @@ impl implement::ChatLayer for XfLayer {
         message::delete_message(&self.db, id).await
     }
 
+    async fn edit_message(
+        &self,
+        id: i32,
+        author: implement::Author,
+        message: String,
+    ) -> Option<implement::Message> {
+        message::edit_message(&self.db, id, author, message).await
+    }
+
     async fn get_message(&self, id: i32) -> Option<implement::Message> {
         message::get_message(&self.db, id).await
     }

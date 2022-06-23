@@ -76,7 +76,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function messageButtonEdit() {
         let messageEl = this.closest(".chat-message");
         if (messageEl !== null) {
-
+            messageEdit(messageEl);
         }
         else {
             console.log("Error: Cannot find chat message for delete button?");
@@ -85,20 +85,76 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function messageDelete(message) {
         let el = document.getElementById(`chat-message-${message}`);
-        let prev = el.previousElementSibling;
         let next = el.nextElementSibling;
 
-        if (prev !== null && next !== null && prev.dataset.author == prev.dataset.author) {
-            // Allow to break into new groups if too much time has passed.
-            let timeLast = parseInt(prev.dataset.received, 10);
-            let timeNext = parseInt(next.dataset.received, 10);
-            if (timeNext - timeLast < 30000) {
-                next.classList.add("chat-message--hasParent");
-            }
-        }
-
         el.remove();
+        messageSetHasParent(next);
+
         lastScrollPos = 0;
+    }
+
+    function messageEdit(messageEl) {
+        messageEditReverse();
+
+        messageEl.classList.add("chat-message--editing");
+
+        let contentEl = messageEl.querySelector('.message');
+        messageEl.originalMessage = contentEl.outerHTML;
+
+        let formEl = document.getElementById("new-message-form").cloneNode(true);
+        formEl.id = "edit-message-form";
+
+        let inputEl = formEl.querySelector(".chat-input");
+        inputEl.id = "edit-message-input";
+
+        let submitEl = formEl.querySelector("button.submit");
+        //submitEl.id = "edit-message-input";
+        submitEl.remove();
+
+        contentEl.replaceWith(formEl);
+
+        inputEl.innerHTML = messageEl.rawMessage;
+        inputEl.addEventListener('keydown', function (event) {
+            switch (event.key) {
+                case "Escape":
+                    event.preventDefault();
+                    messageEditReverse();
+                    return false;
+
+                case "Enter":
+                    event.preventDefault();
+
+                    messageSend("/edit " + JSON.stringify({
+                        id: parseInt(messageEl.dataset.id, 10),
+                        message: this.innerHTML,
+                    }));
+                    messageEditReverse();
+
+                    return false;
+            }
+        });
+
+        // Apparently, .focus() doesn't work on contenteditable=true until one frame after.
+        setTimeout(function () {
+            let range = document.createRange();
+            range.setStart(inputEl, inputEl.childElementCount + 1);
+            range.setEnd(inputEl, inputEl.childElementCount + 1);
+            range.collapse(false);
+
+            let sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            inputEl.focus();
+        }, 0);
+    }
+
+    function messageEditReverse() {
+        Array.from(document.querySelectorAll('.chat-message--editing')).forEach(function (el) {
+            let contentEl = el.querySelector('.chat-form').outerHTML = el.originalMessage;
+            el.classList.remove("chat-message--editing");
+            lastScrollPos = 0;
+            document.getElementById('new-message-input').focus({ preventScroll: true });
+        });
     }
 
     function messageMouseEnter(event) {
@@ -150,31 +206,26 @@ document.addEventListener("DOMContentLoaded", function () {
             message = { message: message };
         }
 
+        let id = null;
+        let extantEl = null;
         let messagesEl = document.getElementById('chat-messages');
         let template = document.getElementById('tmp-chat-message').content.cloneNode(true);
-        let timeNow = new Date();
 
         template.querySelector('.message').innerHTML = message.message;
-        template.children[0].dataset.received = timeNow.getTime();
 
         if (author) {
-            template.children[0].id = `chat-message-${message.message_id}`;
-            template.children[0].dataset.id = message.message_id;
+            id = parseInt(message.message_id, 10);
+            extantEl = document.getElementById(`chat-message-${id}`);
+
+            template.children[0].rawMessage = message.message_raw;
+            template.children[0].id = `chat-message-${id}`;
+            template.children[0].dataset.id = id;
             template.children[0].dataset.author = author.id;
+            template.children[0].dataset.timestamp = message.message_date;
 
             // Ignored poster?
             if (APP.user.ignored_users.includes(author.id)) {
                 template.children[0].classList.add("chat-message--isIgnored");
-            }
-
-            // Group consequtive messages by the same author.
-            let lastChild = messagesEl.lastElementChild;
-            if (lastChild !== null && lastChild.dataset.author == author.id) {
-                // Allow to break into new groups if too much time has passed.
-                let timeLast = new Date(parseInt(lastChild.dataset.received, 10));
-                if (timeNow.getTime() - timeLast.getTime() < 30000) {
-                    template.children[0].classList.add("chat-message--hasParent");
-                }
             }
 
             // Add meta details
@@ -216,6 +267,13 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             // Add right-content details
+            if (message.author.id != APP.user.id) {
+                template.querySelector('.edit').remove();
+
+                if (!APP.user.is_staff) {
+                    template.querySelector('.delete').remove();
+                }
+            }
             template.querySelector('.report').setAttribute('href', `/chat/messages/${message.message_id}/report`);
         }
         else {
@@ -236,8 +294,17 @@ document.addEventListener("DOMContentLoaded", function () {
             template.children[0].classList.add("chat-message--highlightYou");
         }
 
-        let el = messagesEl.appendChild(template.children[0]);
+        let el = template.children[0];
         messageAddEventListeners(el);
+
+        if (extantEl !== null) {
+            extantEl.replaceWith(el);
+        }
+        else {
+            el = messagesEl.appendChild(el);
+        }
+
+        messageSetHasParent(el);
 
         // Prune oldest messages.
         while (messagesEl.children.length > 200) {
@@ -257,22 +324,44 @@ document.addEventListener("DOMContentLoaded", function () {
         ws.send(message);
     }
 
+    function messageSetHasParent(el) {
+        let prev = el.previousElementSibling;
+
+        if (prev !== null) {
+            if (prev.dataset.author == el.dataset.author) {
+                // Allow to break into new groups if too much time has passed.
+                let timeLast = parseInt(prev.dataset.timestamp, 10);
+                let timeNext = parseInt(el.dataset.timestamp, 10);
+                if (timeNext - timeLast < 30) {
+                    el.classList.add("chat-message--hasParent");
+                    return true;
+                }
+            }
+        }
+
+        el.classList.remove("chat-message--hasParent");
+        return false;
+    }
+
     function messagesReceive(data) {
+        let json = null;
+
         // Try to parse JSON data.
         try {
-            let json = JSON.parse(data);
-
-            if (json.hasOwnProperty('messages')) {
-                json.messages.forEach(message => messagePush(message, message.author));
-            }
-
-            if (json.hasOwnProperty('delete')) {
-                json.delete.forEach(message => messageDelete(message));
-            }
+            json = JSON.parse(data);
         }
         // Not valid JSON, default
         catch (error) {
             messagePush({ message: data }, null);
+            return;
+        }
+
+        if (json.hasOwnProperty('messages')) {
+            json.messages.forEach(message => messagePush(message, message.author));
+        }
+
+        if (json.hasOwnProperty('delete')) {
+            json.delete.forEach(message => messageDelete(message));
         }
     }
 
@@ -337,7 +426,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function usernameClick(event) {
         // TODO: Replace with Dialog like Discord?
-        let input = document.getElementById('chat-input')
+        let input = document.getElementById('new-message-input')
         input.value += `@${this.textContent}, `;
         input.setSelectionRange(input.value.length, input.value.length);
         input.focus();
@@ -437,34 +526,50 @@ document.addEventListener("DOMContentLoaded", function () {
     setInterval(scrollToNew, 32);
 
     // Form
-    document.getElementById('chat-input').addEventListener('keydown', function (event) {
-        if (event.key === "Enter" || event.keyCode == 13) {
-            event.preventDefault();
+    document.getElementById('new-message-input').addEventListener('keydown', function (event) {
+        switch (event.key) {
+            case "Enter":
+                event.preventDefault();
 
-            //let formData = new FormData(this.parentElement);
-            //let formProps = Object.fromEntries(formData);
-            //
-            //messageSend(JSON.stringify(formProps));
-            messageSend(this.value);
+                messageSend(this.innerHTML);
+                this.innerHTML = "";
 
-            this.value = "";
-            return false;
+                return false;
+
+            case "ArrowUp":
+                if (!this.innerHTML) {
+                    event.preventDefault();
+
+                    let messageEls = document.getElementById('chat-messages').querySelectorAll(`.chat-message[data-author='${APP.user.id}']`);
+                    if (messageEls.length > 0) {
+                        let messageEl = messageEls[messageEls.length - 1];
+                        messageEdit(messageEl);
+                    }
+
+                    return false;
+                }
         }
     });
 
-    document.getElementById('chat-submit').addEventListener('click', function (event) {
+    document.getElementById('new-message-submit').addEventListener('click', function (event) {
         event.preventDefault();
-        let input = document.getElementById('chat-input');
+        let input = document.getElementById('new-message-input');
 
-        messageSend(input.value);
+        messageSend(input.innerHTML);
+        input.innerHTML = "";
 
-        input.value = "";
         input.focus({ preventScroll: true });
-        return false;
+        return fgalse;
     });
 
-
     window.addEventListener('hashchange', roomJoinByHash, false);
+
+    window.addEventListener('keydown', function (event) {
+        switch (event.key) {
+            case "Escape": messageEditReverse(); break;
+        }
+    });
+
     window.addEventListener('resize', function (event) {
         if (!scrollEl.classList.contains("ScrollAnchor")) {
             scrollEl.classList.add("ScrollAnchorConsume");

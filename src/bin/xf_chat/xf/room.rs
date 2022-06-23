@@ -31,8 +31,10 @@ pub async fn get_room_history(
             message_id: message.message_id,
             message_date: message.message_date.try_into().unwrap(),
             message: message.message_text.to_owned(),
+            message_raw: message.message_text.to_owned(),
             sanitized: false,
             room_id: message.room_id as usize,
+            edited: message.last_edit_user_id.is_some(),
             author: match user {
                 Some(user) => Author {
                     id: user.user_id as u32,

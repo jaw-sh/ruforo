@@ -182,6 +182,11 @@ html.chat #chat {
         }
     }
 
+    // Edit message form
+    .chat-form {
+        padding-top: 8px;
+    }
+
     // Right-hand buttons
     .right-content {
         display: none;
@@ -234,7 +239,7 @@ html.chat #chat {
         fill: rgb(185 187 190);
     }
 
-    &[id]:hover .right-content {
+    &[id]:not(.chat-message--editing):hover .right-content {
         display: block;
     }
 }
@@ -300,7 +305,7 @@ html.chat #chat {
     }
 }
 
-#chat-form {
+.chat-form {
     overflow: hidden;
     flex-shrink: 0;
     padding-left: 16px;
@@ -308,7 +313,7 @@ html.chat #chat {
 
 }
 
-#chat-form-fields {
+.chat-fields {
     display: flex;
     border-radius: 3px;
     background: var(--input-background);
@@ -316,7 +321,7 @@ html.chat #chat {
     margin: 0 0 24px 0;
 }
 
-#chat-input {
+.chat-input {
     overflow: hidden;
     box-sizing: content-box;
     height: 0px;
@@ -343,7 +348,7 @@ html.chat #chat {
     white-space: break-spaces;
 }
 
-#chat-form-buttons {
+.chat-form-buttons {
     flex-shrink: 1;
     width: auto;
 
