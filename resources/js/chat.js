@@ -8,6 +8,28 @@ document.addEventListener("DOMContentLoaded", function () {
     let scrollEl = document.getElementById('chat-scroller');
     let lastScrollPos = 0;
 
+    function inputAddEventListeners(el) {
+        // TODO: Add keyDown event listeners?
+        // Right now, the functionality for main input and edit input is totally different.
+        el.addEventListener('paste', function (event) {
+            var text = event.clipboardData.getData('text/plain');
+
+            const sel = window.getSelection();
+            if (!sel.rangeCount) {
+                return false;
+            }
+            sel.deleteFromDocument();
+
+            let range = sel.getRangeAt(0);
+            let newNode = document.createTextNode(text);
+            range.insertNode(newNode);
+            range.setStart(this, range.endOffset);
+
+            event.preventDefault();
+            return false;
+        });
+    }
+
     function inputFocusEnd(el) {
         setTimeout(function () {
             let range = document.createRange();
@@ -128,6 +150,7 @@ document.addEventListener("DOMContentLoaded", function () {
         contentEl.replaceWith(formEl);
 
         inputEl.innerHTML = messageEl.rawMessage;
+        inputAddEventListeners(inputEl);
         inputEl.addEventListener('keydown', function (event) {
             switch (event.key) {
                 case "Escape":
@@ -554,6 +577,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
         }
     });
+    inputAddEventListeners(document.getElementById('new-message-input'));
 
     document.getElementById('new-message-submit').addEventListener('click', function (event) {
         event.preventDefault();
