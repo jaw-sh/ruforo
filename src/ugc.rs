@@ -29,7 +29,7 @@ where
     .await
     .map_err(error::ErrorInternalServerError)?;
 
-    Ok(create_ugc_revision(pool, new_ugc.id, revision).await?)
+    create_ugc_revision(pool, new_ugc.id, revision).await
 }
 
 /// Creates a new UGC revision and sets it as the living revision for the UGC it belongs to.

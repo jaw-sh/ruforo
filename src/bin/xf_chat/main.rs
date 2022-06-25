@@ -65,7 +65,7 @@ async fn main() -> std::io::Result<()> {
             .service(ruforo::web::chat::view_chat_socket)
             .service(ruforo::web::chat::view_chat_shim)
     })
-    .bind(std::env::var("CHAT_WS_BIND").unwrap_or("127.0.0.1:8080".to_owned()))?
+    .bind(std::env::var("CHAT_WS_BIND").unwrap_or_else(|_| "127.0.0.1:8080".to_owned()))?
     .run()
     .await
 }

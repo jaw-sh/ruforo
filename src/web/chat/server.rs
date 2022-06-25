@@ -170,7 +170,7 @@ impl Handler<message::Disconnect> for ChatServer {
         // remove address
         if self.connections.remove(&msg.id).is_some() {
             // remove session from all rooms
-            for (_, connections) in &mut self.rooms {
+            for connections in self.rooms.values_mut() {
                 connections.remove(&msg.id);
             }
         }

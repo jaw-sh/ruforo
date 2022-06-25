@@ -17,10 +17,8 @@ impl Display for UrlToken<'_> {
 pub fn get_link(token: &UrlToken) -> String {
     if let Some(id) = token.id {
         format!(
-            "<a class=\"{}\" href=\"{}\">{}</a>",
-            token.class,
-            format!("/{}/{}/", token.base_url, id),
-            token.name
+            "<a class=\"{}\" href=\"/{}/{}/\">{}</a>",
+            token.class, token.base_url, id, token.name
         )
     } else {
         format!("<span class=\"{}\">{}</span>", token.class, token.name)

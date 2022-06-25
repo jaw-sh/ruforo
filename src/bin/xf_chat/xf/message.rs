@@ -48,17 +48,14 @@ pub async fn edit_message(
         Ok(model) => Some(implement::Message::from(model)),
         Err(err) => {
             log::warn!("Failed to update XF chat message: {:?}", err);
-            return None;
+            None
         }
     }
 }
 
 pub async fn get_message(db: &DatabaseConnection, id: u32) -> Option<implement::Message> {
     match chat_message::Entity::find_by_id(id).one(db).await {
-        Ok(res) => match res {
-            Some(model) => Some(implement::Message::from(model)),
-            None => None,
-        },
+        Ok(res) => res.map(implement::Message::from),
         Err(err) => {
             log::warn!("Error pulling XF chat message by ID: {:?}", err);
             None

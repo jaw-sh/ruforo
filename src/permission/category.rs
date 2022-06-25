@@ -28,10 +28,8 @@ impl Default for Category {
 
 impl Category {
     pub fn add_item(&mut self, id: &i32, label: &str) -> Result<&mut Item, Error> {
-        let mut i: u8 = 0;
-
         // Loop through permission options.
-        for item in self.items.iter_mut() {
+        for (i, item) in (0_u8..).zip(self.items.iter_mut()) {
             // Find the first default permission.
             if item.id == 0 {
                 *item = Item {
@@ -42,8 +40,6 @@ impl Category {
                 };
                 return Ok(item);
             }
-
-            i += 1;
         }
 
         Err(Error::CategoryOverflow)
@@ -56,7 +52,7 @@ impl Category {
                 return Some(item);
             }
         }
-        return None;
+        None
     }
 
     /// Returns immutable Item reference by its name.
@@ -66,18 +62,17 @@ impl Category {
                 return Some(item);
             }
         }
-        return None;
+        None
     }
 
     /// Returns next available possible
     pub fn get_next_position(&self) -> Result<u8, Error> {
-        let mut i: u8 = 0;
-        for item in self.items.iter() {
+        for (i, item) in (0_u8..).zip(self.items.iter()) {
             if item.id == 0 {
                 return Ok(i);
             }
-            i += 1;
         }
-        return Err(Error::CategoryOverflow);
+
+        Err(Error::CategoryOverflow)
     }
 }

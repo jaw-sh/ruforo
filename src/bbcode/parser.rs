@@ -9,6 +9,12 @@ pub struct Parser<'str> {
     node: Node<Element<'str>>,
 }
 
+impl<'str> Default for Parser<'str> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'str> Parser<'str> {
     pub fn new() -> Self {
         // The rctree's Node<> is a modified RefCell, so cloning is just a ref.
@@ -34,7 +40,7 @@ impl<'str> Parser<'str> {
         }
 
         // Cleanly close all open tags.
-        while let Some(_) = self.node.parent() {
+        while self.node.parent().is_some() {
             self.close_open_tag(false);
         }
         self.insert_contents_as_node();
@@ -101,7 +107,7 @@ impl<'str> Parser<'str> {
         let mut tag_matched = false;
         let mut closed_tags = 0;
 
-        if tag.len() < 1 {
+        if tag.is_empty() {
             log::warn!("Attempted to close a tag with no name.");
         }
 

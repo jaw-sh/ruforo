@@ -176,7 +176,7 @@ pub async fn authenticate_by_uuid(ses_map: &SessionMap, uuid: &Uuid) -> Option<S
 pub async fn new_session(ses_map: &SessionMap, user_id: i32) -> Result<Uuid, DbErr> {
     // TODO make the expiration duration configurable
     // 20 seconds for testing purposes
-    let expires_at = Utc::now().naive_utc() + get_session_time().clone();
+    let expires_at = Utc::now().naive_utc() + *get_session_time();
     let ses = Session {
         user_id,
         expires_at,

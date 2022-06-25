@@ -109,7 +109,7 @@ pub struct ChatTestData {
 pub async fn view_chat_shim(req: HttpRequest, query: web::Query<ChatTestData>) -> impl Responder {
     let webpack_time: u64 = match std::fs::metadata(format!(
         "{}/chat.js",
-        std::env::var("CHAT_ASSET_DIR").unwrap_or(".".to_string())
+        std::env::var("CHAT_ASSET_DIR").unwrap_or_else(|_| ".".to_string())
     )) {
         Ok(metadata) => match metadata.modified() {
             Ok(time) => match time.duration_since(std::time::UNIX_EPOCH) {

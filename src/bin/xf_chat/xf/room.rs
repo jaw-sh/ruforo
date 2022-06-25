@@ -23,7 +23,7 @@ pub async fn get_room_history(
         .find_also_related(user::Entity)
         .all(db)
         .await
-        .unwrap_or(Vec::default())
+        .unwrap_or_default()
         .into_iter()
         .rev()
         .map(|(message, user)| {

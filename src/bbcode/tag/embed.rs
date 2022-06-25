@@ -9,15 +9,14 @@ impl super::Tag {
 
     pub fn fill_img_tag(mut el: RefMut<Element>, contents: String) -> String {
         // Our URL comes from inside the tag.
-        match Url::parse(&contents) {
-            Ok(url) => match url.scheme() {
+        if let Ok(url) = Url::parse(&contents) {
+            match url.scheme() {
                 "http" | "https" => {
                     el.clear_contents();
                     return format!("<img src=\"{}\" />", url.as_str());
                 }
                 _ => {}
-            },
-            Err(_) => {}
+            }
         }
 
         el.set_broken();
@@ -41,9 +40,8 @@ impl super::Tag {
         }
 
         if url.is_none() {
-            match Url::parse(&contents) {
-                Ok(curl) => url = Some(curl),
-                Err(_) => {}
+            if let Ok(curl) = Url::parse(&contents) {
+                url = Some(curl)
             }
         }
 

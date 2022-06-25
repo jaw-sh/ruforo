@@ -28,12 +28,10 @@ impl CollectionValues {
     /// Combines permission sets at the same depth.
     /// Explicit YES permissions override explicit NO permissions.
     pub fn join(&self, left: &Self) -> Self {
-        let mut i: usize = 0;
         let mut categories: [CategoryValues; GROUP_LIMIT as usize] = Default::default();
 
-        for values in categories.iter_mut() {
+        for (i, values) in categories.iter_mut().enumerate() {
             *values = self.categories[i].join(&left.categories[i]);
-            i += 1;
         }
 
         Self { categories }
@@ -42,12 +40,10 @@ impl CollectionValues {
     /// Combines permission sets vertically.
     /// No permissions override Yes permissions.
     pub fn stack(&self, below: &Self) -> Self {
-        let mut i: usize = 0;
         let mut categories: [CategoryValues; GROUP_LIMIT as usize] = Default::default();
 
-        for values in categories.iter_mut() {
+        for (i, values) in categories.iter_mut().enumerate() {
             *values = self.categories[i].stack(&below.categories[i]);
-            i += 1;
         }
 
         Self { categories }

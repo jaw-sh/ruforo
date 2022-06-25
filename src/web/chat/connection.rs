@@ -85,7 +85,7 @@ impl Connection {
                     message_id: v.id,
                 };
 
-                if msg.message.len() > 0 {
+                if !msg.message.is_empty() {
                     self.addr.do_send(msg);
                 }
             }
@@ -192,7 +192,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
             ws::Message::Text(text) => {
                 let m = text.trim();
 
-                if m.len() <= 0 || m.len() >= 1024 {
+                if m.is_empty() || m.len() >= 1024 {
                     return;
                 }
 

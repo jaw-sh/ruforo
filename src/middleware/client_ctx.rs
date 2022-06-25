@@ -89,7 +89,7 @@ impl ClientCtx {
         let inner = self.0.borrow();
         match &inner.permissions {
             // Permission data present, evaluate
-            Some(permissions) => permissions.can(&self, tag),
+            Some(permissions) => permissions.can(self, tag),
             // Permission data not present?
             None => {
                 log::warn!(
@@ -263,13 +263,14 @@ where
                         log::error!("ClientCtxMiddleware: Session::extract(): {}", e);
                     }
                 };
-                Ok(fut.await?)
+
+                fut.await
             })
         }
         // Move to future without doing anything.
         else {
             let fut = self.service.call(req);
-            Box::pin(async move { Ok(fut.await?) })
+            Box::pin(async move { fut.await })
         }
     }
 }

@@ -173,7 +173,7 @@ impl Constructor {
         let mut hit_map: HashMap<u8, &String> = HashMap::with_capacity(self.smilies.count());
 
         for (code, replace_with) in self.smilies.iter() {
-            if result.find(code).is_some() {
+            if result.contains(code) {
                 hit_map.insert(hits, replace_with);
                 result = result.replace(code, &format!("\r{}", hits));
                 hits += 1;

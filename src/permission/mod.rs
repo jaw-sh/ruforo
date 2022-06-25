@@ -40,7 +40,7 @@ impl PermissionData {
                 "Bad permission check on name '{:?}', which is not present in our dictionary.",
                 permission
             );
-            return false;
+            false
         }
     }
 

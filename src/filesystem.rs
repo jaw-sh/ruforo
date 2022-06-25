@@ -353,10 +353,12 @@ pub async fn insert_field_as_attachment(
     }
 }
 
+pub type PayloadConstraintFn = fn(&attachments::ActiveModel) -> Result<bool, Error>;
+
 /// Receives a request payload and inserts it into the database and the s3 bucket.
 pub async fn insert_payload_as_attachment(
     payload: UploadPayload,
-    constraints: Option<fn(&attachments::ActiveModel) -> Result<bool, Error>>,
+    constraints: Option<PayloadConstraintFn>,
 ) -> Result<Option<UploadResponse>, Error> {
     log::info!("Filename: {}", payload.filename);
     log::info!("BLAKE3: {}", payload.hash);

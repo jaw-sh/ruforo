@@ -176,10 +176,7 @@ impl<'str> Element<'str> {
     }
 
     pub fn extract_contents(&mut self) -> Option<Element<'str>> {
-        let res = match self.contents {
-            Some(text) => Some(Self::new_from_text(text)),
-            None => None,
-        };
+        let res = self.contents.map(Self::new_from_text);
         self.contents = None;
         res
     }
@@ -205,11 +202,11 @@ impl<'str> Element<'str> {
     }
 
     pub fn has_argument(&self) -> bool {
-        self.argument.unwrap_or("").len() > 0
+        !self.argument.unwrap_or("").is_empty()
     }
 
     pub fn has_contents(&self) -> bool {
-        self.contents.unwrap_or("").len() > 0
+        !self.contents.unwrap_or("").is_empty()
     }
 
     pub fn is_broken(&self) -> bool {
@@ -245,11 +242,8 @@ impl<'str> Element<'str> {
 
     /// Unwinds element into an opening tag string.
     pub fn to_open_str(&self) -> String {
-        match self.raw {
-            Some(raw) => raw,
-            None => "",
-        }
-        .to_owned()
+        self.raw.unwrap_or("").to_owned()
+
         //match &self.tag {
         //    Some(tag) => match &self.argument {
         //        Some(argument) => format!("[{}{}]", tag, argument),

@@ -9,17 +9,13 @@ use std::cell::RefMut;
 
 impl super::Tag {
     pub fn open_color_tag(el: RefMut<Element>) -> String {
-        match el.get_argument() {
-            Some(arg) => match color_from(arg) {
-                Ok((_, color)) => {
-                    return format!(
-                        "<span class=\"bbCode tagColor\" style=\"color: {}\">",
-                        color
-                    )
-                }
-                Err(_) => {}
-            },
-            None => {}
+        if let Some(arg) = el.get_argument() {
+            if let Ok((_, color)) = color_from(arg) {
+                return format!(
+                    "<span class=\"bbCode tagColor\" style=\"color: {}\">",
+                    color
+                );
+            }
         }
 
         Self::open_broken_tag(el)

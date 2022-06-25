@@ -1,13 +1,7 @@
-use std::cmp::Ordering;
 use std::collections::HashMap;
 
+#[derive(Default)]
 pub struct Smilies(Vec<(String, String)>);
-
-impl Default for Smilies {
-    fn default() -> Self {
-        Self(Vec::new())
-    }
-}
 
 impl Smilies {
     pub fn new_from_hashmap(smilies: &HashMap<String, String>) -> Self {
@@ -24,15 +18,7 @@ impl Smilies {
     }
 
     fn sort_tuples(mut smilies: Vec<(String, String)>) -> Vec<(String, String)> {
-        smilies.sort_by(|a, b| {
-            if a.0.chars().count() > b.0.chars().count() {
-                Ordering::Less
-            } else if b.0.chars().count() > a.0.chars().count() {
-                Ordering::Greater
-            } else {
-                Ordering::Equal
-            }
-        });
+        smilies.sort_by(|a, b| a.0.chars().cmp(b.0.chars()));
         smilies
     }
 

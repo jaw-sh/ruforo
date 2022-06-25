@@ -23,7 +23,6 @@ async fn db_user_enable_2fa(user_id: i32, secret: &str, email_reset: bool) -> Re
         user_id: Set(user_id),
         secret: Set(secret.to_owned()),
         email_reset: Set(email_reset),
-        ..Default::default()
     }
     .insert(&txn)
     .await?;

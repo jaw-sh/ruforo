@@ -9,7 +9,7 @@ use nom::IResult;
 use url::Url;
 
 /// Tokenizer accepts string primitive and returns a Nom parser result.
-pub fn tokenize<'a>(input: &'a str) -> IResult<&str, Vec<Token>> {
+pub fn tokenize(input: &str) -> IResult<&str, Vec<Token>> {
     many0(parse)(input)
 }
 
@@ -116,7 +116,7 @@ fn token_from_argument(input: &str) -> IResult<&str, (&str, (&str, Option<&str>)
         map(
             consumed(tuple((alpha1, rest))),
             |(raw, (tag, arg)): (&str, (&str, &str))| {
-                (raw, (tag, if arg.len() > 0 { Some(arg) } else { None }))
+                (raw, (tag, if !arg.is_empty() { Some(arg) } else { None }))
             },
         ),
         // Matches `url` only
@@ -128,7 +128,7 @@ fn token_from_argument(input: &str) -> IResult<&str, (&str, (&str, Option<&str>)
 }
 
 fn token_from_text(input: &str) -> Token {
-    if input.len() > 0 {
+    if !input.is_empty() {
         Token::Text(input)
     } else {
         Token::Null
