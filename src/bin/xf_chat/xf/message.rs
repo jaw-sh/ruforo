@@ -4,7 +4,7 @@ use ruforo::web::chat::message;
 use sea_orm::{entity::*, prelude::*, DatabaseConnection};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub async fn delete_message(db: &DatabaseConnection, id: i32) {
+pub async fn delete_message(db: &DatabaseConnection, id: u32) {
     match chat_message::Entity::delete_by_id(id as u32).exec(db).await {
         Ok(_) => {}
         Err(err) => {
@@ -15,7 +15,7 @@ pub async fn delete_message(db: &DatabaseConnection, id: i32) {
 
 pub async fn edit_message(
     db: &DatabaseConnection,
-    id: i32,
+    id: u32,
     author: implement::Author,
     message: String,
 ) -> Option<implement::Message> {
@@ -45,14 +45,7 @@ pub async fn edit_message(
     active.last_edit_user_id = Set(Some(author.id));
 
     match active.update(db).await {
-        Ok(model) => Some(implement::Message {
-            user_id: model.user_id.unwrap_or(0),
-            room_id: model.room_id,
-            message_id: model.message_id,
-            message_date: model.message_date.try_into().unwrap(),
-            message: model.message_text,
-            edited: model.last_edit_user_id.is_some(),
-        }),
+        Ok(model) => Some(implement::Message::from(model)),
         Err(err) => {
             log::warn!("Failed to update XF chat message: {:?}", err);
             return None;
@@ -60,17 +53,10 @@ pub async fn edit_message(
     }
 }
 
-pub async fn get_message(db: &DatabaseConnection, id: i32) -> Option<implement::Message> {
-    match chat_message::Entity::find_by_id(id as u32).one(db).await {
+pub async fn get_message(db: &DatabaseConnection, id: u32) -> Option<implement::Message> {
+    match chat_message::Entity::find_by_id(id).one(db).await {
         Ok(res) => match res {
-            Some(model) => Some(implement::Message {
-                user_id: model.user_id.unwrap_or(0),
-                room_id: model.room_id,
-                message_id: model.message_id,
-                message_date: model.message_date.try_into().unwrap(),
-                message: model.message_text.to_owned(),
-                edited: model.last_edit_user_id.is_some(),
-            }),
+            Some(model) => Some(implement::Message::from(model)),
             None => None,
         },
         Err(err) => {
@@ -82,8 +68,8 @@ pub async fn get_message(db: &DatabaseConnection, id: i32) -> Option<implement::
 
 pub async fn insert_chat_message(
     db: &DatabaseConnection,
-    message: &message::ClientMessage,
-) -> message::ClientMessage {
+    message: &message::Post,
+) -> implement::Message {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards");
@@ -95,23 +81,13 @@ pub async fn insert_chat_message(
         message_date: Set(timestamp),
         message_update: Set(timestamp),
         room_id: Set(message.room_id as u32),
-        user_id: Set(Some(message.author.id as u32)),
-        username: Set(message.author.username.to_owned()),
+        user_id: Set(Some(message.session.id)),
+        username: Set(message.session.username.to_owned()),
         ..Default::default()
     }
     .insert(db)
     .await
     .expect("Failed to insert chat_message into XF database.");
 
-    message::ClientMessage {
-        id: message.id,
-        room_id: message.room_id,
-        message_id: model.message_id,
-        message_date: model.message_date.try_into().unwrap(),
-        author: message.author.to_owned(),
-        message: message.message.to_owned(),
-        message_raw: message.message.to_owned(),
-        sanitized: false,
-        edited: message.edited,
-    }
+    implement::Message::from(model)
 }

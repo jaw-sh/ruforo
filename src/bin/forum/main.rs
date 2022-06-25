@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use actix::Actor;
 use actix_session::{storage::CookieSessionStore, SessionMiddleware};
 use actix_web::cookie::Key;
@@ -10,6 +8,7 @@ use actix_web::{App, HttpServer};
 use env_logger::Env;
 use ruforo::db::{get_db_pool, init_db};
 use ruforo::middleware::ClientCtx;
+use std::sync::Arc;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

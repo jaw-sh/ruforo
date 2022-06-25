@@ -1,6 +1,11 @@
 use super::message;
 use serde::{Deserialize, Serialize};
 
+// Regarding Integers:
+// Database keys should be u32.
+// Dates are represented with i32.
+// WS connections are usize.
+
 /// Author data exposed to the client through chat.
 #[derive(Clone, Debug, Serialize)]
 pub struct Author {
@@ -19,19 +24,13 @@ impl From<&Session> for Author {
     }
 }
 
-impl Author {
-    pub fn can_send_message(&self) -> bool {
-        self.id > 0
-    }
-}
-
 pub struct Message {
     pub user_id: u32,
     pub room_id: u32,
     pub message_id: u32,
     pub message_date: i32,
+    pub message_edit_date: i32,
     pub message: String,
-    pub edited: bool,
 }
 
 pub struct Room {
@@ -45,6 +44,7 @@ pub struct Room {
 /// Private session data for chat.
 #[derive(Clone, Debug, Serialize)]
 pub struct Session {
+    /// User ID, not Conn ID
     pub id: u32,
     pub username: String,
     pub avatar_url: String,
@@ -61,6 +61,12 @@ impl Default for Session {
             ignored_users: Default::default(),
             is_staff: false,
         }
+    }
+}
+
+impl Session {
+    pub fn can_send_message(&self) -> bool {
+        self.id > 0
     }
 }
 
@@ -115,20 +121,20 @@ impl From<&serde_json::Value> for SpriteParams {
 
 #[async_trait::async_trait]
 pub trait ChatLayer {
-    async fn delete_message(&self, id: i32);
-    async fn edit_message(&self, id: i32, author: Author, message: String) -> Option<Message>;
-    async fn get_message(&self, message_id: i32) -> Option<Message>;
+    async fn delete_message(&self, id: u32);
+    async fn edit_message(&self, id: u32, author: Author, message: String) -> Option<Message>;
+    async fn get_message(&self, message_id: u32) -> Option<Message>;
+    async fn get_room_history(&self, room_id: u32, limit: usize) -> Vec<(Author, Message)>;
     async fn get_room_list(&self) -> Vec<Room>;
-    async fn get_room_history(&self, room_id: usize, limit: usize) -> Vec<message::ClientMessage>;
-    async fn get_smilie_list(&self) -> Vec<Smilie>;
     async fn get_session_from_user_id(&self, id: u32) -> Session;
+    async fn get_smilie_list(&self) -> Vec<Smilie>;
     fn get_user_id_from_request(&self, req: &actix_web::HttpRequest) -> u32;
-    async fn insert_chat_message(&self, message: &message::ClientMessage)
-        -> message::ClientMessage;
+    async fn insert_chat_message(&self, message: &message::Post) -> Message;
 }
 
 // When we diverge from the XF compat, this can probably be compressed out of a trait.
 pub mod default {
+    use super::super::message;
     use crate::middleware::ClientCtx;
     use rand::Rng;
     use sea_orm::DatabaseConnection;
@@ -140,13 +146,13 @@ pub mod default {
 
     #[async_trait::async_trait]
     impl super::ChatLayer for Layer {
-        async fn delete_message(&self, _: i32) {
+        async fn delete_message(&self, _: u32) {
             // TODO
         }
 
         async fn edit_message(
             &self,
-            _: i32,
+            _: u32,
             _: super::Author,
             _: String,
         ) -> Option<super::Message> {
@@ -154,7 +160,7 @@ pub mod default {
             None
         }
 
-        async fn get_message(&self, _: i32) -> Option<super::Message> {
+        async fn get_message(&self, _: u32) -> Option<super::Message> {
             // TODO
             None
         }
@@ -169,7 +175,7 @@ pub mod default {
             }]
         }
 
-        async fn get_room_history(&self, _: usize, _: usize) -> Vec<super::message::ClientMessage> {
+        async fn get_room_history(&self, _: u32, _: usize) -> Vec<(super::Author, super::Message)> {
             Vec::new()
         }
 
@@ -197,23 +203,17 @@ pub mod default {
             }
         }
 
-        async fn insert_chat_message(
-            &self,
-            message: &super::message::ClientMessage,
-        ) -> super::message::ClientMessage {
+        async fn insert_chat_message(&self, message: &message::Post) -> super::Message {
             let mut rng = rand::thread_rng();
             let now = SystemTime::UNIX_EPOCH;
 
-            super::message::ClientMessage {
-                id: rng.gen(),
-                message_id: rng.gen(),
-                author: message.author.to_owned(),
+            super::Message {
+                user_id: message.session.id,
                 room_id: message.room_id,
-                message_date: now.elapsed().unwrap().as_secs() as i32,
                 message: message.message.to_owned(),
-                message_raw: message.message.to_owned(),
-                sanitized: false,
-                edited: message.edited,
+                message_date: now.elapsed().unwrap().as_secs() as i32,
+                message_edit_date: 0,
+                message_id: rng.gen(),
             }
         }
     }

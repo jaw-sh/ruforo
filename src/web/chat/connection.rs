@@ -1,4 +1,4 @@
-use super::implement::{Author, Session};
+use super::implement::Session;
 use super::message;
 use super::server::ChatServer;
 use super::{CLIENT_TIMEOUT, HEARTBEAT_INTERVAL};
@@ -56,8 +56,8 @@ impl Connection {
             Ok(message_id) => {
                 self.addr.do_send(message::Delete {
                     id: self.id,
-                    message_id: message_id,
-                    author: self.session.clone(),
+                    session: self.session.to_owned(),
+                    message_id,
                 });
             }
             Err(_) => ctx.text("Invalid message specified."),
@@ -80,9 +80,9 @@ impl Connection {
             Ok(v) => {
                 let msg = message::Edit {
                     id: self.id,
-                    author: self.session.clone(),
-                    message_id: v.id,
+                    session: self.session.to_owned(),
                     message: v.message.trim().to_string(),
+                    message_id: v.id,
                 };
 
                 if msg.message.len() > 0 {
@@ -107,35 +107,12 @@ impl Connection {
                 self.room = Some(room_id);
                 self.addr.do_send(message::Join {
                     id: self.id,
-                    room_id: room_id,
-                    author: self.session.clone(),
+                    session: self.session.to_owned(),
+                    room_id: room_id as u32,
                 });
             }
             Err(_) => ctx.text("Invalid room specified."),
         }
-    }
-
-    fn cmd_list(&self, ctx: &mut ws::WebsocketContext<Self>) {
-        // Send ListRooms message to chat server and wait for
-        // response
-        self.addr
-            .send(message::ListRooms)
-            .into_actor(self)
-            .then(|res, _, ctx| {
-                match res {
-                    Ok(rooms) => {
-                        for room in rooms {
-                            ctx.text(format!("{}", room));
-                        }
-                    }
-                    _ => unreachable!(),
-                }
-                fut::ready(())
-            })
-            // .wait(ctx) pauses all events in context,
-            // so actor wont receive any new messages until it get list
-            // of rooms back
-            .wait(ctx)
     }
 
     fn start_heartbeat(&self, ctx: &mut ws::WebsocketContext<Self>) {
@@ -185,10 +162,10 @@ impl Actor for Connection {
 }
 
 /// Handle messages from chat server, we simply send it to peer websocket
-impl Handler<message::ServerMessage> for Connection {
+impl Handler<message::Reply> for Connection {
     type Result = ();
 
-    fn handle(&mut self, msg: message::ServerMessage, ctx: &mut Self::Context) {
+    fn handle(&mut self, msg: message::Reply, ctx: &mut Self::Context) {
         ctx.text(msg.0);
     }
 }
@@ -225,23 +202,17 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                     match v[0] {
                         "/delete" => self.cmd_delete(ctx, v),
                         "/edit" => self.cmd_edit(ctx, v),
-                        "/list" => self.cmd_list(ctx),
                         "/join" => self.cmd_join(ctx, v),
                         _ => ctx.text(format!("Unknown command: {:?}", m)),
                     }
                 }
                 // Client Chat Messages
                 else if let Some(room_id) = self.room {
-                    self.addr.do_send(message::ClientMessage {
+                    self.addr.do_send(message::Post {
                         id: self.id,
-                        room_id,
-                        author: Author::from(&self.session),
+                        session: self.session.to_owned(),
                         message: m.to_string(),
-                        message_raw: m.to_string(),
-                        sanitized: false,
-                        message_id: 0,
-                        message_date: 0,
-                        edited: false,
+                        room_id: room_id as u32,
                     })
                 }
                 // Client message to nowhere

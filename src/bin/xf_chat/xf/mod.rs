@@ -5,7 +5,7 @@ pub mod session;
 pub mod smilie;
 
 use actix_web::web::Data;
-use ruforo::web::chat::{implement, message::ClientMessage};
+use ruforo::web::chat::{implement, message::Post};
 use std::time::Duration;
 
 pub struct XfLayer {
@@ -14,20 +14,20 @@ pub struct XfLayer {
 
 #[async_trait::async_trait]
 impl implement::ChatLayer for XfLayer {
-    async fn delete_message(&self, id: i32) {
+    async fn delete_message(&self, id: u32) {
         message::delete_message(&self.db, id).await
     }
 
     async fn edit_message(
         &self,
-        id: i32,
+        id: u32,
         author: implement::Author,
         message: String,
     ) -> Option<implement::Message> {
         message::edit_message(&self.db, id, author, message).await
     }
 
-    async fn get_message(&self, id: i32) -> Option<implement::Message> {
+    async fn get_message(&self, id: u32) -> Option<implement::Message> {
         message::get_message(&self.db, id).await
     }
 
@@ -45,7 +45,11 @@ impl implement::ChatLayer for XfLayer {
             .collect()
     }
 
-    async fn get_room_history(&self, room_id: usize, limit: usize) -> Vec<ClientMessage> {
+    async fn get_room_history(
+        &self,
+        room_id: u32,
+        limit: usize,
+    ) -> Vec<(implement::Author, implement::Message)> {
         room::get_room_history(&self.db, room_id, limit).await
     }
 
@@ -70,7 +74,23 @@ impl implement::ChatLayer for XfLayer {
         session::get_session_with_user_id(&self.db, id).await
     }
 
-    async fn insert_chat_message(&self, message: &ClientMessage) -> ClientMessage {
+    async fn insert_chat_message(&self, message: &Post) -> implement::Message {
         message::insert_chat_message(&self.db, message).await
+    }
+}
+
+impl From<orm::chat_message::Model> for implement::Message {
+    fn from(model: orm::chat_message::Model) -> Self {
+        implement::Message {
+            user_id: model.user_id.unwrap_or(0),
+            room_id: model.room_id,
+            message: model.message_text,
+            message_id: model.message_id,
+            message_date: model.message_date.try_into().unwrap(),
+            message_edit_date: match model.last_edit_date {
+                Some(date) => date.try_into().unwrap(),
+                None => 0,
+            },
+        }
     }
 }

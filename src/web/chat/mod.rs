@@ -9,10 +9,8 @@ use actix_web_actors::ws;
 use askama_actix::Template;
 use implement::{ChatLayer, Room};
 use serde::Deserialize;
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use crate::middleware::ClientCtx;
 
