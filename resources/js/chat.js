@@ -454,7 +454,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function usernameClick(event) {
         // TODO: Replace with Dialog like Discord?
         let inputEl = document.getElementById('new-message-input')
-        inputEl.innerHTML += `@${this.textContent}, `;
+        inputEl.textContent += `@${this.textContent}, `;
 
         inputFocusEnd(inputEl);
 
