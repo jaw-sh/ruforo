@@ -6,8 +6,11 @@ use super::PERM_LIMIT;
 /// Permission category which may catalogue up to 64 permission items.
 #[derive(Clone, Debug)]
 pub struct Category {
+    /// Database ID for the Category.
     pub id: i32,
+    /// 0-indexed position in the Collection.
     pub position: u8,
+    /// Array of Item data which appears in this category.
     pub items: [Item; PERM_LIMIT as usize],
 }
 
@@ -27,13 +30,13 @@ impl Default for Category {
 }
 
 impl Category {
-    pub fn add_item(&mut self, id: &i32, label: &str) -> Result<&mut Item, Error> {
+    pub fn add_item(&mut self, id: i32, label: &str) -> Result<&mut Item, Error> {
         // Loop through permission options.
         for (i, item) in (0_u8..).zip(self.items.iter_mut()) {
             // Find the first default permission.
             if item.id == 0 {
                 *item = Item {
-                    id: *id,
+                    id,
                     category: self.id,
                     label: label.to_string(),
                     position: i,
@@ -56,7 +59,7 @@ impl Category {
     }
 
     /// Returns immutable Item reference by its name.
-    pub fn borrow_item_by_label(&self, label: String) -> Option<&Item> {
+    pub fn borrow_item_by_label(&self, label: &str) -> Option<&Item> {
         for item in self.items.iter() {
             if item.label == label {
                 return Some(item);

@@ -1,7 +1,52 @@
-use super::orm::{chat_message, chat_room, user};
+use crate::xf::permission::get_permissions;
+
+use super::orm::{chat_message, chat_room, permission_cache_content, permission_combination, user};
 use super::session::avatar_uri;
 use ruforo::web::chat::implement;
-use sea_orm::{entity::*, query::*, DatabaseConnection, QueryFilter};
+use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult, QueryFilter};
+use serde::Deserialize;
+
+pub async fn can_read_room(db: &DatabaseConnection, user_id: u32, room_id: u32) -> bool {
+    use sea_orm::entity::prelude::*;
+
+    #[derive(Debug, Deserialize, Eq, PartialEq, FromQueryResult)]
+    struct XfPermissionCache {
+        cache_value: serde_json::Value,
+    }
+
+    #[derive(Debug, Deserialize, Eq, PartialEq, FromQueryResult)]
+    struct Nothing {}
+
+    match permission_cache_content::Entity::find()
+        .filter(permission_cache_content::Column::ContentType.eq("hb_chat_room"))
+        .filter(permission_cache_content::Column::ContentId.eq(room_id))
+        .filter(permission_combination::Column::UserId.eq(user_id))
+        .find_also_related(permission_combination::Entity)
+        .select_only()
+        .column_as(
+            permission_cache_content::Column::CacheValue,
+            "A_cache_value",
+        )
+        .into_model::<XfPermissionCache, Nothing>()
+        .one(db)
+        .await
+    {
+        Ok(val) => match val {
+            Some((val, _)) => {
+                let perm = get_permissions()
+                    .borrow_item_by_label("hbChatRoomView")
+                    .expect("No permission category??");
+                let perms = super::permission::json_to_values(val.cache_value);
+
+                return perms.can(perm.position);
+            }
+            None => log::warn!("No permission cach for user {:?}", user_id),
+        },
+        Err(err) => log::warn!("Failed to fetch XF permissions: {:?}", err),
+    }
+
+    false
+}
 
 pub async fn get_room_list(db: &DatabaseConnection) -> Vec<chat_room::Model> {
     chat_room::Entity::find()

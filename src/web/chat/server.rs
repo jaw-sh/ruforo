@@ -43,7 +43,7 @@ impl ChatServer {
         Self {
             rng: rand::thread_rng(),
             connections: HashMap::new(),
-            rooms: HashMap::from_iter(rooms.into_iter().map(|r| (r.room_id, Default::default()))),
+            rooms: HashMap::from_iter(rooms.into_iter().map(|r| (r.id, Default::default()))),
             constructor,
             layer,
         }
@@ -236,52 +236,57 @@ impl Handler<message::Join> for ChatServer {
     type Result = ResponseActFuture<Self, ()>;
 
     fn handle(&mut self, message: message::Join, _: &mut Context<Self>) -> Self::Result {
-        // TODO: Check if room is valid.
-        if true {
-            let message::Join {
-                id,
-                session: _,
-                room_id,
-            } = message;
-            let mut rooms = Vec::new();
+        let message::Join {
+            id,
+            session,
+            room_id,
+        } = message;
+        let mut rooms = Vec::new();
 
-            // remove session from all rooms
-            for (n, connections) in &mut self.rooms {
-                if connections.remove(&id) {
-                    rooms.push(n.to_owned());
+        // remove session from all rooms
+        for (n, connections) in &mut self.rooms {
+            if connections.remove(&id) {
+                rooms.push(n.to_owned());
+            }
+        }
+
+        let layer = self.layer.clone();
+
+        Box::pin(
+            async move {
+                if layer.can_view(session.id, room_id).await {
+                    (true, layer.get_room_history(room_id, 40).await)
+                } else {
+                    (false, Vec::default())
                 }
             }
+            .into_actor(self)
+            .map(move |(can_view, unsanitized), actor, _ctx| {
+                if can_view {
+                    let mut messages: Vec<SanitaryPost> = Vec::with_capacity(unsanitized.len());
 
-            let layer = self.layer.clone();
+                    for message in unsanitized {
+                        messages.push(actor.prepare_message(message.0, message.1));
+                    }
 
-            Box::pin(
-                async move { layer.get_room_history(room_id, 20).await }
-                    .into_actor(self)
-                    .map(move |unsanitized, actor, _ctx| {
-                        let mut messages: Vec<SanitaryPost> = Vec::with_capacity(unsanitized.len());
+                    actor.send_message_to_conn(
+                        id,
+                        serde_json::to_string(&SanitaryPosts { messages })
+                            .expect("SanitaryPosts serialize failure"),
+                    );
 
-                        for message in unsanitized {
-                            messages.push(actor.prepare_message(message.0, message.1));
-                        }
-
-                        actor.send_message_to_conn(
-                            id,
-                            serde_json::to_string(&SanitaryPosts { messages })
-                                .expect("SanitaryPosts serialize failure"),
-                        );
-
-                        // Put user in room now so messages don't load in during history.
-                        actor
-                            .rooms
-                            .entry(room_id)
-                            .or_insert_with(HashSet::new)
-                            .insert(id);
-                    }),
-            )
-        } else {
-            self.send_message_to_conn(message.id, "You cannot join this room.".to_string());
-            Box::pin(async {}.into_actor(self))
-        }
+                    // Put user in room now so messages don't load in during history.
+                    actor
+                        .rooms
+                        .entry(room_id)
+                        .or_insert_with(HashSet::new)
+                        .insert(id);
+                } else {
+                    actor
+                        .send_message_to_conn(message.id, "You cannot join this room.".to_string());
+                }
+            }),
+        )
     }
 }
 

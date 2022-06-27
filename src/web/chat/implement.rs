@@ -34,7 +34,7 @@ pub struct Message {
 }
 
 pub struct Room {
-    pub room_id: u32,
+    pub id: u32,
     pub title: String,
     pub description: String,
     pub motd: Option<String>,
@@ -121,6 +121,7 @@ impl From<&serde_json::Value> for SpriteParams {
 
 #[async_trait::async_trait]
 pub trait ChatLayer {
+    async fn can_view(&self, session_id: u32, room_id: u32) -> bool;
     async fn delete_message(&self, id: u32);
     async fn edit_message(&self, id: u32, author: Author, message: String) -> Option<Message>;
     async fn get_message(&self, message_id: u32) -> Option<Message>;
@@ -135,6 +136,7 @@ pub trait ChatLayer {
 // When we diverge from the XF compat, this can probably be compressed out of a trait.
 pub mod default {
     use super::super::message;
+    use super::*;
     use crate::middleware::ClientCtx;
     use rand::Rng;
     use sea_orm::DatabaseConnection;
@@ -146,6 +148,10 @@ pub mod default {
 
     #[async_trait::async_trait]
     impl super::ChatLayer for Layer {
+        async fn can_view(&self, _: u32, _: u32) -> bool {
+            true
+        }
+
         async fn delete_message(&self, _: u32) {
             // TODO
         }
@@ -160,14 +166,14 @@ pub mod default {
             None
         }
 
-        async fn get_message(&self, _: u32) -> Option<super::Message> {
+        async fn get_message(&self, _: u32) -> Option<Message> {
             // TODO
             None
         }
 
-        async fn get_room_list(&self) -> Vec<super::Room> {
+        async fn get_room_list(&self) -> Vec<Room> {
             vec![super::Room {
-                room_id: 1,
+                id: 1,
                 title: "Test".to_owned(),
                 description: "Dummy room for testing".to_owned(),
                 motd: None,
@@ -175,24 +181,24 @@ pub mod default {
             }]
         }
 
-        async fn get_room_history(&self, _: u32, _: usize) -> Vec<(super::Author, super::Message)> {
+        async fn get_room_history(&self, _: u32, _: usize) -> Vec<(Author, Message)> {
             Vec::new()
         }
 
-        async fn get_smilie_list(&self) -> Vec<super::Smilie> {
+        async fn get_smilie_list(&self) -> Vec<Smilie> {
             Vec::new()
         }
 
-        async fn get_session_from_user_id(&self, id: u32) -> super::Session {
+        async fn get_session_from_user_id(&self, id: u32) -> Session {
             match crate::user::ClientUser::fetch_by_user_id(&self.db, id as i32).await {
-                Some(user) => super::Session {
+                Some(user) => Session {
                     id,
                     username: user.name,
                     avatar_url: "".to_owned(),
                     ignored_users: Vec::new(),
                     is_staff: false,
                 },
-                None => super::Session::default(),
+                None => Session::default(),
             }
         }
 
@@ -203,11 +209,11 @@ pub mod default {
             }
         }
 
-        async fn insert_chat_message(&self, message: &message::Post) -> super::Message {
+        async fn insert_chat_message(&self, message: &message::Post) -> Message {
             let mut rng = rand::thread_rng();
             let now = SystemTime::UNIX_EPOCH;
 
-            super::Message {
+            Message {
                 user_id: message.session.id,
                 room_id: message.room_id,
                 message: message.message.to_owned(),

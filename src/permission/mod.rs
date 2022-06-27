@@ -10,12 +10,22 @@ pub mod mask;
 pub mod resource;
 mod test;
 
+pub use category::Category;
+pub use category_values::CategoryValues;
+pub use flag::Flag;
+pub use item::Item;
+
+// Values sort like this:
+// Item:       Y/N
+// Category:   {Yes,No,Never} * u64[array of Item flags]
+// Collection: u32[array of Category values]
+
 /// Maximum number of permission categories
-const GROUP_LIMIT: u32 = 16;
+pub const GROUP_LIMIT: u32 = 16;
 /// Maximum number of permissions per category (64 bits)
-const PERM_LIMIT: u32 = u64::BITS;
+pub const PERM_LIMIT: u32 = u64::BITS;
 /// Total maximum number of permissions defined as GROUP_LIMIT*PERM_LIMIT
-const MAX_PERMS: u32 = GROUP_LIMIT * PERM_LIMIT;
+pub const MAX_PERMS: u32 = GROUP_LIMIT * PERM_LIMIT;
 
 use crate::middleware::ClientCtx;
 use dashmap::DashMap;
@@ -129,7 +139,7 @@ pub async fn new() -> Result<Arc<PermissionData>, sea_orm::error::DbErr> {
         // Add permissions belonging to this category.
         for item in items.iter() {
             if *cid == item.category_id {
-                match col.categories[i].add_item(&item.id, &item.label) {
+                match col.categories[i].add_item(item.id, &item.label) {
                     Ok(item) => {
                         col.dictionary
                             .insert(item.label.to_owned(), (i as u8, item.position as u8));
@@ -161,7 +171,7 @@ pub async fn new() -> Result<Arc<PermissionData>, sea_orm::error::DbErr> {
             // Look up the permissions's indices by id.
             if let Some(pindices) = col.lookup.get(&pv.permission_id) {
                 // Assign each flag to the CollectionValues.
-                cv.set_flag(&pindices.0, &pindices.1, &pv.value);
+                cv.set_flag(pindices.0, pindices.1, pv.value);
             } else {
                 println!(
                     "Failed to lookup indices for permission_values {:?},{:?}",

@@ -2,10 +2,14 @@ use super::flag::Flag;
 
 /// Data struct.
 /// Yes, no, and never masks for a single Category.
+/// Each value is a bitmask of Item flags.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct CategoryValues {
+    /// Bitmask for explicitly set YES permissions.
     pub yes: u64,
+    /// Bitmask for explicit NO permissions.
     pub no: u64,
+    /// Bitmask for explicit NEVER permissions.
     pub never: u64,
 }
 
@@ -15,7 +19,20 @@ impl From<CategoryValues> for u64 {
     }
 }
 
+impl From<&CategoryValues> for u64 {
+    fn from(item: &CategoryValues) -> Self {
+        item.yes & !(item.no | item.never)
+    }
+}
+
 impl CategoryValues {
+    /// Returns true if YES is set, but NO and NEVER are not.
+    pub fn can(&self, item: u8) -> bool {
+        let bit = 1 << item;
+        println!("bit: {:?}", bit);
+        bit & u64::from(self) == bit
+    }
+
     /// Combines values laterally.
     /// Explicit YES permissions override explicit NO permissions.
     pub fn join(&self, left: &Self) -> Self {
@@ -40,7 +57,7 @@ impl CategoryValues {
         Self { yes, no, never }
     }
 
-    pub fn set_flag(&mut self, item: &u8, flag: &Flag) {
+    pub fn set_flag(&mut self, item: u8, flag: Flag) {
         let bit: u64 = 1 << item; // 0b0001
         let not: u64 = !bit; // 0b1110
 

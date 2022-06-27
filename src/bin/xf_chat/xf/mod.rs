@@ -1,5 +1,6 @@
 pub mod message;
 pub mod orm;
+pub mod permission;
 pub mod room;
 pub mod session;
 pub mod smilie;
@@ -14,6 +15,10 @@ pub struct XfLayer {
 
 #[async_trait::async_trait]
 impl implement::ChatLayer for XfLayer {
+    async fn can_view(&self, session_id: u32, room_id: u32) -> bool {
+        room::can_read_room(&self.db, session_id, room_id).await
+    }
+
     async fn delete_message(&self, id: u32) {
         message::delete_message(&self.db, id).await
     }
@@ -36,7 +41,7 @@ impl implement::ChatLayer for XfLayer {
             .await
             .into_iter()
             .map(|room| implement::Room {
-                room_id: room.room_id,
+                id: room.room_id,
                 title: room.title,
                 description: room.description,
                 motd: None,

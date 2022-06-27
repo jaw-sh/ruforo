@@ -50,6 +50,8 @@ async fn main() -> std::io::Result<()> {
         .await
         .start();
 
+    crate::xf::permission::configure();
+
     HttpServer::new(move || {
         // Downcast so we can store in app_data
         // See: https://stackoverflow.com/questions/65645622/how-do-i-pass-a-trait-as-application-data-to-actix-web

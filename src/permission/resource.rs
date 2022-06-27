@@ -3,5 +3,5 @@
 pub struct Resource {
     pub id: i32,
     pub parent: Option<i32>,
-    pub children: Vec<i32>,
+    pub children: Option<Vec<i32>>,
 }

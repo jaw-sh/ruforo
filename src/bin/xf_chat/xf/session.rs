@@ -101,12 +101,12 @@ pub async fn get_session_with_user_id(db: &DatabaseConnection, id: u32) -> imple
             Ok(res) => match res {
                 Some(session) => session,
                 None => {
-                    println!("No result for user id {:?}", id);
+                    log::warn!("No result for user id {:?}", id);
                     XfSession::default()
                 }
             },
             Err(err) => {
-                println!("MySQL Error: {:?}", err);
+                log::warn!("MySQL Error: {:?}", err);
                 XfSession::default()
             }
         }
@@ -126,7 +126,7 @@ pub async fn get_session_with_user_id(db: &DatabaseConnection, id: u32) -> imple
                 .map(|m| m.ignored_user_id)
                 .collect::<Vec<u32>>(),
             Err(err) => {
-                println!("MySQL Error: {:?}", err);
+                log::warn!("MySQL Error: {:?}", err);
                 Default::default()
             }
         }

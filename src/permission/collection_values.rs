@@ -49,7 +49,7 @@ impl CollectionValues {
         Self { categories }
     }
 
-    pub fn set_flag(&mut self, category: &u8, item: &u8, flag: &Flag) {
-        self.categories[*category as usize].set_flag(item, flag)
+    pub fn set_flag(&mut self, category: u8, item: u8, flag: Flag) {
+        self.categories[category as usize].set_flag(item, flag)
     }
 }
