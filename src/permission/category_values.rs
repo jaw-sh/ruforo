@@ -29,7 +29,6 @@ impl CategoryValues {
     /// Returns true if YES is set, but NO and NEVER are not.
     pub fn can(&self, item: u8) -> bool {
         let bit = 1 << item;
-        println!("bit: {:?}", bit);
         bit & u64::from(self) == bit
     }
 

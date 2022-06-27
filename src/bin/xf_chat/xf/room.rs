@@ -40,7 +40,7 @@ pub async fn can_read_room(db: &DatabaseConnection, user_id: u32, room_id: u32) 
 
                 return perms.can(perm.position);
             }
-            None => log::warn!("No permission cach for user {:?}", user_id),
+            None => {}
         },
         Err(err) => log::warn!("Failed to fetch XF permissions: {:?}", err),
     }
