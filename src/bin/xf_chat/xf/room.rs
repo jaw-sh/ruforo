@@ -4,23 +4,31 @@ use super::orm::{chat_message, chat_room, permission_cache_content, permission_c
 use super::session::avatar_uri;
 use ruforo::web::chat::implement;
 use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult, QueryFilter};
-use serde::Deserialize;
+
+#[derive(FromQueryResult)]
+struct Nothing {}
+
+#[derive(FromQueryResult)]
+struct XfPermissionCache {
+    cache_value: serde_json::Value,
+}
 
 pub async fn can_read_room(db: &DatabaseConnection, user_id: u32, room_id: u32) -> bool {
-    use sea_orm::entity::prelude::*;
-
-    #[derive(Debug, Deserialize, Eq, PartialEq, FromQueryResult)]
-    struct XfPermissionCache {
-        cache_value: serde_json::Value,
-    }
-
-    #[derive(Debug, Deserialize, Eq, PartialEq, FromQueryResult)]
-    struct Nothing {}
+    let user_groups = super::session::get_user_groups_with_user_id(db, user_id)
+        .await
+        .iter()
+        .map(|g| g.to_string())
+        .collect::<Vec<String>>()
+        .join(",");
 
     match permission_cache_content::Entity::find()
         .filter(permission_cache_content::Column::ContentType.eq("hb_chat_room"))
         .filter(permission_cache_content::Column::ContentId.eq(room_id))
-        .filter(permission_combination::Column::UserId.eq(user_id))
+        .filter(
+            Condition::any()
+                .add(permission_combination::Column::UserId.eq(user_id))
+                .add(permission_combination::Column::UserGroupList.eq(user_groups)),
+        )
         .find_also_related(permission_combination::Entity)
         .select_only()
         .column_as(

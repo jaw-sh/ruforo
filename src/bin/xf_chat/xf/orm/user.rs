@@ -11,6 +11,7 @@ pub struct Model {
     pub email: String,
     pub custom_title: String,
     pub user_group_id: u32,
+    pub secondary_group_ids: String,
     pub avatar_date: u32,
     pub avatar_width: u16,
     pub avatar_height: u16,

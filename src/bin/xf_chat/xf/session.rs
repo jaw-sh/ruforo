@@ -83,6 +83,42 @@ pub fn get_user_id_from_cookie(
     }
 }
 
+pub async fn get_user_groups_with_user_id(db: &DatabaseConnection, id: u32) -> Vec<u32> {
+    #[derive(FromQueryResult)]
+    struct XfUserGroups {
+        user_group_id: u32,
+        secondary_group_ids: String,
+    }
+
+    if id > 0 {
+        let group_data = user::Entity::find_by_id(id)
+            .select_only()
+            .column(user::Column::UserGroupId)
+            .column(user::Column::SecondaryGroupIds)
+            .filter(user::Column::UserId.eq(id))
+            .into_model::<XfUserGroups>()
+            .one(db)
+            .await;
+
+        if let Ok(Some(group_data)) = group_data {
+            let mut groups: Vec<u32> =
+                Vec::with_capacity(2 + group_data.secondary_group_ids.matches(',').count());
+
+            groups.push(group_data.user_group_id);
+
+            for split in group_data.secondary_group_ids.split(',') {
+                if let Ok(group) = split.trim().parse::<u32>() {
+                    groups.push(group);
+                }
+            }
+
+            return groups;
+        }
+    }
+
+    vec![1]
+}
+
 pub async fn get_session_with_user_id(db: &DatabaseConnection, id: u32) -> implement::Session {
     // Fetch basic user info
     let session = if id > 0 {

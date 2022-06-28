@@ -4,6 +4,7 @@ pub use super::chat_message::Entity as ChatMessage;
 pub use super::chat_room::Entity as ChatRoom;
 pub use super::permission_cache_content::Entity as PermissionCacheContent;
 pub use super::permission_combination::Entity as PermissionCombination;
+pub use super::permission_combination_user_group::Entity as PermissionCombinationUserGroup;
 pub use super::smilie::Entity as Smilie;
 pub use super::user::Entity as User;
 pub use super::user_ignored::Entity as UserIgnored;
