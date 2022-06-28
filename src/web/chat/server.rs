@@ -269,11 +269,11 @@ impl Handler<message::Join> for ChatServer {
                             .to_string(),
                     );
                 }
-                
+
                 let mut messages: Vec<SanitaryPost> = Vec::with_capacity(unsanitized.len());
 
-                for message in unsanitized {
-                    messages.push(actor.prepare_message(message.0, message.1));
+                for (author, message) in unsanitized {
+                    messages.push(actor.prepare_message(author, message));
                 }
 
                 actor.send_message_to_conn(

@@ -94,7 +94,6 @@ pub async fn get_user_groups_with_user_id(db: &DatabaseConnection, id: u32) -> V
         let group_data = user::Entity::find_by_id(id)
             .select_only()
             .column(user::Column::UserGroupId)
-            .column(user::Column::SecondaryGroupIds)
             .filter(user::Column::UserId.eq(id))
             .into_model::<XfUserGroups>()
             .one(db)
@@ -111,6 +110,8 @@ pub async fn get_user_groups_with_user_id(db: &DatabaseConnection, id: u32) -> V
                     groups.push(group);
                 }
             }
+
+            groups.sort();
 
             return groups;
         }
