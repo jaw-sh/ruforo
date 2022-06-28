@@ -13,22 +13,33 @@ struct XfPermissionCache {
     cache_value: serde_json::Value,
 }
 
+#[derive(FromQueryResult)]
+struct XfPermissionId {
+    permission_combination_id: u32,
+}
+
 pub async fn can_read_room(db: &DatabaseConnection, user_id: u32, room_id: u32) -> bool {
-    let user_groups = super::session::get_user_groups_with_user_id(db, user_id)
+    let pc_filter = if let Ok(Some(pc)) = user::Entity::find_by_id(user_id)
+        .select_only()
+        .column(user::Column::PermissionCombinationId)
+        .into_model::<XfPermissionId>()
+        .one(db)
         .await
-        .iter()
-        .map(|g| g.to_string())
-        .collect::<Vec<String>>()
-        .join(",");
+    {
+        Condition::all().add(
+            permission_combination::Column::PermissionCombinationId
+                .eq(pc.permission_combination_id),
+        )
+    } else {
+        Condition::all()
+            .add(permission_combination::Column::UserId.eq(0 as u32))
+            .add(permission_combination::Column::UserGroupList.eq("1".to_owned()))
+    };
 
     match permission_cache_content::Entity::find()
         .filter(permission_cache_content::Column::ContentType.eq("hb_chat_room"))
         .filter(permission_cache_content::Column::ContentId.eq(room_id))
-        .filter(
-            Condition::any()
-                .add(permission_combination::Column::UserId.eq(user_id))
-                .add(permission_combination::Column::UserGroupList.eq(user_groups)),
-        )
+        .filter(pc_filter)
         .find_also_related(permission_combination::Entity)
         .select_only()
         .column_as(
