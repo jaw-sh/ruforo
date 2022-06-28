@@ -257,37 +257,37 @@ impl Handler<message::Join> for ChatServer {
                 if layer.can_view(session.id, room_id).await {
                     (true, layer.get_room_history(room_id, 40).await)
                 } else {
-                    (false, layer.get_room_history(room_id, 10).await)
+                    (false, Vec::default())
                 }
             }
             .into_actor(self)
             .map(move |(can_view, unsanitized), actor, _ctx| {
-                if !can_view {
+                if can_view {
+                    let mut messages: Vec<SanitaryPost> = Vec::with_capacity(unsanitized.len());
+
+                    for (author, message) in unsanitized {
+                        messages.push(actor.prepare_message(author, message));
+                    }
+
                     actor.send_message_to_conn(
-                        message.id,
-                        "You cannot join this room... but this check is wrong. Just letting you know."
-                            .to_string(),
+                        id,
+                        serde_json::to_string(&SanitaryPosts { messages })
+                            .expect("SanitaryPosts serialize failure"),
                     );
+
+                    // Put user in room now so messages don't load in during history.
+                    actor
+                        .rooms
+                        .entry(room_id)
+                        .or_insert_with(HashSet::new)
+                        .insert(id);
+                } else {
+                    actor.send_message_to_conn(
+                message.id,
+                "You cannot join this room... but this check may be wrong. If you think it is, check the Sneedchat Complaint Thread in Forum Discussion."
+                    .to_string(),
+            );
                 }
-
-                let mut messages: Vec<SanitaryPost> = Vec::with_capacity(unsanitized.len());
-
-                for (author, message) in unsanitized {
-                    messages.push(actor.prepare_message(author, message));
-                }
-
-                actor.send_message_to_conn(
-                    id,
-                    serde_json::to_string(&SanitaryPosts { messages })
-                        .expect("SanitaryPosts serialize failure"),
-                );
-
-                // Put user in room now so messages don't load in during history.
-                actor
-                    .rooms
-                    .entry(room_id)
-                    .or_insert_with(HashSet::new)
-                    .insert(id);
             }),
         )
     }
