@@ -397,6 +397,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 let [key, value] = user;
                 userActivity(key, value);
             });
+            userActivitySort();
         }
     }
 
@@ -539,8 +540,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         })
 
-        activityEls.innerHTML = "";
-        sorted.forEach(e => ul.appendChild(e))
+        sorted.forEach(e => usersEl.appendChild(e));
     }
 
     function usernameClick(event) {

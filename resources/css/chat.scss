@@ -42,8 +42,9 @@ html.chat #chat {
 
 .chat-content {
     display: flex;
-    flex-direction: row;
     overflow: hidden;
+    flex-direction: row;
+    flex-grow: 1;
 }
 
 .chat-scroller {
