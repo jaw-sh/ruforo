@@ -82,6 +82,14 @@ impl Message for Post {
     type Result = ();
 }
 
+/// Server response to clientsl
+/// Usually a serialized JSON string.
+pub struct Reply(pub String);
+
+impl Message for Reply {
+    type Result = ();
+}
+
 /// A post from the server containing public, sanitized data.
 #[derive(serde::Serialize)]
 pub struct SanitaryPost {
@@ -112,13 +120,5 @@ pub struct SanitaryPosts {
 }
 
 impl Message for SanitaryPosts {
-    type Result = ();
-}
-
-/// Server response to clientsl
-/// Usually a serialized JSON string.
-pub struct Reply(pub String);
-
-impl Message for Reply {
     type Result = ();
 }

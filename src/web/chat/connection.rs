@@ -222,6 +222,11 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
             }
             ws::Message::Binary(_) => println!("Unexpected binary"),
             ws::Message::Close(reason) => {
+                log::debug!(
+                    "Client {} disconnecting with reason: {:?}",
+                    self.session.id,
+                    reason
+                );
                 ctx.close(reason);
                 ctx.stop();
             }

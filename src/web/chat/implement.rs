@@ -1,4 +1,7 @@
+use std::collections::HashMap;
+
 use super::message;
+use actix::prelude::*;
 use serde::{Deserialize, Serialize};
 
 // Regarding Integers:
@@ -22,6 +25,37 @@ impl From<&Session> for Author {
             avatar_url: session.avatar_url.to_owned(),
         }
     }
+}
+
+/// Author data exposed to the client through chat.
+#[derive(Serialize)]
+pub struct UserActivity {
+    pub id: u32,
+    pub username: String,
+    pub avatar_url: String,
+    pub last_activity: u64,
+}
+
+impl From<&Connection> for UserActivity {
+    fn from(conn: &Connection) -> Self {
+        Self {
+            id: conn.session.id,
+            username: conn.session.username.to_owned(),
+            avatar_url: conn.session.avatar_url.to_owned(),
+            last_activity: conn.last_activity,
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct UserActivities {
+    pub users: HashMap<u32, UserActivity>,
+}
+
+pub struct Connection {
+    pub last_activity: u64,
+    pub recipient: Recipient<message::Reply>,
+    pub session: Session,
 }
 
 pub struct Message {

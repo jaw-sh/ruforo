@@ -1,11 +1,12 @@
-use super::implement;
-use super::implement::ChatLayer;
+use super::implement::{self, UserActivity};
+use super::implement::{ChatLayer, Connection};
 use super::message::{self, SanitaryPost, SanitaryPosts};
 use crate::bbcode::{tokenize, Constructor, Parser, Smilies};
 use actix::prelude::*;
 use rand::{self, rngs::ThreadRng, Rng};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::time::SystemTime;
 
 /// `ChatServer` manages chat rooms and responsible for coordinating chat
 /// session. implementation is super primitive
@@ -14,7 +15,7 @@ pub struct ChatServer {
     pub layer: Arc<dyn ChatLayer>,
 
     /// Random Id -> Recipient Addr
-    pub connections: HashMap<usize, Recipient<message::Reply>>,
+    pub connections: HashMap<usize, Connection>,
     /// Room Id -> Vec<Conn Ids>
     pub rooms: HashMap<u32, HashSet<usize>>,
     // Message BbCode Constructor
@@ -49,6 +50,61 @@ impl ChatServer {
         }
     }
 
+    fn connect_message(&mut self, room: u32, id: usize) {
+        if let Some(conn) = self.connections.get(&id) {
+            if conn.session.id > 0 {
+                self.send_message_to_room(
+                    room,
+                    format!(
+                        "{{\"users\":{{\"{}\":{}}}}}",
+                        conn.session.id,
+                        serde_json::to_string(&implement::UserActivity::from(conn))
+                            .expect("Failed to serialize Author for connection message.")
+                    ),
+                );
+            }
+
+            if let Some(room_conns) = self.rooms.get(&room) {
+                let mut users: HashMap<u32, UserActivity> =
+                    HashMap::with_capacity(room_conns.len());
+
+                for room_conn in room_conns {
+                    if let Some(tconn) = self.connections.get(room_conn) {
+                        users.insert(tconn.session.id, implement::UserActivity::from(tconn));
+                    }
+                }
+
+                self.send_message_to_conn(
+                    id,
+                    serde_json::to_string(&implement::UserActivities { users })
+                        .expect("Failed to serialize UserActivities for connection message."),
+                );
+            }
+        }
+    }
+
+    fn disconnect_message(&mut self, id: usize) {
+        let mut left_rooms: Vec<u32> = Vec::with_capacity(self.rooms.len());
+
+        // remove session from all rooms
+        for (room_id, roomconns) in &mut self.rooms {
+            if roomconns.remove(&id) {
+                left_rooms.push(*room_id);
+            }
+        }
+
+        for room_id in left_rooms {
+            if let Some(conn) = self.connections.get(&id) {
+                if conn.session.id > 0 {
+                    self.send_message_to_room(
+                        room_id,
+                        format!("{{\"user\":{{\"{}\":false}}}}", conn.session.id),
+                    );
+                }
+            }
+        }
+    }
+
     /// Receives session+message database data to create a SanitaryPost.
     fn prepare_message(
         &self,
@@ -79,10 +135,8 @@ impl ChatServer {
 
     /// Send message to specific user
     fn send_message_to_conn(&self, recipient: usize, message: String) {
-        if let Some(addr) = self.connections.get(&recipient) {
-            addr.do_send(message::Reply(message));
-        } else {
-            log::warn!("Sent message to unknown connection ({}).", recipient);
+        if let Some(conn) = self.connections.get(&recipient) {
+            conn.recipient.do_send(message::Reply(message));
         }
     }
 
@@ -90,8 +144,8 @@ impl ChatServer {
     fn send_message_to_room(&self, room: u32, message: String) {
         if let Some(connections) = self.rooms.get(&room) {
             for id in connections {
-                if let Some(addr) = self.connections.get(id) {
-                    addr.do_send(message::Reply(message.to_owned()));
+                if let Some(conn) = self.connections.get(id) {
+                    conn.recipient.do_send(message::Reply(message.to_owned()));
                 }
             }
         }
@@ -113,7 +167,17 @@ impl Handler<message::Connect> for ChatServer {
     fn handle(&mut self, msg: message::Connect, _: &mut Context<Self>) -> Self::Result {
         // register session with random id
         let id = self.rng.gen::<usize>();
-        self.connections.insert(id, msg.addr);
+        self.connections.insert(
+            id,
+            Connection {
+                last_activity: SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+                recipient: msg.addr,
+                session: msg.session,
+            },
+        );
         id
     }
 }
@@ -167,13 +231,11 @@ impl Handler<message::Disconnect> for ChatServer {
     type Result = ();
 
     fn handle(&mut self, msg: message::Disconnect, _: &mut Context<Self>) {
+        // Send disconnection alert to users in room.
+        self.disconnect_message(msg.id);
+
         // remove address
-        if self.connections.remove(&msg.id).is_some() {
-            // remove session from all rooms
-            for connections in self.rooms.values_mut() {
-                connections.remove(&msg.id);
-            }
-        }
+        self.connections.remove(&msg.id);
     }
 }
 
@@ -235,23 +297,17 @@ impl Handler<message::Edit> for ChatServer {
 impl Handler<message::Join> for ChatServer {
     type Result = ResponseActFuture<Self, ()>;
 
-    fn handle(&mut self, message: message::Join, _: &mut Context<Self>) -> Self::Result {
+    fn handle(&mut self, msg: message::Join, _: &mut Context<Self>) -> Self::Result {
         let message::Join {
             id,
             session,
             room_id,
-        } = message;
-        let mut rooms = Vec::new();
+        } = msg;
 
-        // remove session from all rooms
-        for (n, connections) in &mut self.rooms {
-            if connections.remove(&id) {
-                rooms.push(n.to_owned());
-            }
-        }
+        // Send disconnection alert to users in room.
+        self.disconnect_message(msg.id);
 
         let layer = self.layer.clone();
-
         Box::pin(
             async move {
                 if layer.can_view(session.id, room_id).await {
@@ -281,10 +337,14 @@ impl Handler<message::Join> for ChatServer {
                         .entry(room_id)
                         .or_insert_with(HashSet::new)
                         .insert(id);
+
+                    // Announce connection and provide activity to new user.
+                    actor.connect_message(room_id, msg.id);
+    
                 } else {
                     actor.send_message_to_conn(
-                message.id,
-                "You cannot join this room... but this check may be wrong. If you think it is, check the Sneedchat Complaint Thread in Forum Discussion."
+                        msg.id,
+                "You cannot join this room. Try refreshing. If you still have issues, post in the Sneedchat Discussion thread."
                     .to_string(),
             );
                 }

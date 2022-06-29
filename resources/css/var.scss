@@ -18,6 +18,8 @@
     --button-danger-background: rgb(216, 60, 62);
     --button-danger-background-active: rgb(209, 58, 60);
     --button-danger-background-hover: rgb(161, 45, 47);
+
+    --scrollbar-thumb: rgb(204, 204, 204);
 }
 
 body.style-dark {
@@ -26,4 +28,5 @@ body.style-dark {
     --input-background: rgb(64, 68, 75);
     --text-color: rgb(220, 221, 222);
     --text-muted: rgb(163, 166, 170);
+    --scrollbar-thumb: rgb(32, 34, 37);
 }

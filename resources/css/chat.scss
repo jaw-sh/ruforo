@@ -40,7 +40,13 @@ html.chat #chat {
     }
 }
 
-#chat-scroller {
+.chat-content {
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+}
+
+.chat-scroller {
     overflow-x: hidden;
     overflow-y: scroll;
     flex: 1;
@@ -55,7 +61,7 @@ html.chat #chat {
     }
 
     &::-webkit-scrollbar-thumb {
-        background-color: var(--scrollbar-auto-thumb);
+        background-color: var(--scrollbar-thumb);
         min-height: 40px;
     }
 
@@ -302,6 +308,60 @@ html.chat #chat {
     #chat-messages>.chat-message:hover & {
         border-left-color: rgba(250, 166, 26, 0.5);
         background-color: rgba(250, 166, 26, 0.1);
+    }
+}
+
+#chat-activity-scroller {
+    flex-grow: 0;
+    position: relative;
+    min-width: 240px;
+    max-height: 100%;
+
+    @media (max-height: 100px) {
+        display: none;
+    }
+
+    @media (max-width: 960px) {
+        display: none;
+    }
+}
+
+//#chat-activity {}
+
+.activity {
+    position: relative;
+    max-width: 224px;
+    margin-left: 8px;
+
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    height: 42px;
+    padding: 0 8px;
+}
+
+.avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    margin-right: 12px;
+    position: relative;
+    border-radius: 50%;
+    float: left;
+}
+
+.user {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    min-width: 0;
+    flex: 1 1 auto;
+
+    &:first-child {
+        margin-left: 44px;
     }
 }
 

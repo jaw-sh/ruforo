@@ -61,13 +61,10 @@ pub fn get_user_id_from_cookie(
             match regex::Regex::new(r#"s:6:\\?"?userId\\?"?;i:(?P<user_id>\d+);"#) {
                 Ok(ex) => match ex.captures(&session) {
                     Some(captures) => {
-                        log::debug!("Client authorized as User {:?}", &captures["user_id"]);
+                        log::debug!("User {:?} has authorized.", &captures["user_id"]);
                         captures["user_id"].parse::<u32>().unwrap()
                     }
-                    None => {
-                        log::warn!("FAILED to find a user ID in session");
-                        0
-                    }
+                    None => 0,
                 },
                 Err(err) => {
                     log::warn!("FAILED to parse regex {:?}", err);
@@ -76,10 +73,7 @@ pub fn get_user_id_from_cookie(
                 }
             }
         }
-        Err(err) => {
-            log::warn!("FAILED to pull from redis {:?}", err);
-            0
-        }
+        Err(_) => 0,
     }
 }
 

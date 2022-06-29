@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let userHover = null;
     let scrollEl = document.getElementById('chat-scroller');
     let lastScrollPos = 0;
+    let userActivityData = {};
 
     function inputAddEventListeners(el) {
         // TODO: Add keyDown event listeners?
@@ -390,6 +391,13 @@ document.addEventListener("DOMContentLoaded", function () {
         if (json.hasOwnProperty('delete')) {
             json.delete.forEach(message => messageDelete(message));
         }
+
+        if (json.hasOwnProperty('users')) {
+            Object.entries(json.users).forEach(user => {
+                let [key, value] = user;
+                userActivity(key, value);
+            });
+        }
     }
 
     function messagesDelete() {
@@ -404,6 +412,7 @@ document.addEventListener("DOMContentLoaded", function () {
             scrollEl.classList.remove('ScrollAnchored');
             scrollEl.classList.add('ScrollAnchorConsume');
             messagesDelete();
+            userActivityDelete();
             messageSend(`/join ${id}`);
             //document.getElementById("chat-input").focus({ preventScroll: true });
             return true;
@@ -449,6 +458,89 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!scrollEl.classList.contains('ScrollAnchored')) {
             scrollEl.scrollTo(0, scrollEl.scrollHeight);
         }
+    }
+
+    function userActivity(id, activity) {
+        if (id == 0)
+            return;
+
+        let userEl = document.getElementById(`chat-activity-${id}`);
+
+        if (activity !== false) {
+            userActivityData[id] = activity;
+            userActivityTouch(id);
+        }
+        else {
+            delete userActivityData[id];
+
+            if (userEl) {
+                userEl.remove();
+            }
+        }
+    }
+
+    function userActivityDelete() {
+        let userEl = document.getElementById(`chat-activity`);
+        while (userEl.firstChild) {
+            userEl.removeChild(userEl.firstChild);
+        }
+    }
+
+    function userActivityTouch(id) {
+        if (userActivityData[id]) {
+            let userEl = document.getElementById(`chat-activity-${id}`);
+            userActivityData[id].last_activity = new Date;
+
+            if (userEl) {
+                // ???
+            }
+            else {
+                let usersEl = document.getElementById('chat-activity');
+                let newEl = document.getElementById('tmp-chat-user').content.cloneNode(true).children[0];
+
+                newEl.id = `chat-activity-${id}`;
+                newEl.dataset.username = userActivityData[id].username;
+                newEl.last_activity = userActivityData[id].last_activity;
+
+                let avEl = newEl.querySelector('.avatar');
+                if (userActivityData[id].avatar_url) {
+                    avEl.src = userActivityData[id].avatar_url;
+                    avEl.alt = userActivityData[id].username;
+                }
+                else {
+                    avEl.remove();
+                }
+
+                let nameEl = newEl.querySelector('.user');
+                nameEl.textContent = userActivityData[id].username;
+
+                usersEl.appendChild(newEl);
+            }
+        }
+    }
+
+    function userActivitySort() {
+        let usersEl = document.getElementById('chat-activity');
+        let activityEls = usersEl.querySelectorAll(".activity");
+        let time = (new Date).getTime();
+
+        let sorted = Array.from(activityEls).sort((a, b) => {
+            let ar = (a.last_activity.getTime() - time) <= 30000;
+            let br = (b.last_activity.getTime() - time) <= 30000;
+
+            if (ar == br) {
+                return a.dataset.username.toLowerCase().localeCompare(b.dataset.username.toLowerCase());
+            }
+            else if (ar && !br) {
+                return -1;
+            }
+            else {
+                return 1;
+            }
+        })
+
+        activityEls.innerHTML = "";
+        sorted.forEach(e => ul.appendChild(e))
     }
 
     function usernameClick(event) {
@@ -590,6 +682,14 @@ document.addEventListener("DOMContentLoaded", function () {
         return fgalse;
     });
 
+    // Safely terminate websocket so server knows we're disconnecting.
+    window.addEventListener('beforeunload', function () {
+        if (ws.readyState == WebSocket.OPEN) {
+            websocket.onclose = function () { };
+            websocket.close(1000, "Bye!");
+        }
+    });
+
     window.addEventListener('hashchange', roomJoinByHash, false);
 
     window.addEventListener('keydown', function (event) {
@@ -604,7 +704,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         scrollToNew();
     });
-
 
     websocketConnect();
 });

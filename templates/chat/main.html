@@ -6,8 +6,13 @@
         {% endfor %}
     </div>
     {% endif %}
-    <div id="chat-scroller">
-        <div id="chat-messages"></div>
+    <div class="chat-content">
+        <div id="chat-scroller" class="chat-scroller">
+            <div id="chat-messages"></div>
+        </div>
+        <div id="chat-activity-scroller" class="chat-scroller">
+            <div id="chat-activity"></div>
+        </div>
     </div>
     <form id="new-message-form" class="chat-form">
         <input id="chat-input-room" type="hidden" name="room" value="0" />
