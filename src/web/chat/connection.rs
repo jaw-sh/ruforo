@@ -33,7 +33,7 @@ impl Connection {
                 // heartbeat timed out
 
                 // notify chat server
-                act.addr.do_send(message::Disconnect { id: act.id });
+                act.send_or_reply(ctx, message::Disconnect { id: act.id });
 
                 // stop actor
                 ctx.stop();
@@ -54,11 +54,14 @@ impl Connection {
 
         match args[1].parse::<u32>() {
             Ok(message_id) => {
-                self.addr.do_send(message::Delete {
-                    id: self.id,
-                    session: self.session.to_owned(),
-                    message_id,
-                });
+                self.send_or_reply(
+                    ctx,
+                    message::Delete {
+                        id: self.id,
+                        session: self.session.to_owned(),
+                        message_id,
+                    },
+                );
             }
             Err(_) => ctx.text("Invalid message specified."),
         }
@@ -86,7 +89,7 @@ impl Connection {
                 };
 
                 if !msg.message.is_empty() {
-                    self.addr.do_send(msg);
+                    self.send_or_reply(ctx, msg);
                 }
             }
             Err(err) => {
@@ -105,13 +108,42 @@ impl Connection {
         match args[1].parse::<usize>() {
             Ok(room_id) => {
                 self.room = Some(room_id);
-                self.addr.do_send(message::Join {
-                    id: self.id,
-                    session: self.session.to_owned(),
-                    room_id: room_id as u32,
-                });
+                self.send_or_reply(
+                    ctx,
+                    message::Join {
+                        id: self.id,
+                        session: self.session.to_owned(),
+                        room_id: room_id as u32,
+                    },
+                );
             }
             Err(_) => ctx.text("Invalid room specified."),
+        }
+    }
+
+    fn cmd_restart(&mut self, ctx: &mut ws::WebsocketContext<Self>, _: Vec<&str>) {
+        self.send_or_reply(
+            ctx,
+            message::Restart {
+                id: self.id,
+                session: self.session.to_owned(),
+            },
+        );
+    }
+
+    /// Try to send message
+    ///
+    /// This method fails if actor's mailbox is full or closed. This method
+    /// register current task in receivers queue.
+    fn send_or_reply<M>(&self, ctx: &mut ws::WebsocketContext<Self>, msg: M)
+    where
+        M: Message + std::marker::Send + 'static,
+        M::Result: Send,
+        ChatServer: Handler<M>,
+    {
+        if let Err(err) = self.addr.try_send(msg) {
+            log::debug!("{:?}", err);
+            ctx.text("Chat server is down.");
         }
     }
 
@@ -154,9 +186,9 @@ impl Actor for Connection {
         self.start_heartbeat(ctx);
     }
 
-    fn stopping(&mut self, _: &mut Self::Context) -> Running {
+    fn stopping(&mut self, ctx: &mut Self::Context) -> Running {
         // notify chat server
-        self.addr.do_send(message::Disconnect { id: self.id });
+        self.send_or_reply(ctx, message::Disconnect { id: self.id });
         Running::Stop
     }
 }
@@ -203,17 +235,21 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                         "/delete" => self.cmd_delete(ctx, v),
                         "/edit" => self.cmd_edit(ctx, v),
                         "/join" => self.cmd_join(ctx, v),
+                        "/reset" => self.cmd_restart(ctx, v),
                         _ => ctx.text(format!("Unknown command: {:?}", m)),
                     }
                 }
                 // Client Chat Messages
                 else if let Some(room_id) = self.room {
-                    self.addr.do_send(message::Post {
-                        id: self.id,
-                        session: self.session.to_owned(),
-                        message: m.to_string(),
-                        room_id: room_id as u32,
-                    })
+                    self.send_or_reply(
+                        ctx,
+                        message::Post {
+                            id: self.id,
+                            session: self.session.to_owned(),
+                            message: m.to_string(),
+                            room_id: room_id as u32,
+                        },
+                    )
                 }
                 // Client message to nowhere
                 else {

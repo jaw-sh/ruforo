@@ -90,6 +90,17 @@ impl Message for Reply {
     type Result = ();
 }
 
+pub struct Restart {
+    /// Conn Id
+    pub id: usize,
+    /// Author Session
+    pub session: implement::Session,
+}
+
+impl Message for Restart {
+    type Result = ();
+}
+
 /// A post from the server containing public, sanitized data.
 #[derive(serde::Serialize)]
 pub struct SanitaryPost {

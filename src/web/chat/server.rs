@@ -384,6 +384,19 @@ impl Handler<message::Post> for ChatServer {
         }
     }
 }
+impl Handler<message::Restart> for ChatServer {
+    type Result = ();
 
-//impl SystemService for ChatServer {}
-//impl Supervised for ChatServer {}
+    fn handle(&mut self, msg: message::Restart, ctx: &mut Context<ChatServer>) {
+        if msg.session.is_staff {
+            log::warn!("ChatServer is being restarted by command, initiated by {:?}", msg.session.username);
+            ctx.stop();
+        }
+    }
+}
+
+impl Supervised for ChatServer {
+    fn restarting(&mut self, _: &mut Context<ChatServer>) {
+        log::warn!("Restarting the ChatServer.");
+    }
+}
