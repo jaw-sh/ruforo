@@ -14,9 +14,9 @@ async fn get_database_connection() -> Result<DatabaseConnection, DbErr> {
     );
 
     options
-        .max_connections(1024)
+        .max_connections(10240)
         .min_connections(16)
-        .connect_timeout(Duration::from_secs(1))
+        .connect_timeout(Duration::from_secs(10))
         .idle_timeout(Duration::from_secs(8))
         .max_lifetime(Duration::from_secs(8))
         .sqlx_logging(true);
