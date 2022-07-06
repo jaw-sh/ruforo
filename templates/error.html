@@ -3,6 +3,12 @@
 {% block content %}
 <h1>Error {{ status.as_str() }}</h1>
 <p>There has been an error.</p>
-<code>I can't sneed.</code>
+<pre>
+    {% if let Some(error) = error %}
+        {{ error }}
+    {% else %}
+        I can't sneed.
+    {% endif %}
+</pre>
 <p><em>That's all we know.</em></p>
 {% endblock %}

@@ -3,14 +3,15 @@ use actix_web::body::{BoxBody, EitherBody};
 use actix_web::dev::ServiceResponse;
 use actix_web::http::{header, header::HeaderValue, StatusCode};
 use actix_web::middleware::ErrorHandlerResponse;
-use actix_web::Result;
+use actix_web::{Error, Result};
 use askama_actix::Template;
 
 #[derive(Template)]
 #[template(path = "error.html")]
-struct ErrorTemplate {
+struct ErrorTemplate<'a> {
     client: ClientCtx,
     status: StatusCode,
+    error: Option<&'a Error>,
 }
 
 pub fn error_document<B>(res: ServiceResponse<B>) -> Result<ErrorHandlerResponse<B>> {
@@ -18,6 +19,7 @@ pub fn error_document<B>(res: ServiceResponse<B>) -> Result<ErrorHandlerResponse
         ErrorTemplate {
             client: ClientCtx::default(),
             status: res.status(),
+            error: res.response().error(),
         }
         .to_string(),
     );

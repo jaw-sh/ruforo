@@ -128,6 +128,7 @@ async fn get_thread_and_replies_for_page(
         .column_as(attachments::Column::FileHeight, "avatar_height")
         .column_as(attachments::Column::FileWidth, "avatar_width")
         .left_join(ugc_revisions::Entity)
+        .column_as(ugc_revisions::Column::Id, "ugc_revision_id")
         .column_as(ugc_revisions::Column::Content, "content")
         .column_as(ugc_revisions::Column::IpId, "ip_id")
         .column_as(ugc_revisions::Column::CreatedAt, "updated_at")

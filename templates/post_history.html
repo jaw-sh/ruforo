@@ -1,0 +1,9 @@
+<h2>Post History</h2>
+
+<pre class="diff">{%for chunk in diff -%}
+{%- match chunk -%}
+{%- when dissimilar::Chunk::Equal with (snippet) -%}<span class="diff eq">{{- snippet -}}</span>
+{%- when dissimilar::Chunk::Delete with (snippet) -%}<del class="diff del">{{- snippet -}}</del>
+{%- when dissimilar::Chunk::Insert with (snippet) -%}<ins class="diff ins">{{- snippet -}}</ins>
+{%- endmatch -%}
+{%- endfor %}</pre>

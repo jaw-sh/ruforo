@@ -2,7 +2,7 @@ use super::thread::get_url_for_pos;
 use crate::attachment::AttachmentSize;
 use crate::db::get_db_pool;
 use crate::middleware::ClientCtx;
-use crate::orm::{posts, ugc_deletions, ugc_revisions, user_names};
+use crate::orm::{attachments, posts, ugc_deletions, ugc_revisions, user_names};
 use crate::url::UrlToken;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::{Template, TemplateToResponse};
@@ -16,10 +16,11 @@ pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
         .service(edit_post)
         .service(update_post)
         .service(view_post_by_id)
-        .service(view_post_in_thread);
+        .service(view_post_in_thread)
+        .service(view_post_history);
 }
 
-/// A fully joined struct representing the post model and its relational data.
+/// A fully joined struct representing the post model and its relational d&ata.
 #[derive(Debug, FromQueryResult)]
 pub struct PostForTemplate {
     pub id: i32,
@@ -30,6 +31,7 @@ pub struct PostForTemplate {
     pub created_at: chrono::NaiveDateTime,
     pub updated_at: chrono::NaiveDateTime,
     // join ugc
+    pub ugc_revision_id: Option<i32>,
     pub content: Option<String>,
     pub ip_id: Option<i32>,
     // join ugc UgcDeletions
@@ -64,6 +66,15 @@ impl PostForTemplate {
 pub struct PostDeleteTemplate<'a> {
     pub client: ClientCtx,
     pub post: &'a PostForTemplate,
+}
+
+#[derive(Template)]
+#[template(path = "post_history.html")]
+pub struct PostHistoryTemplate<'a> {
+    pub client: ClientCtx,
+    pub post: &'a PostForTemplate,
+    pub revisions: &'a Vec<ugc_revisions::Model>,
+    pub diff: &'a Vec<dissimilar::Chunk<'a>>,
 }
 
 #[derive(Template)]
@@ -230,6 +241,42 @@ pub async fn view_post_in_thread(path: web::Path<(i32, i32)>) -> Result<HttpResp
     view_post(path.into_inner().1).await
 }
 
+/// Render post edits with diffs highlighted.
+#[get("/posts/{post_id}/history")]
+pub async fn view_post_history(
+    client: ClientCtx,
+    path: web::Path<i32>,
+) -> Result<impl Responder, Error> {
+    let post = get_post_for_template(get_db_pool(), path.into_inner())
+        .await
+        .map_err(error::ErrorInternalServerError)?
+        .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
+
+    let revisions = ugc_revisions::Entity::find()
+        .filter(ugc_revisions::Column::UgcId.eq(post.ugc_id))
+        .limit(2)
+        .order_by_desc(ugc_revisions::Column::CreatedAt)
+        .all(get_db_pool())
+        .await
+        .map_err(error::ErrorInternalServerError)?;
+
+    if revisions.len() < 2 {
+        return Err(error::ErrorBadRequest(
+            "Resource does not have any revisions.",
+        ));
+    }
+
+    let diff = dissimilar::diff(&revisions[1].content, &revisions[0].content);
+
+    Ok(PostHistoryTemplate {
+        client,
+        post: &post,
+        revisions: &revisions,
+        diff: &diff,
+    }
+    .to_response())
+}
+
 pub fn get_avatar_html_for_post(post: &PostForTemplate, size: AttachmentSize) -> Option<String> {
     if post.avatar_filename.is_some() && post.avatar_width.is_some() && post.avatar_height.is_some()
     {
@@ -256,6 +303,7 @@ pub async fn get_post_for_template(
         .left_join(user_names::Entity)
         .column_as(user_names::Column::Name, "username")
         .left_join(ugc_revisions::Entity)
+        .column_as(ugc_revisions::Column::Id, "ugc_revision_id")
         .column_as(ugc_revisions::Column::Content, "content")
         .column_as(ugc_revisions::Column::IpId, "ip_id")
         .column_as(ugc_revisions::Column::CreatedAt, "updated_at")
@@ -263,6 +311,10 @@ pub async fn get_post_for_template(
         .column_as(ugc_deletions::Column::UserId, "deleted_by")
         .column_as(ugc_deletions::Column::DeletedAt, "deleted_at")
         .column_as(ugc_deletions::Column::Reason, "deleted_reason")
+        .left_join(attachments::Entity)
+        .column_as(attachments::Column::Filename, "avatar_filename")
+        .column_as(attachments::Column::FileHeight, "avatar_height")
+        .column_as(attachments::Column::FileWidth, "avatar_width")
         .into_model::<PostForTemplate>()
         .one(db)
         .await
