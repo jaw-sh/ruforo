@@ -156,6 +156,11 @@ impl ChatServer {
 impl Actor for ChatServer {
     /// We are going to use simple Context, we just need ability to communicate with other actors.
     type Context = Context<Self>;
+
+    fn started(&mut self, ctx: &mut Self::Context) {
+        ctx.set_mailbox_capacity(32);
+        System::current().stop();
+    }
 }
 
 /// Handler for Connect message.

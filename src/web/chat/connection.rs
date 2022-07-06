@@ -167,7 +167,7 @@ impl Connection {
                     Ok(res) => act.id = res,
                     Err(err) => {
                         // something is wrong with chat server
-                        log::warn!("Failed to assign conection id: {:?}", err);
+                        log::debug!("Failed to assign conection id: {:?}", err);
                         ctx.stop();
                     }
                 }
