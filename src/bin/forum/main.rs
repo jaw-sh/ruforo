@@ -6,6 +6,7 @@ use actix_web::middleware::{ErrorHandlers, Logger};
 use actix_web::web::Data;
 use actix_web::{App, HttpServer};
 use env_logger::Env;
+use rand::{distributions::Alphanumeric, Rng};
 use ruforo::db::{get_db_pool, init_db};
 use ruforo::middleware::ClientCtx;
 use std::sync::Arc;
@@ -19,7 +20,19 @@ async fn main() -> std::io::Result<()> {
     let permissions = ruforo::permission::new()
         .await
         .expect("Permission System failed to initialize.");
-    let secret_key = Key::generate(); // TODO: Should be from .env file
+
+    let secret_key = match std::env::var("SECRET_KEY") {
+        Ok(key) => Key::from(key.as_bytes()),
+        Err(err) => {
+            let random_string: String = rand::thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(128)
+                .map(char::from)
+                .collect();
+            log::warn!("SECRET_KEY was invalid. Reason: {:?}\r\nThis means the key used for signing session cookies will invalidate every time the application is restarted. A secret key must be at least 64 bytes to be accepted.\r\n\r\nNeed a key? How about:\r\n{}", err, random_string);
+            Key::from(random_string.as_bytes())
+        }
+    };
 
     let layer = Arc::new(ruforo::web::chat::implement::default::Layer {
         db: get_db_pool().to_owned(),

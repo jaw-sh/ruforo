@@ -1,5 +1,7 @@
-<h2>Post History</h2>
+{% extends "container/public.html" %}
 
+{% block content %}
+<h1>Post Revision Difference</h1>
 <pre class="diff">{%for chunk in diff -%}
 {%- match chunk -%}
 {%- when dissimilar::Chunk::Equal with (snippet) -%}<span class="diff eq">{{- snippet -}}</span>
@@ -7,3 +9,4 @@
 {%- when dissimilar::Chunk::Insert with (snippet) -%}<ins class="diff ins">{{- snippet -}}</ins>
 {%- endmatch -%}
 {%- endfor %}</pre>
+{% endblock %}
