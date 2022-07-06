@@ -285,6 +285,7 @@ pub async fn view_post_history(
     path: web::Path<i32>,
 ) -> Result<impl Responder, Error> {
     let db = get_db_pool();
+    // TODO: Auth
     let post = get_post_for_template(db, path.into_inner())
         .await
         .map_err(error::ErrorInternalServerError)?
@@ -309,6 +310,7 @@ pub async fn view_post_history_diff(
     form: web::Form<UgcRevisionDiffFormData>,
 ) -> Result<impl Responder, Error> {
     let db = get_db_pool();
+    // TODO: Auth
     let post = get_post_for_template(db, path.into_inner())
         .await
         .map_err(error::ErrorInternalServerError)?

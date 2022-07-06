@@ -40,6 +40,8 @@
                 {# Mod Checkbox, Report, Delete, IP, Warn #}
                 {% if client.can_update_post(post) %}<a href="/posts/{{ post.id }}/edit">Edit</a>{% endif %}
                 {% if client.can_update_post(post) %}<a href="/posts/{{ post.id }}/delete">Delete</a>{% endif %}
+                {% if post.created_at != post.updated_at && client.can_update_post(post) %}<a
+                    href="/posts/{{ post.id }}/history">History</a>{% endif %}
             </div>
             <div class="message-footer--right">
                 {# Like, Quote, Reply #}
