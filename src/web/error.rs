@@ -37,6 +37,10 @@ pub fn error_document<B>(res: ServiceResponse<B>) -> Result<ErrorHandlerResponse
     Ok(ErrorHandlerResponse::Response(res))
 }
 
+pub fn render_400<B>(res: ServiceResponse<B>) -> Result<ErrorHandlerResponse<B>> {
+    error_document::<B>(res)
+}
+
 pub fn render_404<B>(res: ServiceResponse<B>) -> Result<ErrorHandlerResponse<B>> {
     error_document::<B>(res)
 }

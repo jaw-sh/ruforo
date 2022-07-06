@@ -1,12 +1,30 @@
 {% extends "container/public.html" %}
 
 {% block content %}
-<h1>Post Revision Difference</h1>
-<pre class="diff">{%for chunk in diff -%}
-{%- match chunk -%}
-{%- when dissimilar::Chunk::Equal with (snippet) -%}<span class="diff eq">{{- snippet -}}</span>
-{%- when dissimilar::Chunk::Delete with (snippet) -%}<del class="diff del">{{- snippet -}}</del>
-{%- when dissimilar::Chunk::Insert with (snippet) -%}<ins class="diff ins">{{- snippet -}}</ins>
-{%- endmatch -%}
-{%- endfor %}</pre>
+<h1>Post Revision History</h1>
+<form method="post" action="/posts/{{ post.id }}/history">
+    <table>
+        <thead>
+            <tr>
+                <th>Old</th>
+                <th>New</th>
+                <th>Date</th>
+                <th>Member</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for revision in revisions %}
+            <tr>
+                <td><input type="radio" name="old" value="{{ revision.id }}" /></td>
+                <td><input type="radio" name="new" value="{{ revision.id }}" /></td>
+                <td>{{ revision.created_at }}</td>
+                <td>{% if let Some(username) = revision.username %}{{ username }}{% endif %}</td>
+                <td>View</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <caption><button>Compare versions</button></caption>
+</form>
 {% endblock %}

@@ -1,6 +1,7 @@
 h1 {
     margin: 16px 0;
 }
+
 h2 {
     margin: 12px 0;
 }
@@ -10,21 +11,37 @@ dl {
     margin: 0;
     overflow: hidden;
 }
-dl:before, dl:after {
+
+dl:before,
+dl:after {
     display: table;
     content: " ";
 }
+
 dl:after {
     clear: both;
 }
+
 dt {
     float: left;
     max-width: 100%;
     margin: 0;
 }
+
 dd {
     float: right;
     text-align: right;
     max-width: 100%;
     margin: 0;
+}
+
+del {
+    text-decoration: line-through;
+    background-color: #fbb;
+    color: #555;
+}
+
+ins {
+    text-decoration: none;
+    background-color: #d4fcbc;
 }

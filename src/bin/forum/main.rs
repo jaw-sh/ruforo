@@ -55,6 +55,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(chat.clone())
             .wrap(
                 ErrorHandlers::new()
+                    .handler(StatusCode::BAD_REQUEST, ruforo::web::error::render_400)
                     .handler(StatusCode::NOT_FOUND, ruforo::web::error::render_404)
                     .handler(
                         StatusCode::INTERNAL_SERVER_ERROR,

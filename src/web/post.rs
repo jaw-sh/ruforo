@@ -17,7 +17,13 @@ pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
         .service(update_post)
         .service(view_post_by_id)
         .service(view_post_in_thread)
-        .service(view_post_history);
+        .service(view_post_history)
+        .service(view_post_history_diff);
+}
+
+#[derive(Deserialize)]
+pub struct NewPostFormData {
+    pub content: String,
 }
 
 /// A fully joined struct representing the post model and its relational d&ata.
@@ -69,12 +75,20 @@ pub struct PostDeleteTemplate<'a> {
 }
 
 #[derive(Template)]
-#[template(path = "post_history.html")]
-pub struct PostHistoryTemplate<'a> {
+#[template(path = "post_diff.html")]
+pub struct PostDiffTemplate<'a> {
     pub client: ClientCtx,
     pub post: &'a PostForTemplate,
     pub revisions: &'a Vec<ugc_revisions::Model>,
     pub diff: &'a Vec<dissimilar::Chunk<'a>>,
+}
+
+#[derive(Template)]
+#[template(path = "post_history.html")]
+pub struct PostHistoryTemplate<'a> {
+    pub client: ClientCtx,
+    pub post: &'a PostForTemplate,
+    pub revisions: &'a Vec<UgcRevisionLineItem>,
 }
 
 #[derive(Template)]
@@ -84,9 +98,32 @@ pub struct PostUpdateTemplate<'a> {
     pub post: &'a PostForTemplate,
 }
 
+#[derive(FromQueryResult)]
+pub struct UgcRevisionLineItem {
+    pub id: i32,
+    pub ugc_id: i32,
+    pub created_at: chrono::NaiveDateTime,
+    // join user
+    pub user_id: Option<i32>,
+    pub username: Option<String>,
+}
+
 #[derive(Deserialize)]
-pub struct NewPostFormData {
-    pub content: String,
+pub struct UgcRevisionDiffFormData {
+    pub new: i32,
+    pub old: i32,
+}
+
+impl UgcRevisionLineItem {
+    pub async fn get_for_ugc_id(db: &DatabaseConnection, id: i32) -> Result<Vec<Self>, DbErr> {
+        ugc_revisions::Entity::find()
+            .filter(ugc_revisions::Column::UgcId.eq(id))
+            .left_join(user_names::Entity)
+            .column_as(user_names::Column::Name, "username")
+            .into_model::<Self>()
+            .all(db)
+            .await
+    }
 }
 
 #[get("/posts/{post_id}/delete")]
@@ -241,19 +278,45 @@ pub async fn view_post_in_thread(path: web::Path<(i32, i32)>) -> Result<HttpResp
     view_post(path.into_inner().1).await
 }
 
-/// Render post edits with diffs highlighted.
+/// Render post revisions as a line item table.
 #[get("/posts/{post_id}/history")]
 pub async fn view_post_history(
     client: ClientCtx,
     path: web::Path<i32>,
 ) -> Result<impl Responder, Error> {
-    let post = get_post_for_template(get_db_pool(), path.into_inner())
+    let db = get_db_pool();
+    let post = get_post_for_template(db, path.into_inner())
+        .await
+        .map_err(error::ErrorInternalServerError)?
+        .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
+
+    let revisions = UgcRevisionLineItem::get_for_ugc_id(db, post.ugc_id)
+        .await
+        .map_err(error::ErrorInternalServerError)?;
+
+    Ok(PostHistoryTemplate {
+        client,
+        post: &post,
+        revisions: &revisions,
+    }
+    .to_response())
+}
+/// Render post edits with diffs highlighted.
+#[post("/posts/{post_id}/history")]
+pub async fn view_post_history_diff(
+    client: ClientCtx,
+    path: web::Path<i32>,
+    form: web::Form<UgcRevisionDiffFormData>,
+) -> Result<impl Responder, Error> {
+    let db = get_db_pool();
+    let post = get_post_for_template(db, path.into_inner())
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
 
     let revisions = ugc_revisions::Entity::find()
         .filter(ugc_revisions::Column::UgcId.eq(post.ugc_id))
+        .filter(ugc_revisions::Column::Id.is_in([form.old, form.new]))
         .limit(2)
         .order_by_desc(ugc_revisions::Column::CreatedAt)
         .all(get_db_pool())
@@ -262,13 +325,13 @@ pub async fn view_post_history(
 
     if revisions.len() < 2 {
         return Err(error::ErrorBadRequest(
-            "Resource does not have any revisions.",
+            "Requested revisions either do not exist or are not attached to this resource as expected.",
         ));
     }
 
     let diff = dissimilar::diff(&revisions[1].content, &revisions[0].content);
 
-    Ok(PostHistoryTemplate {
+    Ok(PostDiffTemplate {
         client,
         post: &post,
         revisions: &revisions,
