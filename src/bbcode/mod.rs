@@ -59,6 +59,8 @@ mod tests {
         use super::parse;
 
         assert_eq!("<b>Test</b>", parse("[b]Test[/b]"));
+        assert_eq!("<b>Test</b>", parse("[B]Test[/B]"));
+        assert_eq!("<b>Test</b>", parse("[B]Test[/b]"));
         assert_eq!("<i>Test</i>", parse("[i]Test[/i]"));
         assert_eq!("<u>Test</u>", parse("[u]Test[/u]"));
         assert_eq!("<s>Test</s>", parse("[s]Test[/s]"));
@@ -67,6 +69,7 @@ mod tests {
         assert_eq!("<b><i>Test</i></b>", parse("[b][i]Test[/i]"));
         assert_eq!("<b><i>Test</i></b>", parse("[b][i]Test[/b]"));
         assert_eq!("<b><i>Test</i></b>", parse("[b][i]Test"));
+        assert_eq!("<b><i>Test</i></b>", parse("[B][i]Test"));
 
         const GOOD_COLORS: &[&str] = &["red", "#ff0000"];
         const BAD_COLORS: &[&str] = &["RED", "ff0000", "sneed", ""];

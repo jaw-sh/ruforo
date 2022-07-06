@@ -219,7 +219,7 @@ impl<'str> Element<'str> {
 
     pub fn is_tag(&self, other: &str) -> bool {
         match self.tag {
-            Some(ours) => ours == other,
+            Some(ours) => ours.to_lowercase() == other.to_lowercase(),
             None => false,
         }
     }

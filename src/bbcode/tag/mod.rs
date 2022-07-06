@@ -31,7 +31,7 @@ pub enum Tag {
 
 impl Tag {
     pub fn get_by_name(tag: &str) -> Tag {
-        match tag {
+        match &*tag.to_lowercase() {
             "b" => Tag::Bold,
             "br" => Tag::Linebreak,
             "color" => Tag::Color,
