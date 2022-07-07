@@ -1,7 +1,7 @@
 use crate::db::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::{attachments, user_names, users};
-use crate::user::UserProfile;
+use crate::user::Profile as UserProfile;
 use actix_web::{error, get, web, Error, Responder};
 use askama_actix::{Template, TemplateToResponse};
 use sea_orm::{entity::*, query::*};

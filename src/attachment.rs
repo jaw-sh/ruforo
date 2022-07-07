@@ -130,7 +130,7 @@ pub async fn get_attachments_for_ugc_by_id(
 }
 
 /// Constructs an HTML image tag at a specific dimension.
-pub fn get_avatar_html(filename: &str, dimensions: (&i32, &i32), size: AttachmentSize) -> String {
+pub fn get_avatar_html(filename: &str, dimensions: (i32, i32), size: AttachmentSize) -> String {
     let constraint = match size {
         AttachmentSize::Xs => 24,
         AttachmentSize::S => 48,
@@ -139,7 +139,7 @@ pub fn get_avatar_html(filename: &str, dimensions: (&i32, &i32), size: Attachmen
         AttachmentSize::Native => dimensions.0.to_owned().max(dimensions.1.to_owned()),
     };
 
-    let (x, y): (i32, i32) = match dimensions.0.cmp(dimensions.1) {
+    let (x, y): (i32, i32) = match dimensions.0.cmp(&dimensions.1) {
         std::cmp::Ordering::Greater => (constraint, constraint * (dimensions.1 / dimensions.0)),
         std::cmp::Ordering::Less => (constraint * (dimensions.0 / dimensions.1), constraint),
         std::cmp::Ordering::Equal => (constraint, constraint),

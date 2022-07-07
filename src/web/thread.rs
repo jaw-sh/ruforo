@@ -4,8 +4,9 @@ use crate::db::get_db_pool;
 use crate::middleware::ClientCtx;
 use crate::orm::posts::Entity as Post;
 use crate::orm::threads::Entity as Thread;
-use crate::orm::{attachments, posts, threads, ugc_deletions, ugc_revisions};
+use crate::orm::{posts, threads, ugc_deletions};
 use crate::template::{Paginator, PaginatorToHtml};
+use crate::user::Profile as UserProfile;
 use actix_multipart::Multipart;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::{Template, TemplateToResponse};
@@ -49,7 +50,7 @@ pub struct ThreadTemplate<'a> {
     pub forum: crate::orm::forums::Model,
     pub thread: crate::orm::threads::Model,
     pub paginator: Paginator,
-    pub posts: &'a Vec<PostForTemplate>,
+    pub posts: &'a Vec<(PostForTemplate, Option<UserProfile>)>,
     pub attachments: &'a HashMap<i32, Vec<AttachmentForTemplate>>,
 }
 
@@ -60,7 +61,7 @@ mod filters {
 }
 
 // TODO: Dynamic page sizing.
-const POSTS_PER_PAGE: i32 = 20;
+pub const POSTS_PER_PAGE: i32 = 20;
 
 /// Returns which human-readable page number this position will appear in.
 pub fn get_page_for_pos(pos: i32) -> i32 {
@@ -91,20 +92,20 @@ async fn get_thread_and_replies_for_page(
     thread_id: i32,
     page: i32,
 ) -> Result<impl Responder, Error> {
+    use super::post::get_replies_and_author_for_template;
     use crate::attachment::get_attachments_for_ugc_by_id;
     use crate::orm::forums;
-    use crate::orm::user_names;
 
     let db = get_db_pool();
     let thread = Thread::find_by_id(thread_id)
         .one(db)
         .await
-        .map_err(|_| error::ErrorInternalServerError("Could not look up thread."))?
+        .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Thread not found."))?;
     let forum = forums::Entity::find_by_id(thread.forum_id)
         .one(db)
         .await
-        .map_err(|_| error::ErrorInternalServerError("Could not look up thread's forum."))?
+        .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Forum not found."))?;
 
     // Update thread to include views.
@@ -120,37 +121,12 @@ async fn get_thread_and_replies_for_page(
     });
 
     // Load posts, their ugc associations, and their living revision.
-    let posts: Vec<PostForTemplate> = Post::find()
-        .left_join(user_names::Entity)
-        .column_as(user_names::Column::Name, "username")
-        .left_join(attachments::Entity)
-        .column_as(attachments::Column::Filename, "avatar_filename")
-        .column_as(attachments::Column::FileHeight, "avatar_height")
-        .column_as(attachments::Column::FileWidth, "avatar_width")
-        .left_join(ugc_revisions::Entity)
-        .column_as(ugc_revisions::Column::Id, "ugc_revision_id")
-        .column_as(ugc_revisions::Column::Content, "content")
-        .column_as(ugc_revisions::Column::IpId, "ip_id")
-        .column_as(ugc_revisions::Column::CreatedAt, "updated_at")
-        .left_join(ugc_deletions::Entity)
-        .column_as(ugc_deletions::Column::UserId, "deleted_by")
-        .column_as(ugc_deletions::Column::DeletedAt, "deleted_at")
-        .column_as(ugc_deletions::Column::Reason, "deleted_reason")
-        .filter(posts::Column::ThreadId.eq(thread_id))
-        .filter(
-            posts::Column::Position.between((page - 1) * POSTS_PER_PAGE + 1, page * POSTS_PER_PAGE),
-        )
-        .order_by_asc(posts::Column::Position)
-        .order_by_asc(posts::Column::CreatedAt)
-        .into_model::<PostForTemplate>()
-        .all(db)
+    let posts = get_replies_and_author_for_template(db, thread_id, page)
         .await
-        .map_err(|e| {
-            log::error!("get_thread_and_replies_for_page: Post::find(): {}", e);
-            error::ErrorInternalServerError("DB error")
-        })?;
+        .map_err(error::ErrorInternalServerError)?;
 
-    let attachments = get_attachments_for_ugc_by_id(posts.iter().map(|p| p.ugc_id).collect()).await;
+    let attachments =
+        get_attachments_for_ugc_by_id(posts.iter().map(|p| p.0.ugc_id).collect()).await;
 
     let paginator = Paginator {
         base_url: format!("/threads/{}/", thread_id),

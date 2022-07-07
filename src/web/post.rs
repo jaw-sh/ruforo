@@ -1,13 +1,14 @@
 use super::thread::get_url_for_pos;
-use crate::attachment::AttachmentSize;
 use crate::db::get_db_pool;
 use crate::middleware::ClientCtx;
-use crate::orm::{attachments, posts, ugc_deletions, ugc_revisions, user_names};
-use crate::url::UrlToken;
+use crate::orm::{posts, ugc_deletions, ugc_revisions};
+use crate::ugc::{create_ugc_revision, NewUgcPartial};
+use crate::user::Profile as UserProfile;
 use actix_web::{error, get, post, web, Error, HttpResponse, Responder};
 use askama_actix::{Template, TemplateToResponse};
 use chrono::prelude::Utc;
-use sea_orm::{entity::*, query::*, sea_query::Expr, DatabaseConnection, DbErr, FromQueryResult};
+use sea_orm::{entity::*, query::*, sea_query::Expr};
+use sea_orm::{DatabaseConnection, DbErr, FromQueryResult, QueryFilter};
 use serde::Deserialize;
 
 pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
@@ -44,28 +45,9 @@ pub struct PostForTemplate {
     pub deleted_by: Option<i32>,
     pub deleted_at: Option<chrono::NaiveDateTime>,
     pub deleted_reason: Option<String>,
-    // join user
-    pub username: Option<String>,
-    // join avatar
-    pub avatar_filename: Option<String>,
-    pub avatar_height: Option<i32>,
-    pub avatar_width: Option<i32>,
 }
 
-impl PostForTemplate {
-    pub fn get_url_token_for_author(&self) -> UrlToken {
-        UrlToken {
-            id: self.user_id,
-            name: match &self.username {
-                Some(name) => name,
-                None => "Guest", // TODO: l10n
-            }
-            .to_owned(),
-            base_url: crate::user::RESOURCE_URL,
-            class: "username author",
-        }
-    }
-}
+impl PostForTemplate {}
 
 #[derive(Template)]
 #[template(path = "post_delete.html")]
@@ -88,7 +70,7 @@ pub struct PostDiffTemplate<'a> {
 pub struct PostHistoryTemplate<'a> {
     pub client: ClientCtx,
     pub post: &'a PostForTemplate,
-    pub revisions: &'a Vec<UgcRevisionLineItem>,
+    pub revisions: &'a Vec<(UgcRevisionLineItem, Option<UserProfile>)>,
 }
 
 #[derive(Template)]
@@ -101,11 +83,9 @@ pub struct PostUpdateTemplate<'a> {
 #[derive(FromQueryResult)]
 pub struct UgcRevisionLineItem {
     pub id: i32,
+    pub user_id: Option<i32>,
     pub ugc_id: i32,
     pub created_at: chrono::NaiveDateTime,
-    // join user
-    pub user_id: Option<i32>,
-    pub username: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -115,20 +95,24 @@ pub struct UgcRevisionDiffFormData {
 }
 
 impl UgcRevisionLineItem {
-    pub async fn get_for_ugc_id(db: &DatabaseConnection, id: i32) -> Result<Vec<Self>, DbErr> {
-        ugc_revisions::Entity::find()
-            .filter(ugc_revisions::Column::UgcId.eq(id))
-            .left_join(user_names::Entity)
-            .column_as(user_names::Column::Name, "username")
-            .into_model::<Self>()
-            .all(db)
-            .await
+    pub async fn get_for_ugc_id(
+        db: &DatabaseConnection,
+        id: i32,
+    ) -> Result<Vec<(Self, Option<UserProfile>)>, DbErr> {
+        crate::user::find_also_user(
+            ugc_revisions::Entity::find().filter(ugc_revisions::Column::UgcId.eq(id)),
+            ugc_revisions::Column::UserId,
+        )
+        .into_model::<UgcRevisionLineItem, UserProfile>()
+        .all(db)
+        .await
     }
 }
 
 #[get("/posts/{post_id}/delete")]
 pub async fn delete_post(client: ClientCtx, path: web::Path<i32>) -> Result<impl Responder, Error> {
-    let post = get_post_for_template(get_db_pool(), path.into_inner())
+    let db = get_db_pool();
+    let (post, user) = get_post_and_author_for_template(db, path.into_inner())
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
@@ -152,7 +136,7 @@ pub async fn destroy_post(
     path: web::Path<i32>,
 ) -> Result<impl Responder, Error> {
     let db = get_db_pool();
-    let post = get_post_for_template(db, path.into_inner())
+    let (post, user) = get_post_and_author_for_template(db, path.into_inner())
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
@@ -211,7 +195,8 @@ pub async fn destroy_post(
 
 #[get("/posts/{post_id}/edit")]
 pub async fn edit_post(client: ClientCtx, path: web::Path<i32>) -> Result<impl Responder, Error> {
-    let post: PostForTemplate = get_post_for_template(get_db_pool(), path.into_inner())
+    let db = get_db_pool();
+    let (post, user) = get_post_and_author_for_template(db, path.into_inner())
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
@@ -235,11 +220,8 @@ pub async fn update_post(
     path: web::Path<i32>,
     form: web::Form<NewPostFormData>,
 ) -> Result<impl Responder, Error> {
-    use crate::ugc::{create_ugc_revision, NewUgcPartial};
-
     let db = get_db_pool();
-
-    let post: PostForTemplate = get_post_for_template(db, path.into_inner())
+    let (post, user) = get_post_and_author_for_template(db, path.into_inner())
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
@@ -255,7 +237,7 @@ pub async fn update_post(
         post.ugc_id,
         NewUgcPartial {
             ip_id: None,
-            user_id: None,
+            user_id: client.get_id(),
             content: &form.content,
         },
     )
@@ -285,11 +267,12 @@ pub async fn view_post_history(
     path: web::Path<i32>,
 ) -> Result<impl Responder, Error> {
     let db = get_db_pool();
-    // TODO: Auth
-    let post = get_post_for_template(db, path.into_inner())
+    let (post, user) = get_post_and_author_for_template(db, path.into_inner())
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
+
+    // TODO: Auth
 
     let revisions = UgcRevisionLineItem::get_for_ugc_id(db, post.ugc_id)
         .await
@@ -310,8 +293,7 @@ pub async fn view_post_history_diff(
     form: web::Form<UgcRevisionDiffFormData>,
 ) -> Result<impl Responder, Error> {
     let db = get_db_pool();
-    // TODO: Auth
-    let post = get_post_for_template(db, path.into_inner())
+    let (post, user) = get_post_and_author_for_template(db, path.into_inner())
         .await
         .map_err(error::ErrorInternalServerError)?
         .ok_or_else(|| error::ErrorNotFound("Post not found."))?;
@@ -321,9 +303,11 @@ pub async fn view_post_history_diff(
         .filter(ugc_revisions::Column::Id.is_in([form.old, form.new]))
         .limit(2)
         .order_by_desc(ugc_revisions::Column::CreatedAt)
-        .all(get_db_pool())
+        .all(db)
         .await
         .map_err(error::ErrorInternalServerError)?;
+
+    // TODO: Auth
 
     if revisions.len() < 2 {
         return Err(error::ErrorBadRequest(
@@ -342,47 +326,58 @@ pub async fn view_post_history_diff(
     .to_response())
 }
 
-pub fn get_avatar_html_for_post(post: &PostForTemplate, size: AttachmentSize) -> Option<String> {
-    if post.avatar_filename.is_some() && post.avatar_width.is_some() && post.avatar_height.is_some()
-    {
-        Some(crate::attachment::get_avatar_html(
-            &post.avatar_filename.to_owned().unwrap(),
-            (
-                &post.avatar_width.to_owned().unwrap(),
-                &post.avatar_height.to_owned().unwrap(),
-            ),
-            size,
-        ))
-    } else {
-        None
-    }
-}
-
 /// Returns the result of a query selecting for a post by id with adjoined templating data.
 /// TODO: It would be nice if this returned just the selector.
-pub async fn get_post_for_template(
+pub async fn get_post_and_author_for_template(
     db: &DatabaseConnection,
     id: i32,
-) -> Result<Option<PostForTemplate>, DbErr> {
-    posts::Entity::find_by_id(id)
-        .left_join(user_names::Entity)
-        .column_as(user_names::Column::Name, "username")
-        .left_join(ugc_revisions::Entity)
-        .column_as(ugc_revisions::Column::Id, "ugc_revision_id")
-        .column_as(ugc_revisions::Column::Content, "content")
-        .column_as(ugc_revisions::Column::IpId, "ip_id")
-        .column_as(ugc_revisions::Column::CreatedAt, "updated_at")
-        .left_join(ugc_deletions::Entity)
-        .column_as(ugc_deletions::Column::UserId, "deleted_by")
-        .column_as(ugc_deletions::Column::DeletedAt, "deleted_at")
-        .column_as(ugc_deletions::Column::Reason, "deleted_reason")
-        .left_join(attachments::Entity)
-        .column_as(attachments::Column::Filename, "avatar_filename")
-        .column_as(attachments::Column::FileHeight, "avatar_height")
-        .column_as(attachments::Column::FileWidth, "avatar_width")
-        .into_model::<PostForTemplate>()
-        .one(db)
-        .await
+) -> Result<Option<(PostForTemplate, Option<UserProfile>)>, DbErr> {
+    crate::user::find_also_user(
+        posts::Entity::find_by_id(id)
+            .left_join(ugc_revisions::Entity)
+            .column_as(ugc_revisions::Column::Id, "ugc_revision_id")
+            .column_as(ugc_revisions::Column::Content, "content")
+            .column_as(ugc_revisions::Column::IpId, "ip_id")
+            .column_as(ugc_revisions::Column::CreatedAt, "updated_at")
+            .left_join(ugc_deletions::Entity)
+            .column_as(ugc_deletions::Column::UserId, "deleted_by")
+            .column_as(ugc_deletions::Column::DeletedAt, "deleted_at")
+            .column_as(ugc_deletions::Column::Reason, "deleted_reason"),
+        posts::Column::UserId,
+    )
+    .into_model::<PostForTemplate, UserProfile>()
+    .one(db)
+    .await
+}
+
+pub async fn get_replies_and_author_for_template(
+    db: &DatabaseConnection,
+    id: i32,
+    page: i32,
+) -> Result<Vec<(PostForTemplate, Option<UserProfile>)>, DbErr> {
+    crate::user::find_also_user(
+        posts::Entity::find()
+            .left_join(ugc_revisions::Entity)
+            .column_as(ugc_revisions::Column::Id, "ugc_revision_id")
+            .column_as(ugc_revisions::Column::Content, "content")
+            .column_as(ugc_revisions::Column::IpId, "ip_id")
+            .column_as(ugc_revisions::Column::CreatedAt, "updated_at")
+            .left_join(ugc_deletions::Entity)
+            .column_as(ugc_deletions::Column::UserId, "deleted_by")
+            .column_as(ugc_deletions::Column::DeletedAt, "deleted_at")
+            .column_as(ugc_deletions::Column::Reason, "deleted_reason"),
+        posts::Column::UserId,
+    )
+    .filter(posts::Column::ThreadId.eq(id))
+    .filter(posts::Column::Position.between(
+        (page - 1) * super::thread::POSTS_PER_PAGE + 1,
+        page * super::thread::POSTS_PER_PAGE,
+    ))
+    .order_by_asc(posts::Column::Position)
+    .order_by_asc(posts::Column::CreatedAt)
+    .into_model::<PostForTemplate, UserProfile>()
+    .all(db)
+    .await
 }
 
 async fn view_post(id: i32) -> Result<HttpResponse, Error> {

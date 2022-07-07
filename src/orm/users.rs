@@ -131,18 +131,3 @@ impl Related<super::ugc_revisions::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
-
-pub struct UserToAvatarAttachment;
-
-impl Linked for UserToAvatarAttachment {
-    type FromEntity = super::users::Entity;
-
-    type ToEntity = super::attachments::Entity;
-
-    fn link(&self) -> Vec<RelationDef> {
-        vec![
-            super::users::Relation::UserAvatar.def(),
-            super::user_avatars::Relation::Attachments.def(),
-        ]
-    }
-}

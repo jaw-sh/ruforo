@@ -16,10 +16,10 @@
         <tbody>
             {% for revision in revisions %}
             <tr>
-                <td><input type="radio" name="old" value="{{ revision.id }}" /></td>
-                <td><input type="radio" name="new" value="{{ revision.id }}" /></td>
-                <td>{{ revision.created_at }}</td>
-                <td>{% if let Some(username) = revision.username %}{{ username }}{% endif %}</td>
+                <td><input type="radio" name="old" value="{{ revision.0.id }}" /></td>
+                <td><input type="radio" name="new" value="{{ revision.0.id }}" /></td>
+                <td>{{ revision.0.created_at }}</td>
+                <td>{% if let Some(user) = revision.1 %}{{ user.name }}{% endif %}</td>
                 <td>View</td>
             </tr>
             {% endfor %}

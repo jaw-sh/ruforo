@@ -6,7 +6,7 @@
         {% when Some with (subtitle) %}<span class="subtitle"> - {{subtitle}}</span>{% when None %}{% endmatch %}</h1>
     {{ paginator.as_html()|safe }}
 
-    {% for post in posts %}
+    {% for (post, user) in posts %}
     {% let post_attachments = attachments.get(post.ugc_id) %}
     {% include "ugc/message.html" %}
     {% endfor %}

@@ -1,8 +1,8 @@
 use crate::db::get_db_pool;
 use crate::middleware::ClientCtx;
-use crate::user::{get_profile_by_id, UserProfile};
+use crate::user::Profile as UserProfile;
 use actix_multipart::Multipart;
-use actix_web::{error, get, post, HttpResponse, Responder};
+use actix_web::{error, get, post, Error, HttpResponse, Responder};
 use askama_actix::{Template, TemplateToResponse};
 use chrono::Utc;
 use sea_orm::entity::*;
@@ -90,17 +90,18 @@ async fn update_avatar(client: ClientCtx, mutipart: Option<Multipart>) -> impl R
 }
 
 #[get("/account")]
-async fn view_account(client: ClientCtx) -> impl Responder {
+async fn view_account(client: ClientCtx) -> Result<impl Responder, Error> {
     if !client.is_user() {
         return Err(error::ErrorUnauthorized(
             "You must be logged in to do that.",
         ));
     }
 
-    let profile = get_profile_by_id(client.get_id().unwrap()).await;
+    let db = get_db_pool();
+    let profile = UserProfile::get_by_id(db, client.get_id().unwrap())
+        .await
+        .map_err(error::ErrorInternalServerError)?
+        .ok_or_else(|| error::ErrorInternalServerError("Unable to find account."))?;
 
-    match profile {
-        Some(profile) => Ok(AccountTemplate { client, profile }.to_response()),
-        None => Err(error::ErrorInternalServerError("Could not load profile.")),
-    }
+    Ok(AccountTemplate { client, profile }.to_response())
 }
