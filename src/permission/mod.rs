@@ -29,7 +29,6 @@ pub const MAX_PERMS: u32 = GROUP_LIMIT * PERM_LIMIT;
 
 use crate::middleware::ClientCtx;
 use dashmap::DashMap;
-use std::sync::Arc;
 
 #[derive(Clone, Debug, Default)]
 pub struct PermissionData {
@@ -112,7 +111,7 @@ impl PermissionData {
     }
 }
 
-pub async fn new() -> Result<Arc<PermissionData>, sea_orm::error::DbErr> {
+pub async fn new() -> Result<PermissionData, sea_orm::error::DbErr> {
     use crate::db::get_db_pool;
     use crate::orm::permission_collections;
     use crate::orm::permission_values;
@@ -195,8 +194,8 @@ pub async fn new() -> Result<Arc<PermissionData>, sea_orm::error::DbErr> {
         }
     }
 
-    Ok(Arc::new(PermissionData {
+    Ok(PermissionData {
         collection: col,
         collection_values: vals,
-    }))
+    })
 }

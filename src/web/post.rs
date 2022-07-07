@@ -41,7 +41,7 @@ pub struct PostForTemplate {
     pub ugc_revision_id: Option<i32>,
     pub content: Option<String>,
     pub ip_id: Option<i32>,
-    // join ugc UgcDeletions
+    // join ugc deletions
     pub deleted_by: Option<i32>,
     pub deleted_at: Option<chrono::NaiveDateTime>,
     pub deleted_reason: Option<String>,

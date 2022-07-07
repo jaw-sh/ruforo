@@ -2,8 +2,7 @@
 <div class="message">
     <div class="message-cell message-cell--author">
         {% if let Some(user) = user %}
-        {% if let Some(avatar_html) = user.get_avatar_html(crate::attachment::AttachmentSize::L) %}{{ avatar_html|safe
-        }}{% endif %}
+        {{ user.get_avatar_html(crate::attachment::AttachmentSize::L)|safe }}
         <div class="username">{{ user.get_url_token()|safe }}</div>
         {% else %}
         {# TODO: l10n #}

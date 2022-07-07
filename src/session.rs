@@ -1,7 +1,7 @@
 use crate::db::get_db_pool;
 use crate::global::get_session_time;
 use crate::orm::sessions;
-use crate::user::ClientUser;
+use crate::user::Profile;
 use actix_web::{get, HttpResponse, Responder};
 use argon2::{
     password_hash::{rand_core::OsRng, SaltString},
@@ -108,9 +108,7 @@ pub async fn authenticate_by_cookie(cookies: &actix_session::Session) -> Option<
         .map(|session| (uuid, session))
 }
 
-pub async fn authenticate_client_by_session(
-    cookies: &actix_session::Session,
-) -> Option<ClientUser> {
+pub async fn authenticate_client_by_session(cookies: &actix_session::Session) -> Option<Profile> {
     let db = get_db_pool();
     let token = match cookies.get::<String>("token") {
         Ok(Some(token)) => token,
@@ -125,12 +123,13 @@ pub async fn authenticate_client_by_session(
         }
     };
 
-    let result = authenticate_by_uuid(get_sess(), &uuid).await;
-
-    match result {
-        Some(session) => ClientUser::fetch_by_user_id(db, session.user_id).await,
-        None => None,
+    if let Some(session) = authenticate_by_uuid(get_sess(), &uuid).await {
+        if let Ok(user) = Profile::get_by_id(db, session.user_id).await {
+            return user;
+        }
     }
+
+    None
 }
 
 /// Accepts a UUID as a string and returns a session, if the UUID can parse and authenticate.

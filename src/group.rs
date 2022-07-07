@@ -1,5 +1,5 @@
 use crate::orm::{groups, user_groups};
-use crate::user::ClientUser;
+use crate::user::Profile as Client;
 use sea_orm::entity::prelude::{DeriveActiveEnum, EnumIter};
 use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult};
 
@@ -25,7 +25,7 @@ pub enum GroupType {
 /// Returns groups which apply to user/guest based on the connection.
 pub async fn get_group_ids_for_client(
     db: &DatabaseConnection,
-    client: &Option<ClientUser>,
+    client: &Option<Client>,
 ) -> Vec<i32> {
     #[derive(FromQueryResult)]
     pub struct GroupId {

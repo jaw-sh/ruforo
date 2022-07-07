@@ -6,27 +6,6 @@ use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult};
 /// Base URL fragment for resource.
 pub static RESOURCE_URL: &str = "members";
 
-/// ORM user data for the request cycle.
-#[derive(Clone, Debug, FromQueryResult)]
-pub struct ClientUser {
-    pub id: i32,
-    pub name: String,
-}
-
-impl ClientUser {
-    pub async fn fetch_by_user_id(db: &DatabaseConnection, id: i32) -> Option<Self> {
-        users::Entity::find_by_id(id)
-            .select_only()
-            .column(users::Column::Id)
-            .left_join(user_names::Entity)
-            .column(user_names::Column::Name)
-            .into_model::<ClientUser>()
-            .one(db)
-            .await
-            .unwrap_or(None)
-    }
-}
-
 pub fn find_also_user<E, C>(sel: Select<E>, col: C) -> SelectTwo<E, users::Entity>
 where
     E: EntityTrait<Column = C>,
@@ -83,19 +62,15 @@ impl Profile {
     }
 
     /// Provides semantically correct HTML for an avatar.
-    pub fn get_avatar_html(&self, size: AttachmentSize) -> Option<String> {
+    pub fn get_avatar_html(&self, size: AttachmentSize) -> String {
         if let (Some(filename), Some(width), Some(height)) = (
             self.avatar_filename.as_ref(),
             self.avatar_width,
             self.avatar_width,
         ) {
-            Some(crate::attachment::get_avatar_html(
-                &filename,
-                (width, height),
-                size,
-            ))
+            crate::attachment::get_avatar_html(&filename, (width, height), size)
         } else {
-            None
+            "".to_owned()
         }
     }
 

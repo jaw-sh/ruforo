@@ -60,8 +60,11 @@
                     <li><a href="/members" class="nav-link">Members</a></li>
                 </ul>
                 <ul class="nav-side">
-                    {% if client.is_user() %}
-                    <li><a href="/account" class="nav-link">{{ client.get_name() }}</a></li>
+                    {% if let Some(user) = client.get_user() %}
+                    <li><a href="/account" class="nav-link">
+                            {{ user.get_avatar_html(crate::attachment::AttachmentSize::S)|safe }}
+                            <span class="username">{{ user.name }}</span>
+                        </a></li>
                     <li><a href="/logout" class="nav-link">Logout</a></li>
                     {% else %}
                     <li><a href="/create_user" class="nav-link">Register</a></li>

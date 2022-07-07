@@ -14,8 +14,7 @@
 
         {% for user in users %}
         <tr>
-            <td>{% if let Some(avatar_html) = user.get_avatar_html(crate::attachment::AttachmentSize::S) %}{{
-                avatar_html|safe }}{% endif %}</td>
+            <td>{{ user.get_avatar_html(crate::attachment::AttachmentSize::S)|safe }}</td>
             <td>{{ user.id }}</td>
             <td>{{ user.get_url_token()|safe }}</td>
             <td>{{ user.created_at.format("%v %r") }}</td>

@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-
 use super::message;
+use crate::user::Profile;
 use actix::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 // Regarding Integers:
 // Database keys should be u32.
@@ -224,15 +224,16 @@ pub mod default {
         }
 
         async fn get_session_from_user_id(&self, id: u32) -> Session {
-            match crate::user::ClientUser::fetch_by_user_id(&self.db, id as i32).await {
-                Some(user) => Session {
+            if let Ok(Some(user)) = Profile::get_by_id(&self.db, id as i32).await {
+                Session {
                     id,
                     username: user.name,
                     avatar_url: "".to_owned(),
                     ignored_users: Vec::new(),
                     is_staff: false,
-                },
-                None => Session::default(),
+                }
+            } else {
+                Session::default()
             }
         }
 

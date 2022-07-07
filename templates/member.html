@@ -2,8 +2,7 @@
 
 {% block content %}
 <div>
-    {% if let Some(avatar_html) = user.get_avatar_html(crate::attachment::AttachmentSize::L) %}{{ avatar_html|safe }}{%
-    endif %}
+    {{ user.get_avatar_html(crate::attachment::AttachmentSize::L)|safe }}
     <h2>{{ user.get_url_token()|safe }}</h2>
 </div>
 {% endblock %}
