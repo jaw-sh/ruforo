@@ -2,10 +2,9 @@ use crate::db::get_db_pool;
 use crate::permission::PermissionData;
 use crate::user::Profile;
 use actix_session::Session;
-use actix_utils::future::{ok, Ready};
+use actix_utils::future::{err, ok, Ready};
 use actix_web::dev::{Extensions, Payload, Service, ServiceRequest, ServiceResponse, Transform};
 use actix_web::{web::Data, Error, FromRequest, HttpMessage, HttpRequest};
-use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
@@ -13,28 +12,50 @@ use std::time::{Duration, Instant};
 /// Distinct from ClientCtx because it is defined through request data.
 #[derive(Clone, Debug)]
 pub struct ClientCtxInner {
+    /// User data. Optional. None is a guest user.
     pub client: Option<Profile>,
+    /// List of user group ids. Guests may receive unregistered/portal roles.
     pub groups: Vec<i32>,
+    /// Permission data.
+    pub permissions: Data<PermissionData>,
+    /// Randomly generated string for CSR.
     pub nonce: String,
-    pub permissions: Option<Data<PermissionData>>,
+    /// Time the request started for page load statistics.
     pub request_start: Instant,
 }
-
-type ClientCtxBox = Arc<ClientCtxInner>;
 
 impl Default for ClientCtxInner {
     fn default() -> Self {
         Self {
-            client: None,
+            // Guests and users.
+            permissions: Data::new(PermissionData::default()),
             groups: Vec::new(),
+            // Only users.
+            client: None,
+            // Generally left default.
             nonce: Self::nonce(),
-            permissions: None,
             request_start: Instant::now(),
         }
     }
 }
 
 impl ClientCtxInner {
+    pub async fn from_session(session: &Session, permissions: Data<PermissionData>) -> Self {
+        use crate::group::get_group_ids_for_client;
+        use crate::session::authenticate_client_by_session;
+
+        let db = get_db_pool();
+        let client = authenticate_client_by_session(session).await;
+        let groups = get_group_ids_for_client(db, &client).await;
+
+        ClientCtxInner {
+            client,
+            groups,
+            permissions,
+            ..Default::default()
+        }
+    }
+
     /// Returns a hash unique to each request used for CSP.
     /// See: <https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/nonce>
     /// and <https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP>
@@ -63,29 +84,39 @@ impl ClientCtxInner {
 /// Client context passed to routes.
 /// Wraps ClientCtxInner, which is set at the beginning of the request.
 #[derive(Clone, Debug)]
-pub struct ClientCtx(ClientCtxBox);
+pub struct ClientCtx(Data<ClientCtxInner>);
 
 impl Default for ClientCtx {
     fn default() -> Self {
-        Self(Arc::new(ClientCtxInner::default()))
+        Self(Data::new(ClientCtxInner::default()))
     }
 }
 
 impl ClientCtx {
-    fn get_client_ctx(extensions: &mut Extensions, permissions: &Data<PermissionData>) -> Self {
-        match extensions.get::<Arc<ClientCtxInner>>() {
-            // Existing record in extensions; pull it.
+    /// Returns instance of Self with components required for ClientCtxInner.
+    pub async fn from_session(session: &Session, permissions: Data<PermissionData>) -> Self {
+        Self(Data::new(
+            ClientCtxInner::from_session(session, permissions).await,
+        ))
+    }
+
+    pub fn get_or_default_from_extensions(
+        extensions: &mut Extensions,
+        permissions: Data<PermissionData>,
+    ) -> Self {
+        match extensions.get::<Data<ClientCtxInner>>() {
+            // Existing record in extensions; pull it and return clone.
             Some(cbox) => Self(cbox.clone()),
             // No existing record; create and insert it.
             None => {
-                let inner = Arc::new(ClientCtxInner {
+                let cbox = Data::new(ClientCtxInner {
                     // Add permission Arc reference to our inner value.
-                    permissions: Some(permissions.clone()),
+                    permissions: permissions,
                     ..Default::default()
                 });
                 // Insert ClientCtx into extensions jar.
-                extensions.insert(inner.clone());
-                Self(inner)
+                extensions.insert(cbox.clone());
+                Self(cbox)
             }
         }
     }
@@ -118,18 +149,7 @@ impl ClientCtx {
     }
 
     pub fn can(&self, tag: &str) -> bool {
-        match &self.0.permissions {
-            // Permission data present, evaluate
-            Some(permissions) => permissions.can(self, tag),
-            // Permission data not present?
-            None => {
-                log::warn!(
-                    "Bad client permission check for {:?} - no permission data!?",
-                    self.0.client
-                );
-                false
-            }
-        }
+        self.0.permissions.can(self, tag)
     }
 
     pub fn can_post_in_thread(&self, _thread: &crate::orm::threads::Model) -> bool {
@@ -158,6 +178,10 @@ impl ClientCtx {
         &self.0.nonce
     }
 
+    pub fn get_permissions(&self) -> &Data<PermissionData> {
+        &self.0.permissions
+    }
+
     /// Returns Duration representing request time.
     pub fn request_time(&self) -> Duration {
         Instant::now() - self.0.request_start
@@ -184,14 +208,14 @@ impl FromRequest for ClientCtx {
     /// Create a Self from request parts asynchronously.
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
         if let Some(perm_arc) = req.app_data::<Data<PermissionData>>() {
-            ok(ClientCtx::get_client_ctx(
+            ok(ClientCtx::get_or_default_from_extensions(
                 &mut req.extensions_mut(),
-                perm_arc,
+                perm_arc.clone(),
             ))
-        }
-        //
-        else {
-            ok(ClientCtx::default())
+        } else {
+            err(actix_web::error::ErrorServiceUnavailable(
+                "Permission data is not loaded.",
+            ))
         }
     }
 }
@@ -220,7 +244,7 @@ where
 pub struct ClientCtxMiddleware<S> {
     service: S,
     #[allow(dead_code)]
-    inner: ClientCtxBox,
+    inner: Data<ClientCtxInner>,
 }
 
 impl<S, B> Service<ServiceRequest> for ClientCtxMiddleware<S>
@@ -240,7 +264,7 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         // Borrows of `req` must be done in a precise way to avoid conflcits. This order is important.
         let (httpreq, payload) = req.into_parts();
-        let cookies = Session::extract(&httpreq).into_inner();
+        let session = Session::extract(&httpreq).into_inner();
         let req = ServiceRequest::from_parts(httpreq, payload);
 
         // If we do not have permission data there is no client interface to access.
@@ -248,29 +272,14 @@ where
             let mut ext = req.extensions_mut();
             let perm_arc = perm_arc.clone();
 
-            futures::executor::block_on(async move {
-                use crate::group::get_group_ids_for_client;
-                use crate::session::authenticate_client_by_session;
-
-                match cookies {
-                    Ok(cookies) => {
-                        let client = authenticate_client_by_session(&cookies).await;
-                        let groups = get_group_ids_for_client(get_db_pool(), &client).await;
-
-                        let ctx = Arc::new(ClientCtxInner {
-                            client,
-                            groups,
-                            permissions: Some(perm_arc),
-                            ..Default::default()
-                        });
-
-                        ext.insert(ctx);
-                    }
-                    Err(e) => {
-                        log::error!("ClientCtxMiddleware: Session::extract(): {}", e);
-                    }
-                };
-            });
+            match session {
+                Ok(session) => futures::executor::block_on(async move {
+                    ext.insert(Data::new(
+                        ClientCtxInner::from_session(&session, perm_arc).await,
+                    ));
+                }),
+                Err(err) => log::error!("Unable to extract Session data in middleware: {}", err),
+            }
         }
 
         self.service.call(req)

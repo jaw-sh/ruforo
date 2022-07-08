@@ -170,7 +170,7 @@ pub async fn post_login(
         .map_err(|_| error::ErrorInternalServerError("middleware error"))?;
 
     Ok(LoginTemplate {
-        client,
+        client: ClientCtx::from_session(&cookies, client.get_permissions().clone()).await,
         user_id: Some(user_id),
         logged_in: true,
         username: Some(&form.username),
