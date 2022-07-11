@@ -159,7 +159,6 @@ impl Actor for ChatServer {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         ctx.set_mailbox_capacity(32);
-        System::current().stop();
     }
 }
 
@@ -364,6 +363,7 @@ impl Handler<message::Post> for ChatServer {
 
     fn handle(&mut self, msg: message::Post, _: &mut Context<Self>) -> Self::Result {
         if msg.session.can_send_message() {
+            let id = msg.id;
             let layer = self.layer.to_owned();
             let session = msg.session.to_owned();
 
@@ -371,16 +371,21 @@ impl Handler<message::Post> for ChatServer {
                 async move { layer.insert_chat_message(&msg).await }
                     .into_actor(self)
                     .map(move |message, actor, _| {
-                        let room_id = message.room_id;
+                        if let Some(message) = message {
+                            let room_id = message.room_id;
 
-                        actor.send_message_to_room(
-                            room_id,
-                            serde_json::to_string(&message::SanitaryPosts {
-                                messages: vec![actor
-                                    .prepare_message(implement::Author::from(&session), message)],
-                            })
-                            .expect("message::Post serialize failure"),
-                        );
+                            actor.send_message_to_room(
+                                room_id,
+                                serde_json::to_string(&message::SanitaryPosts {
+                                    messages: vec![actor
+                                        .prepare_message(implement::Author::from(&session), message)],
+                                })
+                                .expect("message::Post serialize failure"),
+                            );
+                        }
+                        else {
+                            actor.send_message_to_conn(id, "Failed to send message.".to_string());
+                        }
                     }),
             )
         } else {

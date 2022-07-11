@@ -18,6 +18,8 @@ pub struct Model {
     pub is_admin: u8,
     pub is_banned: u8,
     pub is_staff: u8,
+    #[sea_orm(column_type = "Text")]
+    pub user_state: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

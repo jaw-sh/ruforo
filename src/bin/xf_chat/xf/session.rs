@@ -41,6 +41,38 @@ impl Default for XfSession {
     }
 }
 
+pub async fn can_send_message(db: &DatabaseConnection, id: u32) -> bool {
+    if id > 0 {
+        #[allow(dead_code)]
+        #[derive(FromQueryResult)]
+        struct XfId {
+            pub id: u32,
+        }
+
+        match user::Entity::find_by_id(id)
+            .select_only()
+            .column_as(user::Column::UserId, "id")
+            .filter(user::Column::UserId.eq(id))
+            .filter(user::Column::UserState.eq("valid"))
+            .filter(user::Column::IsBanned.eq(false))
+            .into_model::<XfId>()
+            .one(db)
+            .await
+        {
+            Ok(res) => match res {
+                Some(_) => true,
+                None => false,
+            },
+            Err(err) => {
+                log::warn!("MySQL Error: {:?}", err);
+                false
+            }
+        }
+    } else {
+        false
+    }
+}
+
 #[allow(non_snake_case)]
 #[derive(Debug, Deserialize, Eq, PartialEq)]
 struct XfSessionSerialized {
@@ -87,6 +119,7 @@ pub async fn get_session_with_user_id(db: &DatabaseConnection, id: u32) -> imple
             .column(user::Column::AvatarDate)
             .column(user::Column::IsStaff)
             .filter(user::Column::UserId.eq(id))
+            .filter(user::Column::UserState.eq("valid"))
             .filter(user::Column::IsBanned.eq(false))
             .into_model::<XfSession>()
             .one(db)
@@ -95,7 +128,7 @@ pub async fn get_session_with_user_id(db: &DatabaseConnection, id: u32) -> imple
             Ok(res) => match res {
                 Some(session) => session,
                 None => {
-                    log::warn!("No result for user id {:?}", id);
+                    log::debug!("No result for user id {:?} (banned / invalid?)", id);
                     XfSession::default()
                 }
             },

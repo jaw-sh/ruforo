@@ -155,6 +155,7 @@ impl From<&serde_json::Value> for SpriteParams {
 
 #[async_trait::async_trait]
 pub trait ChatLayer {
+    async fn can_send_message(&self, session: &Session) -> bool;
     async fn can_view(&self, session_id: u32, room_id: u32) -> bool;
     async fn delete_message(&self, id: u32);
     async fn edit_message(&self, id: u32, author: Author, message: String) -> Option<Message>;
@@ -164,7 +165,7 @@ pub trait ChatLayer {
     async fn get_session_from_user_id(&self, id: u32) -> Session;
     async fn get_smilie_list(&self) -> Vec<Smilie>;
     fn get_user_id_from_request(&self, req: &actix_web::HttpRequest) -> u32;
-    async fn insert_chat_message(&self, message: &message::Post) -> Message;
+    async fn insert_chat_message(&self, message: &message::Post) -> Option<Message>;
 }
 
 // When we diverge from the XF compat, this can probably be compressed out of a trait.
@@ -182,6 +183,10 @@ pub mod default {
 
     #[async_trait::async_trait]
     impl super::ChatLayer for Layer {
+        async fn can_send_message(&self, _: &Session) -> bool {
+            true
+        }
+
         async fn can_view(&self, _: u32, _: u32) -> bool {
             true
         }
@@ -244,18 +249,18 @@ pub mod default {
             }
         }
 
-        async fn insert_chat_message(&self, message: &message::Post) -> Message {
+        async fn insert_chat_message(&self, message: &message::Post) -> Option<Message> {
             let mut rng = rand::thread_rng();
             let now = SystemTime::UNIX_EPOCH;
 
-            Message {
+            Some(Message {
                 user_id: message.session.id,
                 room_id: message.room_id,
                 message: message.message.to_owned(),
                 message_date: now.elapsed().unwrap().as_secs() as i32,
                 message_edit_date: 0,
                 message_id: rng.gen(),
-            }
+            })
         }
     }
 }

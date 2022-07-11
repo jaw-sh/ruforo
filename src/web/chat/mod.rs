@@ -22,6 +22,7 @@ pub const CLIENT_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
     conf.service(view_chat_socket).service(view_chat);
 }
+
 /// Entry point for our websocket route
 #[get("/chat.ws")]
 pub async fn view_chat_socket(
@@ -39,6 +40,36 @@ pub async fn view_chat_socket(
         let user_id = layer.get_user_id_from_request(&req);
         layer.get_session_from_user_id(user_id).await
     };
+
+    ws::start(
+        connection::Connection {
+            id: usize::MIN, // mutated by server
+            session,
+            hb: Instant::now(),
+            room: None,
+            addr: req
+                .app_data::<Addr<server::ChatServer>>()
+                .expect("No chat server.")
+                .clone(),
+            last_command: Instant::now(),
+        },
+        &req,
+        stream,
+    )
+}
+
+/// Entry point for our websocket route (xf compat)
+#[get("/chat.ws")]
+pub async fn view_xf_chat_socket(
+    req: HttpRequest,
+    stream: web::Payload,
+) -> Result<HttpResponse, Error> {
+    let layer = req
+        .app_data::<Data<Arc<dyn ChatLayer>>>()
+        .expect("No chat layer.");
+
+    let user_id = layer.get_user_id_from_request(&req);
+    let session = layer.get_session_from_user_id(user_id).await;
 
     ws::start(
         connection::Connection {
