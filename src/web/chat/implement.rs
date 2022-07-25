@@ -1,6 +1,8 @@
 use super::message;
 use crate::user::Profile;
 use actix::prelude::*;
+use chrono::NaiveDateTime;
+use sea_orm::FromQueryResult;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -10,7 +12,7 @@ use std::collections::HashMap;
 // WS connections are usize.
 
 /// Author data exposed to the client through chat.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, FromQueryResult)]
 pub struct Author {
     pub id: u32,
     pub username: String,
@@ -58,12 +60,36 @@ pub struct Connection {
     pub session: Session,
 }
 
+#[derive(Debug, FromQueryResult)]
 pub struct Message {
     pub user_id: u32,
     pub room_id: u32,
     pub message_id: u32,
-    pub message_date: i32,
-    pub message_edit_date: i32,
+    pub message_date: i64,
+    pub message_edit_date: i64,
+    pub message: String,
+}
+
+impl From<MessagePgSql> for Message {
+    fn from(other: MessagePgSql) -> Self {
+        Self {
+            user_id: other.user_id as u32,
+            room_id: other.room_id as u32,
+            message_id: other.message_id as u32,
+            message_date: other.message_date.timestamp(),
+            message_edit_date: other.message_edit_date.timestamp(),
+            message: other.message,
+        }
+    }
+}
+
+#[derive(Debug, FromQueryResult)]
+pub struct MessagePgSql {
+    pub user_id: i32,
+    pub room_id: i32,
+    pub message_id: i32,
+    pub message_date: NaiveDateTime,
+    pub message_edit_date: NaiveDateTime,
     pub message: String,
 }
 
@@ -173,9 +199,10 @@ pub mod default {
     use super::super::message;
     use super::*;
     use crate::middleware::ClientCtx;
-    use rand::Rng;
-    use sea_orm::DatabaseConnection;
-    use std::time::SystemTime;
+    use crate::orm::{chat_messages, chat_rooms, ugc_revisions};
+    use crate::ugc::{create_ugc, NewUgcPartial};
+    use crate::user::{find_also_user, Profile as UserProfile};
+    use sea_orm::{entity::*, query::*, DatabaseConnection, EntityTrait, QuerySelect};
 
     pub struct Layer {
         pub db: DatabaseConnection,
@@ -205,9 +232,20 @@ pub mod default {
             None
         }
 
-        async fn get_message(&self, _: u32) -> Option<Message> {
-            // TODO
-            None
+        async fn get_message(&self, id: u32) -> Option<super::Message> {
+            chat_messages::Entity::find_by_id(id as i32)
+                .select_only()
+                .column_as(chat_messages::Column::UserId, "user_id")
+                .column_as(chat_messages::Column::ChatRoomId, "room_id")
+                .column_as(chat_messages::Column::Id, "message_id")
+                .column_as(chat_messages::Column::CreatedAt, "message_date")
+                .left_join(ugc_revisions::Entity)
+                .column_as(ugc_revisions::Column::Content, "message")
+                .column_as(ugc_revisions::Column::CreatedAt, "message_edit_date")
+                .into_model::<super::Message>()
+                .one(&self.db)
+                .await
+                .unwrap_or_default()
         }
 
         async fn get_room_list(&self) -> Vec<Room> {
@@ -220,8 +258,48 @@ pub mod default {
             }]
         }
 
-        async fn get_room_history(&self, _: u32, _: usize) -> Vec<(Author, Message)> {
-            Vec::new()
+        async fn get_room_history(&self, id: u32, limit: usize) -> Vec<(Author, super::Message)> {
+            let sneed = find_also_user(
+                chat_messages::Entity::find()
+                    .select_only()
+                    .column_as(chat_messages::Column::UserId, "user_id")
+                    .column_as(chat_messages::Column::ChatRoomId, "room_id")
+                    .column_as(chat_messages::Column::Id, "message_id")
+                    .column_as(chat_messages::Column::CreatedAt, "message_date")
+                    .left_join(ugc_revisions::Entity)
+                    .column_as(ugc_revisions::Column::Content, "message")
+                    .column_as(ugc_revisions::Column::CreatedAt, "message_edit_date"),
+                chat_messages::Column::UserId,
+            )
+            .filter(chat_messages::Column::ChatRoomId.eq(id as i32))
+            .limit(limit as u64)
+            .order_by_desc(chat_messages::Column::CreatedAt)
+            .into_model::<super::MessagePgSql, UserProfile>()
+            .all(&self.db)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .rev()
+            .map(|(message, user)| {
+                (
+                    match user {
+                        Some(user) => super::Author {
+                            id: user.id as u32,
+                            username: user.name,
+                            avatar_url: String::new(),
+                        },
+                        None => super::Author {
+                            id: 0,
+                            username: "Guest".to_owned(),
+                            avatar_url: String::new(),
+                        },
+                    },
+                    message.into(),
+                )
+            })
+            .collect();
+
+            sneed
         }
 
         async fn get_smilie_list(&self) -> Vec<Smilie> {
@@ -249,17 +327,52 @@ pub mod default {
             }
         }
 
-        async fn insert_chat_message(&self, message: &message::Post) -> Option<Message> {
-            let mut rng = rand::thread_rng();
-            let now = SystemTime::UNIX_EPOCH;
+        async fn insert_chat_message(&self, message: &message::Post) -> Option<super::Message> {
+            let ugc_revision = match create_ugc(
+                &self.db,
+                NewUgcPartial {
+                    ip_id: None,
+                    user_id: Some(message.session.id as i32),
+                    content: &message.message,
+                },
+            )
+            .await
+            {
+                Ok(model) => model,
+                Err(err) => {
+                    log::error!("Failed to insert chat_message ugc: {:?}", err);
+                    return None;
+                }
+            };
 
-            Some(Message {
-                user_id: message.session.id,
-                room_id: message.room_id,
-                message: message.message.to_owned(),
-                message_date: now.elapsed().unwrap().as_secs() as i32,
+            let chat_message = match (chat_messages::ActiveModel {
+                id: ActiveValue::NotSet,
+                chat_room_id: ActiveValue::Set(message.room_id as i32),
+                ugc_id: ActiveValue::Set(ugc_revision.ugc_id),
+                user_id: ActiveValue::Set(Some(message.session.id as i32)),
+                created_at: ActiveValue::Set(ugc_revision.created_at),
+            }
+            .insert(&self.db)
+            .await)
+            {
+                Ok(model) => model,
+                Err(err) => {
+                    log::error!(
+                        "Failed to insert chat_message model in room {}: {:?}",
+                        message.room_id,
+                        err
+                    );
+                    return None;
+                }
+            };
+
+            Some(super::Message {
+                user_id: chat_message.user_id.unwrap_or(0) as u32,
+                room_id: chat_message.chat_room_id as u32,
+                message: ugc_revision.content,
+                message_date: ugc_revision.created_at.timestamp(),
                 message_edit_date: 0,
-                message_id: rng.gen(),
+                message_id: chat_message.id as u32,
             })
         }
     }

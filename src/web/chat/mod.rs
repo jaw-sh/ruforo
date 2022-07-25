@@ -113,7 +113,7 @@ pub async fn view_chat(client: ClientCtx, req: HttpRequest) -> impl Responder {
                 chat_ws_url: \"{}\",
                 user: {},
             }}",
-            std::env::var("XF_WS_URL").expect("XF_WS_URL needs to be set in .env"),
+            std::env::var("CHAT_WS_URL").expect("CHAT_WS_URL needs to be set in .env"),
             serde_json::to_string(&session).expect("XfSession stringify failed"),
         ),
         rooms: layer.get_room_list().await,

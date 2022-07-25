@@ -2,6 +2,8 @@
 
 pub use super::attachment_thumbnails::Entity as AttachmentThumbnails;
 pub use super::attachments::Entity as Attachments;
+pub use super::chat_messages::Entity as ChatMessages;
+pub use super::chat_rooms::Entity as ChatRooms;
 pub use super::forum_permissions::Entity as ForumPermissions;
 pub use super::forums::Entity as Forums;
 pub use super::groups::Entity as Groups;

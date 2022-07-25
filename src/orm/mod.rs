@@ -4,6 +4,8 @@ pub mod prelude;
 
 pub mod attachment_thumbnails;
 pub mod attachments;
+pub mod chat_messages;
+pub mod chat_rooms;
 pub mod forum_permissions;
 pub mod forums;
 pub mod groups;

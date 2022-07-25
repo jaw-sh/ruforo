@@ -112,9 +112,9 @@ pub struct SanitaryPost {
     /// Message ID from database
     pub message_id: u32,
     /// Timestamp of last message edit
-    pub message_edit_date: i32,
+    pub message_edit_date: i64,
     /// Timestamp of message creation
-    pub message_date: i32,
+    pub message_date: i64,
     /// Original message as the user entered
     pub message_raw: String,
     /// Recipient room

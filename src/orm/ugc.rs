@@ -12,6 +12,8 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::chat_messages::Entity")]
+    ChatMessages,
     #[sea_orm(has_many = "super::posts::Entity")]
     Posts,
     #[sea_orm(has_many = "super::ugc_attachments::Entity")]
@@ -32,6 +34,12 @@ pub enum Relation {
         on_delete = "NoAction"
     )]
     UgcRevisions,
+}
+
+impl Related<super::chat_messages::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ChatMessages.def()
+    }
 }
 
 impl Related<super::posts::Entity> for Entity {
