@@ -16,7 +16,7 @@
  - Anti Free-Speech
  - Child-Abusing
  - Homophilia
- - Transhilia
+ - Transphilia
  - People-Killing
 
 ## Contributions
