@@ -106,7 +106,7 @@ fn parse_url(input: &str) -> IResult<&str, Token> {
 }
 
 fn tag_and_argument(input: &str) -> IResult<&str, &str> {
-    recognize(many1(none_of("\r\n[]")))(input)
+    recognize(many1(none_of("\r\n[]<>")))(input)
 }
 
 fn token_from_argument(input: &str) -> IResult<&str, (&str, (&str, Option<&str>))> {
