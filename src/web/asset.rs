@@ -89,7 +89,7 @@ async fn view_file_by_hash(req: HttpRequest) -> impl Responder {
 async fn view_public_file(req: HttpRequest) -> Result<fs::NamedFile, Error> {
     let mut path: PathBuf = PathBuf::from("public/assets/");
     let req_path: PathBuf = req.match_info().query("filename").parse().unwrap();
-    path.push(req_path);
+    path.push(req_path.file_name().unwrap());
 
     let file = fs::NamedFile::open(path)?;
 
