@@ -52,14 +52,14 @@ impl Constructor {
                     if render {
                         contents.push_str(&self.build(child))
                     } else {
-                        contents.push_str(Self::sanitize(child.borrow().get_raw()));
+                        contents.push_str(&Self::sanitize(child.borrow().get_raw()));
                     }
                 }
             }
             // No, so our contents must be handled literally.
             else {
                 for child in node.children() {
-                    contents.push_str(Self::sanitize(child.borrow().get_raw()));
+                    contents.push_str(&Self::sanitize(child.borrow().get_raw()));
                 }
             }
 
