@@ -27,8 +27,9 @@ PROJECT_NAME is a traditional web forum built in Rust.
    + NOTE: AWS variables will likely be migrated to DB
  - PostgreSQL
    + Required. Database agnosticism not planned.
- - MinIO
-   + Suggested. Self-hosted S3 compatible FOSS.
+ - S3 Storage
+   + Any S3-compatible storage API for attachments.
+   + Suggested to use [MinIO](https://min.io/) (FOSS + Self-Hosted)
  - node and webpack
    + Install [npm](https://nodejs.org/en/download/).
    + Run `npm install` from the root directory to install node dependencies.

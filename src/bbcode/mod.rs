@@ -211,5 +211,6 @@ mod tests {
 
         assert_eq!("&lt;b&gt;Test&lt;/b&gt;", parse("<b>Test</b>"));
         assert_eq!("[xxx&lt;iframe&gt;]Test[/xxx&lt;iframe&gt;]", parse("[xxx<iframe>]Test[/xxx<iframe>]"));
+        assert_eq!("[url=javascript:alert(String.fromCharCode(88,83,83))]https://zombo.com[/url]", parse("[url=javascript:alert(String.fromCharCode(88,83,83))]https://zombo.com[/url]"))
     }
 }

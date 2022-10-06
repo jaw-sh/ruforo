@@ -35,7 +35,13 @@ impl super::Tag {
         let mut url: Option<Url> = None;
 
         if let Some(arg) = el.get_argument() {
-            url = url_arg(arg);
+            url = match url_arg(arg).transpose() {
+                Ok(url) => url,
+                Err(_) => {
+                    el.set_broken();
+                    return contents;
+                }
+            }
             // TODO: Check for unfurl="true/false"
         }
 
@@ -60,11 +66,15 @@ impl super::Tag {
     }
 }
 
-fn url_arg(input: &str) -> Option<Url> {
+fn url_arg(input: &str) -> Option<Result<Url, &str>> {
     let input = input.strip_prefix('=')?;
 
     match Url::parse(input) {
-        Ok(url) => Some(url),
+        Ok(url) => Some(match url.scheme() {
+            "https" => Ok(url),
+            "http" => Ok(url),
+            _ => Err("Unsupported scheme"),
+        }),
         Err(_) => None,
     }
 }
