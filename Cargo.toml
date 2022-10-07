@@ -53,7 +53,7 @@ redis = { version = "^0.21", features = [
 regex = "1.5" # XF Session parser
 rusoto_core = "^0.48"
 rusoto_s3 = "^0.48"
-sea-orm = { version = "^0.9", features = [
+sea-orm = { version = "^0.8", features = [
     "sqlx-postgres",
     "sqlx-mysql",
     "runtime-actix-rustls",
