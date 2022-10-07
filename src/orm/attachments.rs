@@ -18,7 +18,7 @@ pub struct Model {
     pub file_width: Option<i32>,
     #[sea_orm(column_type = "Text")]
     pub mime: String,
-    pub meta: Json,
+    pub meta: serde_json::Value,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

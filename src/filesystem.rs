@@ -8,7 +8,7 @@ use chrono::Utc;
 use futures::{StreamExt, TryStreamExt};
 use mime::Mime;
 use once_cell::sync::OnceCell;
-use sea_orm::{entity::*, query::*, FromQueryResult, JsonValue, QueryFilter};
+use sea_orm::{entity::*, query::*, FromQueryResult, QueryFilter};
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -410,7 +410,7 @@ pub async fn insert_payload_as_attachment(
         file_width: Set(dimensions.0),
         file_height: Set(dimensions.1),
         mime: Set(payload.mime.to_string()),
-        meta: Set(JsonValue::Null),
+        meta: Set(sea_orm::query::JsonValue::Null),
         ..Default::default()
     };
 
