@@ -210,7 +210,21 @@ mod tests {
         use super::parse;
 
         assert_eq!("&lt;b&gt;Test&lt;/b&gt;", parse("<b>Test</b>"));
-        assert_eq!("[xxx&lt;iframe&gt;]Test[/xxx&lt;iframe&gt;]", parse("[xxx<iframe>]Test[/xxx<iframe>]"));
-        assert_eq!("[url=javascript:alert(String.fromCharCode(88,83,83))]https://zombo.com[/url]", parse("[url=javascript:alert(String.fromCharCode(88,83,83))]https://zombo.com[/url]"))
+        assert_eq!(
+            "[xxx&lt;iframe&gt;]Test[/xxx&lt;iframe&gt;]",
+            parse("[xxx<iframe>]Test[/xxx<iframe>]")
+        );
+        assert_eq!(
+            "[url=javascript:alert(String.fromCharCode(88,83,83))]https://zombo.com[/url]",
+            parse("[url=javascript:alert(String.fromCharCode(88,83,83))]https://zombo.com[/url]")
+        );
+
+        assert_eq!("<a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"http://exa&quot;mple.com/\">test</a>", parse("[url=http://exa\"mple.com]test[/url]"));
+        assert_eq!("<a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"http://exa&quot;mple.com/\">test</a>", parse("[url=http://exa%22mple.com]test[/url]"));
+        assert_eq!("<a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"http://exa&quot;mple.com/\">http://exa%22mple.com</a>", parse("[url]http://exa%22mple.com[/url]"));
+        assert_eq!(
+            "<img src=\"http://exa&quot;mple.com/\" />",
+            parse("[img]http://exa%22mple.com[/img]")
+        );
     }
 }

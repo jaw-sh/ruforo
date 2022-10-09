@@ -13,7 +13,7 @@ impl super::Tag {
             match url.scheme() {
                 "http" | "https" => {
                     el.clear_contents();
-                    return format!("<img src=\"{}\" />", url.as_str());
+                    return format!("<img src=\"{}\" />", sanitize_url_for_attribute(&url));
                 }
                 _ => {}
             }
@@ -54,7 +54,7 @@ impl super::Tag {
         match url {
             Some(url) => format!(
                 "<a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"{}\">{}",
-                url.as_str(),
+                sanitize_url_for_attribute(&url),
                 contents
             ),
             // If we have no content, we are broken.
@@ -77,4 +77,8 @@ fn url_arg(input: &str) -> Option<Result<Url, &str>> {
         }),
         Err(_) => None,
     }
+}
+
+fn sanitize_url_for_attribute(url: &Url) -> String {
+    url.as_str().replace("\"", "&quot;")
 }
