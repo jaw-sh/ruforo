@@ -3,7 +3,7 @@ extern crate nom;
 mod embed;
 mod font;
 
-use super::Element;
+use super::{Element, SafeHtml};
 use std::{borrow::BorrowMut, cell::RefMut};
 
 pub enum Tag {
@@ -48,23 +48,23 @@ impl Tag {
     }
 
     /// Sets el to broken, returns [tagname].
-    pub fn open_broken_tag(mut el: RefMut<Element>) -> String {
+    pub fn open_broken_tag(mut el: RefMut<Element>) -> SafeHtml {
         el.borrow_mut().set_broken();
         el.to_open_str()
     }
 
     /// Returns <tagname>
-    pub fn open_simple_tag(tag: &str) -> String {
-        format!("<{}>", &tag)
+    pub fn open_simple_tag(tag: &'static str) -> SafeHtml {
+        SafeHtml::with_capacity(16) + "<" + tag + ">"
     }
 
     /// Returns </tagname>
-    pub fn close_simple_tag(tag: &str) -> String {
-        format!("</{}>", &tag)
+    pub fn close_simple_tag(tag: &'static str) -> SafeHtml {
+        SafeHtml::with_capacity(16) + "</" + tag + ">"
     }
 
     /// Returns <tagname />
-    pub fn self_closing_tag(tag: &str) -> String {
-        format!("<{} />", &tag)
+    pub fn self_closing_tag(tag: &'static str) -> SafeHtml {
+        SafeHtml::with_capacity(16) + "<" + tag + " />"
     }
 }
