@@ -1,8 +1,8 @@
 // This is dark magic which interprets the XF2 PHP-serialized session keys.
 
+use super::orm::session;
 use super::orm::user;
 use super::orm::user_ignored;
-use redis::Commands;
 use ruforo::web::chat::implement;
 use sea_orm::entity::prelude::*;
 use sea_orm::{DatabaseConnection, FromQueryResult, QuerySelect};
@@ -79,33 +79,39 @@ struct XfSessionSerialized {
     userId: u32,
 }
 
-pub fn get_user_id_from_cookie(
-    redis: &mut redis::Connection,
+pub async fn get_user_id_from_cookie(
+    db: &DatabaseConnection,
     cookie: &actix_web::cookie::Cookie<'_>,
 ) -> u32 {
-    let session_value: redis::RedisResult<String> =
-        redis.get(format!("xf[session_{}][1]", cookie.value()));
-
-    match session_value {
-        Ok(session) => {
-            //use serde_php::from_bytes;
-            //match from_bytes::<XfSessionSerialized>(str::replace(&session, "\\", "").as_bytes()) {
-            match regex::Regex::new(r#"s:6:\\?"?userId\\?"?;i:(?P<user_id>\d+);"#) {
-                Ok(ex) => match ex.captures(&session) {
-                    Some(captures) => {
-                        log::debug!("User {:?} has authorized.", &captures["user_id"]);
-                        captures["user_id"].parse::<u32>().unwrap()
+    match session::Entity::find_by_id(cookie.value().as_bytes().to_vec())
+        .one(db)
+        .await
+    {
+        Ok(session) => match session {
+            Some(session) => {
+                //use serde_php::from_bytes;
+                //match from_bytes::<XfSessionSerialized>(str::replace(&session, "\\", "").as_bytes()) {
+                match regex::Regex::new(r#"s:6:\\?"?userId\\?"?;i:(?P<user_id>\d+);"#) {
+                    Ok(ex) => match ex.captures(&String::from_utf8_lossy(&session.session_id)) {
+                        Some(captures) => {
+                            log::debug!("User {:?} has authorized.", &captures["user_id"]);
+                            captures["user_id"].parse::<u32>().unwrap()
+                        }
+                        None => 0,
+                    },
+                    Err(err) => {
+                        log::warn!("FAILED to parse regex {:?}", err);
+                        //log::warn!("FAILED to deserialize {:?}", err);
+                        0
                     }
-                    None => 0,
-                },
-                Err(err) => {
-                    log::warn!("FAILED to parse regex {:?}", err);
-                    //log::warn!("FAILED to deserialize {:?}", err);
-                    0
                 }
             }
+            None => 0,
+        },
+        Err(err) => {
+            log::warn!("Failed to fetch user session: {:?}", err);
+            0
         }
-        Err(_) => 0,
     }
 }
 

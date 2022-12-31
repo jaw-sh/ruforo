@@ -67,14 +67,10 @@ impl implement::ChatLayer for XfLayer {
     }
 
     fn get_user_id_from_request(&self, req: &actix_web::HttpRequest) -> u32 {
-        let mut redis = req
-            .app_data::<Data<redis::Client>>()
-            .expect("No Redis client!")
-            .get_connection_with_timeout(Duration::new(1, 0))
-            .expect("No Redis connection!");
-
         match req.cookie("xf_session") {
-            Some(cookie) => session::get_user_id_from_cookie(&mut redis, &cookie),
+            Some(cookie) => {
+                futures::executor::block_on(session::get_user_id_from_cookie(&self.db, &cookie))
+            }
             None => 0,
         }
     }

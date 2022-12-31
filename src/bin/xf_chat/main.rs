@@ -34,21 +34,21 @@ async fn main() -> std::io::Result<()> {
     let mysql = get_database_connection()
         .await
         .expect("Unable to connect to the MySQL database.");
-    let (redis_cfg, redis) = match redis::Client::open(
-        std::env::var("XF_REDIS_URL").expect("XF_REDIS_URL required for chat binary."),
-    ) {
-        Ok(client) => (
-            client.clone(),
-            client
-                .get_multiplexed_async_connection()
-                .await
-                .expect("XF Redis connection failed."),
-        ),
-        Err(err) => {
-            panic!("{:?}", err);
-        }
-    };
 
+    //let (redis_cfg, redis) = match redis::Client::open(
+    //    std::env::var("XF_REDIS_URL").expect("XF_REDIS_URL required for chat binary."),
+    //) {
+    //    Ok(client) => (
+    //        client.clone(),
+    //        client
+    //            .get_multiplexed_async_connection()
+    //            .await
+    //            .expect("XF Redis connection failed."),
+    //    ),
+    //    Err(err) => {
+    //        panic!("{:?}", err);
+    //    }
+    //};
     let layer = Arc::new(xf::XfLayer { db: mysql.clone() });
     let chat = ruforo::web::chat::server::ChatServer::new(layer.clone())
         .await
@@ -64,8 +64,8 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .app_data(layer_data)
-            .app_data(Data::new(redis_cfg.clone()))
-            .app_data(Data::new(redis.clone()))
+            //.app_data(Data::new(redis_cfg.clone()))
+            //.app_data(Data::new(redis.clone()))
             .app_data(Data::new(mysql.clone()))
             .app_data(chat.clone())
             .service(ruforo::web::chat::view_xf_chat_socket)

@@ -7,6 +7,7 @@ pub mod chat_room;
 pub mod permission_cache_content;
 pub mod permission_combination;
 pub mod permission_combination_user_group;
+pub mod session;
 pub mod smilie;
 pub mod user;
 pub mod user_ignored;
