@@ -190,7 +190,8 @@ pub trait ChatLayer {
     async fn get_room_list(&self) -> Vec<Room>;
     async fn get_session_from_user_id(&self, id: u32) -> Session;
     async fn get_smilie_list(&self) -> Vec<Smilie>;
-    fn get_user_id_from_request(&self, req: &actix_web::HttpRequest) -> u32;
+    fn get_session_key_from_request(&self, req: &actix_web::HttpRequest) -> Option<String>;
+    async fn get_user_id_from_token(&self, cookie: Option<String>) -> u32;
     async fn insert_chat_message(&self, message: &message::Post) -> Option<Message>;
 }
 
@@ -320,9 +321,19 @@ pub mod default {
             }
         }
 
-        fn get_user_id_from_request(&self, req: &actix_web::HttpRequest) -> u32 {
+        fn get_session_key_from_request(&self, req: &actix_web::HttpRequest) -> Option<String> {
             match req.app_data::<ClientCtx>() {
-                Some(client) => client.get_id().unwrap_or(0) as u32,
+                Some(client) => match client.get_id() {
+                    Some(id) => Some(id.to_string()),
+                    None => None,
+                },
+                None => None,
+            }
+        }
+
+        async fn get_user_id_from_token(&self, cookie: Option<String>) -> u32 {
+            match cookie {
+                Some(cookie) => cookie.parse::<u32>().unwrap_or(0),
                 None => 0,
             }
         }

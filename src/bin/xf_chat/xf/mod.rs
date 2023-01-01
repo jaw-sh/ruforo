@@ -66,17 +66,22 @@ impl implement::ChatLayer for XfLayer {
         smilie::get_smilie_list(&self.db).await
     }
 
-    fn get_user_id_from_request(&self, req: &actix_web::HttpRequest) -> u32 {
+    fn get_session_key_from_request(&self, req: &actix_web::HttpRequest) -> Option<String> {
         match req.cookie("xf_session") {
-            Some(cookie) => {
-                futures::executor::block_on(session::get_user_id_from_cookie(&self.db, &cookie))
-            }
-            None => 0,
+            Some(cookie) => Some(cookie.value().to_string()),
+            None => None,
         }
     }
 
     async fn get_session_from_user_id(&self, id: u32) -> implement::Session {
         session::get_session_with_user_id(&self.db, id).await
+    }
+
+    async fn get_user_id_from_token(&self, cookie: Option<String>) -> u32 {
+        match cookie {
+            Some(cookie) => session::get_user_id_from_cookie(&self.db, &cookie).await,
+            None => 0,
+        }
     }
 
     async fn insert_chat_message(&self, message: &Post) -> Option<implement::Message> {

@@ -11,6 +11,8 @@ pub struct Model {
         column_type = "Custom(\"VARBINARY(32)\".to_owned())"
     )]
     pub session_id: Vec<u8>,
+    pub session_data: Vec<u8>,
+    pub expiry_date: u32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]

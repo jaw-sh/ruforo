@@ -79,11 +79,8 @@ struct XfSessionSerialized {
     userId: u32,
 }
 
-pub async fn get_user_id_from_cookie(
-    db: &DatabaseConnection,
-    cookie: &actix_web::cookie::Cookie<'_>,
-) -> u32 {
-    match session::Entity::find_by_id(cookie.value().as_bytes().to_vec())
+pub async fn get_user_id_from_cookie(db: &DatabaseConnection, cookie: &String) -> u32 {
+    match session::Entity::find_by_id(cookie.as_bytes().to_vec())
         .one(db)
         .await
     {
@@ -92,7 +89,7 @@ pub async fn get_user_id_from_cookie(
                 //use serde_php::from_bytes;
                 //match from_bytes::<XfSessionSerialized>(str::replace(&session, "\\", "").as_bytes()) {
                 match regex::Regex::new(r#"s:6:\\?"?userId\\?"?;i:(?P<user_id>\d+);"#) {
-                    Ok(ex) => match ex.captures(&String::from_utf8_lossy(&session.session_id)) {
+                    Ok(ex) => match ex.captures(&String::from_utf8_lossy(&session.session_data)) {
                         Some(captures) => {
                             log::debug!("User {:?} has authorized.", &captures["user_id"]);
                             captures["user_id"].parse::<u32>().unwrap()
