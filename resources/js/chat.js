@@ -679,7 +679,7 @@ document.addEventListener("DOMContentLoaded", function () {
         input.innerHTML = "";
 
         input.focus({ preventScroll: true });
-        return fgalse;
+        return false;
     });
 
     // Safely terminate websocket so server knows we're disconnecting.
