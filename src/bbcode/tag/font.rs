@@ -1,4 +1,4 @@
-use super::Element;
+use super::{Element, SafeHtml};
 use nom::{
     bytes::complete::{tag, take_while_m_n},
     character::complete::alpha1,
@@ -8,13 +8,15 @@ use nom::{
 use std::cell::RefMut;
 
 impl super::Tag {
-    pub fn open_color_tag(el: RefMut<Element>) -> String {
+    pub fn open_color_tag(el: RefMut<Element>) -> SafeHtml {
         if let Some(arg) = el.get_argument() {
             if let Ok((_, color)) = color_from(arg) {
-                return format!(
-                    "<span class=\"bbCode tagColor\" style=\"color: {}\">",
-                    color
-                );
+                let sanitized_color = SafeHtml::sanitize(color);
+                let empty = SafeHtml::with_capacity(64 + sanitized_color.len());
+                return empty
+                    + "<span class=\"bbCode tagColor\" style=\"color: "
+                    + &sanitized_color
+                    + "\">";
             }
         }
 
