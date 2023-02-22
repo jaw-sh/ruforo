@@ -1,4 +1,4 @@
-use super::{Tag, Token};
+use super::{SafeHtml, Tag, Token};
 
 #[derive(Debug, Clone)]
 pub enum ElementDisplay {
@@ -241,8 +241,8 @@ impl<'str> Element<'str> {
     }
 
     /// Unwinds element into an opening tag string.
-    pub fn to_open_str(&self) -> String {
-        self.raw.unwrap_or("").to_owned()
+    pub fn to_open_str(&self) -> SafeHtml {
+        SafeHtml::sanitize(self.raw.unwrap_or(""))
 
         //match &self.tag {
         //    Some(tag) => match &self.argument {
@@ -257,17 +257,18 @@ impl<'str> Element<'str> {
     }
 
     /// Unwinds element into an closing tag string.
-    pub fn to_close_str(&self) -> String {
+    pub fn to_close_str(&self) -> SafeHtml {
         // Only explicitly closed tags reverse to BbCode
         if self.is_explicit() {
-            match &self.tag {
+            let result = match &self.tag {
                 Some(tag) => format!("[/{}]", tag),
                 None => "[/]".to_string(),
-            }
+            };
+            SafeHtml::sanitize(result.as_str())
         }
         // Broken, implicitly closed tags reverse to nothing.
         else {
-            String::new()
+            SafeHtml::new()
         }
     }
 }

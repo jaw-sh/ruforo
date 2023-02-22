@@ -1,7 +1,7 @@
 use super::implement::{self, UserActivity};
 use super::implement::{ChatLayer, Connection};
 use super::message::{self, SanitaryPost, SanitaryPosts};
-use crate::bbcode::{tokenize, Constructor, Parser, Smilies};
+use crate::bbcode::{sanitize, tokenize, Constructor, Parser, Smilies};
 use actix::prelude::*;
 use rand::{self, rngs::ThreadRng, Rng};
 use std::collections::{HashMap, HashSet};
@@ -128,8 +128,8 @@ impl ChatServer {
             message_id: message.message_id,
             message_date: message.message_date,
             message_edit_date: message.message_edit_date,
-            message: self.constructor.build(ast),
-            message_raw: Constructor::sanitize(&message.message),
+            message: self.constructor.build(ast).take(),
+            message_raw: sanitize(&message.message),
         }
     }
 
