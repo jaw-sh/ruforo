@@ -66,14 +66,14 @@ pub async fn get_message(db: &DatabaseConnection, id: u32) -> Option<implement::
 pub async fn insert_chat_message(
     db: &DatabaseConnection,
     message: &message::Post,
-) -> implement::Message {
+) -> anyhow::Result<implement::Message, anyhow::Error> {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards");
     let timestamp = Decimal::new(timestamp.as_micros() as i64, 6);
 
     // insert chat message into database
-    let model = chat_message::ActiveModel {
+    let result = chat_message::ActiveModel {
         message_text: Set(message.message.to_owned()),
         message_date: Set(timestamp),
         message_update: Set(timestamp),
@@ -83,8 +83,10 @@ pub async fn insert_chat_message(
         ..Default::default()
     }
     .insert(db)
-    .await
-    .expect("Failed to insert chat_message into XF database.");
+    .await;
 
-    implement::Message::from(model)
+    match result {
+        Ok(model) => Ok(implement::Message::from(model)),
+        Err(err) => Err(anyhow::Error::new(err)),
+    }
 }

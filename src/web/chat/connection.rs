@@ -142,8 +142,7 @@ impl Connection {
         ChatServer: Handler<M>,
     {
         if let Err(err) = self.addr.try_send(msg) {
-            log::debug!("{:?}", err);
-            ctx.text("Chat server is down.");
+            ctx.text("Chat server is down. Waiting for OK.");
         }
     }
 
@@ -167,7 +166,7 @@ impl Connection {
                     Ok(res) => act.id = res,
                     Err(err) => {
                         // something is wrong with chat server
-                        log::debug!("Failed to assign conection id: {:?}", err);
+                        log::warn!("Failed to assign conection id: {:?}", err);
                         ctx.stop();
                     }
                 }
@@ -256,7 +255,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                     ctx.text("You say something to yourself. Nobody replies.")
                 }
             }
-            ws::Message::Binary(_) => println!("Unexpected binary"),
+            ws::Message::Binary(_) => log::warn!("Unexpected binary"),
             ws::Message::Close(reason) => {
                 log::debug!(
                     "Client {} disconnecting with reason: {:?}",

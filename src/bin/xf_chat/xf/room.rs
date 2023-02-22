@@ -51,14 +51,15 @@ pub async fn can_read_room(db: &DatabaseConnection, user_id: u32, room_id: u32) 
         .await
     {
         Ok(val) => match val {
-            Some((val, _)) => {
-                let perm = get_permissions()
-                    .borrow_item_by_label("hbChatRoomView")
-                    .expect("No permission category??");
-                let perms = super::permission::json_to_values(val.cache_value);
-
-                return perms.can(perm.position);
-            }
+            Some((val, _)) => match get_permissions().borrow_item_by_label("hbChatRoomView") {
+                Some(perm) => {
+                    let perms = super::permission::json_to_values(val.cache_value);
+                    return perms.can(perm.position);
+                }
+                None => {
+                    log::warn!("Failed to open XF permission category hbChatRoomView");
+                }
+            },
             None => {}
         },
         Err(err) => log::warn!("Failed to fetch XF permissions: {:?}", err),
@@ -68,11 +69,17 @@ pub async fn can_read_room(db: &DatabaseConnection, user_id: u32, room_id: u32) 
 }
 
 pub async fn get_room_list(db: &DatabaseConnection) -> Vec<chat_room::Model> {
-    chat_room::Entity::find()
+    match chat_room::Entity::find()
         .order_by_asc(chat_room::Column::DisplayOrder)
         .all(db)
         .await
-        .expect("Unable to fetch room list")
+    {
+        Ok(rooms) => rooms,
+        Err(err) => {
+            log::warn!("Failed to fetch XF chat rooms: {:?}", err);
+            Vec::default()
+        }
+    }
 }
 
 pub async fn get_room_history(

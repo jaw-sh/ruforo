@@ -86,7 +86,13 @@ impl implement::ChatLayer for XfLayer {
 
     async fn insert_chat_message(&self, message: &Post) -> Option<implement::Message> {
         if self.can_send_message(&message.session).await {
-            Some(message::insert_chat_message(&self.db, message).await)
+            match message::insert_chat_message(&self.db, message).await {
+                Ok(model) => Some(model),
+                Err(err) => {
+                    log::warn!("XF insert message failed: {:?}", err);
+                    None
+                }
+            }
         } else {
             None
         }
