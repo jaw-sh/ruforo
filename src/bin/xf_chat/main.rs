@@ -70,6 +70,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(chat.clone())
             .service(ruforo::web::chat::view_xf_chat_socket)
             .service(ruforo::web::chat::view_chat_shim)
+            .service(ruforo::web::chat::view_public_file)
     })
     .backlog(20480)
     .max_connections(65536)

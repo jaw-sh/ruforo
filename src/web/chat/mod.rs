@@ -4,11 +4,13 @@ pub mod message;
 pub mod server;
 
 use actix::Addr;
+use actix_files as fs;
 use actix_web::{get, web, web::Data, Error, HttpRequest, HttpResponse, Responder};
 use actix_web_actors::ws;
 use askama_actix::Template;
 use implement::{ChatLayer, Room};
 use serde::Deserialize;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -178,6 +180,8 @@ pub async fn view_chat_shim(req: HttpRequest, query: web::Query<ChatTestData>) -
         Err(_) => hasher.update("NO_SALT".as_bytes()),
     };
     // Hash: Timestamp
+    use actix_files as fs;
+    use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
     hasher.update(
         &SystemTime::now()
@@ -211,4 +215,40 @@ pub async fn view_chat_shim(req: HttpRequest, query: web::Query<ChatTestData>) -
         }
         .to_string(),
     }
+}
+
+/// Dynamically access public files through the webserver.
+#[get("/assets/{filename:.*}")]
+async fn view_public_file(req: HttpRequest) -> Result<fs::NamedFile, Error> {
+    let base_dir = std::env::var("CHAT_ASSET_DIR").unwrap_or_else(|_| ".".to_string());
+    let mut base_path = PathBuf::from(&base_dir);
+
+    let filename: String = req.match_info().query("filename").parse().unwrap();
+
+    // Sanitize filename to prevent directory traversal
+    let sanitized_filename = filename
+        .split('/')
+        .filter(|component| !component.is_empty() && *component != ".." && *component != ".")
+        .collect::<Vec<&str>>()
+        .join("/");
+
+    if sanitized_filename.is_empty() {
+        return Err(actix_web::error::ErrorBadRequest("Invalid filename"));
+    }
+
+    base_path.push(&sanitized_filename);
+
+    // Canonicalize paths to resolve any remaining traversal attempts
+    let canonical_base = std::fs::canonicalize(&base_dir)
+        .map_err(|_| actix_web::error::ErrorInternalServerError("Base directory not found"))?;
+    let canonical_requested = std::fs::canonicalize(&base_path)
+        .map_err(|_| actix_web::error::ErrorNotFound("File not found"))?;
+
+    // Ensure the requested file is within the base directory
+    if !canonical_requested.starts_with(&canonical_base) {
+        return Err(actix_web::error::ErrorForbidden("Access denied"));
+    }
+
+    let file = fs::NamedFile::open(canonical_requested)?;
+    Ok(file.use_last_modified(true))
 }
