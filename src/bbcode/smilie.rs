@@ -18,7 +18,8 @@ impl Smilies {
     }
 
     fn sort_tuples(mut smilies: Vec<(String, String)>) -> Vec<(String, String)> {
-        smilies.sort_by(|a, b| a.0.chars().cmp(b.0.chars()));
+        smilies.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
+        //smilies.sort_by(|a, b| a.0.chars().cmp(b.0.chars()));
         smilies
     }
 

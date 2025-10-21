@@ -57,7 +57,8 @@ rusoto_s3 = "^0.48"
 sea-orm = { version = "^0.8", features = [
     "sqlx-postgres",
     "sqlx-mysql",
-    "runtime-actix-rustls",
+#    "runtime-actix-rustls",
+    "runtime-actix-native-tls",
     "macros",
 ], default-features = false } # XF MySQL compat
 serde = "^1.0"
