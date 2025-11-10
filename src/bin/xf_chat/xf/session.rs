@@ -55,6 +55,7 @@ pub async fn can_send_message(db: &DatabaseConnection, id: u32) -> bool {
             .filter(user::Column::UserId.eq(id))
             .filter(user::Column::UserState.eq("valid"))
             .filter(user::Column::IsBanned.eq(false))
+            .filter(user::Column::MessageCount.gt(0))
             .into_model::<XfId>()
             .one(db)
             .await

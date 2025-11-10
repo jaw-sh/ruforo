@@ -8,6 +8,10 @@ document.addEventListener("DOMContentLoaded", function () {
     let scrollEl = document.getElementById('chat-scroller');
     let lastScrollPos = 0;
     let userActivityData = {};
+    let scrollAnimationFrame = null;
+
+    // Track event listeners for cleanup
+    const eventListenerMap = new WeakMap();
 
     function inputAddEventListeners(el) {
         // TODO: Add keyDown event listeners?
@@ -46,30 +50,69 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function messageAddEventListeners(element) {
+        const listeners = [];
+
         if (Object.keys(element.dataset).indexOf('author') > -1) {
             element.addEventListener('mouseenter', messageMouseEnter);
             element.addEventListener('mouseleave', messageMouseLeave);
+            listeners.push(
+                { target: element, type: 'mouseenter', handler: messageMouseEnter },
+                { target: element, type: 'mouseleave', handler: messageMouseLeave }
+            );
         }
 
         let authorEl = element.querySelector('.author');
         if (authorEl !== null) {
             authorEl.addEventListener('click', usernameClick);
+            listeners.push({ target: authorEl, type: 'click', handler: usernameClick });
         }
 
         Array.from(element.querySelectorAll('.username')).forEach(function (usernameEl) {
             usernameEl.addEventListener('click', usernameClick);
             usernameEl.addEventListener('mouseenter', usernameEnter);
             usernameEl.addEventListener('mouseleave', usernameLeave);
+            listeners.push(
+                { target: usernameEl, type: 'click', handler: usernameClick },
+                { target: usernameEl, type: 'mouseenter', handler: usernameEnter },
+                { target: usernameEl, type: 'mouseleave', handler: usernameLeave }
+            );
         });
 
         Array.from(element.querySelectorAll('.button')).forEach(function (buttonEl) {
+            let handler = null;
             switch (buttonEl.classList[1]) {
-                case 'edit': buttonEl.addEventListener('click', messageButtonEdit); break;
-                case 'delete': buttonEl.addEventListener('click', messageButtonDelete); break;
-                case 'report': /* buttonEl.addEventListener('click', messageButtonReport); */ break;
-                default: console.log("Unable to find use for button.", buttonEl); break;
+                case 'edit':
+                    handler = messageButtonEdit;
+                    buttonEl.addEventListener('click', handler);
+                    break;
+                case 'delete':
+                    handler = messageButtonDelete;
+                    buttonEl.addEventListener('click', handler);
+                    break;
+                case 'report':
+                    /* buttonEl.addEventListener('click', messageButtonReport); */
+                    break;
+                default:
+                    console.log("Unable to find use for button.", buttonEl);
+                    break;
+            }
+            if (handler) {
+                listeners.push({ target: buttonEl, type: 'click', handler: handler });
             }
         });
+
+        // Store listeners for cleanup
+        eventListenerMap.set(element, listeners);
+    }
+
+    function messageRemoveEventListeners(element) {
+        const listeners = eventListenerMap.get(element);
+        if (listeners) {
+            listeners.forEach(({ target, type, handler }) => {
+                target.removeEventListener(type, handler);
+            });
+            eventListenerMap.delete(element);
+        }
     }
 
     function messageButtonDelete() {
@@ -79,24 +122,40 @@ document.addEventListener("DOMContentLoaded", function () {
             let modal = template.children[0];
             modal.id = "chat-modal-delete";
 
-            let cloneEl = messageEl.cloneNode(true);
-            cloneEl.classList.remove("chat-message--hasParent");
-            cloneEl.querySelector('.right-content').remove();
+            // Create a lightweight copy without event listeners
+            // Instead of cloning the entire element, just clone the visual parts
+            let messagePreview = document.createElement('div');
+            messagePreview.className = 'chat-message';
+            messagePreview.innerHTML = messageEl.querySelector('.main-content').innerHTML;
 
-            modal.querySelector('.modal-message').appendChild(cloneEl);
-            modal.querySelector('.button.cancel').addEventListener('click', function () {
+            modal.querySelector('.modal-message').appendChild(messagePreview);
+
+            const cancelHandler = function () {
                 window.MicroModal.close(modal.id);
-            })
-            modal.querySelector('.button.delete').addEventListener('click', function () {
+            };
+            const deleteHandler = function () {
                 messageSend(`/delete ${messageEl.dataset.id}`);
                 window.MicroModal.close(modal.id);
-            })
+            };
+
+            modal.querySelector('.button.cancel').addEventListener('click', cancelHandler);
+            modal.querySelector('.button.delete').addEventListener('click', deleteHandler);
 
             document.body.appendChild(modal);
 
             // https://micromodal.vercel.app/#configuration
             window.MicroModal.show(modal.id, {
-                onClose: modal => document.getElementById(modal.id).remove(),
+                onClose: modal => {
+                    let modalEl = document.getElementById(modal.id);
+                    if (modalEl) {
+                        // Clean up event listeners
+                        let cancelBtn = modalEl.querySelector('.button.cancel');
+                        let deleteBtn = modalEl.querySelector('.button.delete');
+                        if (cancelBtn) cancelBtn.removeEventListener('click', cancelHandler);
+                        if (deleteBtn) deleteBtn.removeEventListener('click', deleteHandler);
+                        modalEl.remove();
+                    }
+                },
                 openClass: 'is-open',
                 disableScroll: true,
                 disableFocus: false,
@@ -124,6 +183,8 @@ document.addEventListener("DOMContentLoaded", function () {
         let el = document.getElementById(`chat-message-${message}`);
         let next = el.nextElementSibling;
 
+        // Clean up event listeners before removing
+        messageRemoveEventListeners(el);
         el.remove();
         messageSetHasParent(next);
 
@@ -150,7 +211,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         contentEl.replaceWith(formEl);
 
-        inputEl.innerHTML = messageEl.rawMessage;
+        inputEl.textContent = messageEl.rawMessage;
         inputAddEventListeners(inputEl);
         inputEl.addEventListener('keydown', function (event) {
             switch (event.key) {
@@ -288,7 +349,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
             // Add left-content details
             if (author.avatar_url.length > 0) {
-                template.querySelector('.avatar').setAttribute('src', author.avatar_url);
+                let avatarEl = template.querySelector('.avatar');
+                avatarEl.setAttribute('src', author.avatar_url);
+                avatarEl.setAttribute('loading', 'lazy');
+                avatarEl.setAttribute('decoding', 'async');
             }
             else {
                 template.querySelector('.avatar').remove();
@@ -334,13 +398,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
         messageSetHasParent(el);
 
-        // Prune oldest messages.
+        // Prune oldest messages with proper cleanup
         while (messagesEl.children.length > 200) {
-            messagesEl.children[0].remove();
+            let oldMessage = messagesEl.children[0];
+
+            // Clean up event listeners
+            messageRemoveEventListeners(oldMessage);
+
+            // Clear avatar src to help with memory cleanup
+            let avatarEl = oldMessage.querySelector('.avatar');
+            if (avatarEl) {
+                avatarEl.removeAttribute('src');
+            }
+
+            oldMessage.remove();
             lastScrollPos = 0;
         }
 
-        messagesEl.children[0].classList.remove("chat-message--hasParent");
+        if (messagesEl.children.length > 0) {
+            messagesEl.children[0].classList.remove("chat-message--hasParent");
+        }
 
         // Scroll down.
         scrollToNew();
@@ -404,6 +481,10 @@ document.addEventListener("DOMContentLoaded", function () {
     function messagesDelete() {
         let messagesEl = document.getElementById('chat-messages');
         while (messagesEl.firstChild) {
+            // Clean up event listeners before removing
+            if (messagesEl.firstChild.classList && messagesEl.firstChild.classList.contains('chat-message')) {
+                messageRemoveEventListeners(messagesEl.firstChild);
+            }
             messagesEl.removeChild(messagesEl.firstChild);
         }
     }
@@ -461,6 +542,16 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
+    function scheduleScrollCheck() {
+        if (scrollAnimationFrame) {
+            cancelAnimationFrame(scrollAnimationFrame);
+        }
+        scrollAnimationFrame = requestAnimationFrame(function tick() {
+            scrollToNew();
+            scrollAnimationFrame = requestAnimationFrame(tick);
+        });
+    }
+
     function userActivity(id, activity) {
         if (id == 0)
             return;
@@ -475,6 +566,12 @@ document.addEventListener("DOMContentLoaded", function () {
             delete userActivityData[id];
 
             if (userEl) {
+                // Clean up avatar before removing
+                let avatarEl = userEl.querySelector('.avatar');
+                if (avatarEl) {
+                    avatarEl.removeAttribute('src');
+                    avatarEl.src = '';
+                }
                 userEl.remove();
             }
         }
@@ -483,8 +580,16 @@ document.addEventListener("DOMContentLoaded", function () {
     function userActivityDelete() {
         let userEl = document.getElementById(`chat-activity`);
         while (userEl.firstChild) {
+            // Clean up avatar references before removing
+            let avatarEl = userEl.firstChild.querySelector('.avatar');
+            if (avatarEl) {
+                avatarEl.removeAttribute('src');
+                avatarEl.src = '';
+            }
             userEl.removeChild(userEl.firstChild);
         }
+        // Clear the data object
+        userActivityData = {};
     }
 
     function userActivityTouch(id) {
@@ -507,6 +612,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 if (userActivityData[id].avatar_url) {
                     avEl.src = userActivityData[id].avatar_url;
                     avEl.alt = userActivityData[id].username;
+                    avEl.setAttribute('loading', 'lazy');
+                    avEl.setAttribute('decoding', 'async');
                 }
                 else {
                     avEl.remove();
@@ -585,6 +692,16 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function websocketConnect() {
+        // Clean up existing websocket if it exists
+        if (ws !== null) {
+            try {
+                ws.close();
+            } catch (e) {
+                console.log("Error closing old websocket:", e);
+            }
+            ws = null;
+        }
+
         // TODO: Make this something practical.
         // fixes cross-domain issues that the forum currently enjoy
         // transform "wss://mysite.us/rust-chat" to "wss://mysite.eu/rust-chat" when on mysite.eu, for instance.
@@ -642,7 +759,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Scroll window
     scrollEl.addEventListener('scroll', scrollerScroll);
     //scrollEl.classList.add('ScrollLocked');
-    setInterval(scrollToNew, 32);
+    scheduleScrollCheck();
 
     // Form
     document.getElementById('new-message-input').addEventListener('keydown', function (event) {
@@ -651,7 +768,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 event.preventDefault();
 
                 messageSend(this.textContent);
-                this.innerHTML = "";
+                this.textContent = "";
 
                 return false;
 
@@ -684,9 +801,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Safely terminate websocket so server knows we're disconnecting.
     window.addEventListener('beforeunload', function () {
-        if (ws.readyState == WebSocket.OPEN) {
-            websocket.onclose = function () { };
-            websocket.close(1000, "Bye!");
+        if (ws && ws.readyState == WebSocket.OPEN) {
+            ws.onclose = function () { };
+            ws.close(1000, "Bye!");
+        }
+
+        // Cancel animation frame
+        if (scrollAnimationFrame) {
+            cancelAnimationFrame(scrollAnimationFrame);
         }
     });
 

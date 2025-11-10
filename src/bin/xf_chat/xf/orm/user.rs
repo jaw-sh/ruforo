@@ -20,6 +20,7 @@ pub struct Model {
     pub is_staff: u8,
     #[sea_orm(column_type = "Text")]
     pub user_state: String,
+    pub message_count: u32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

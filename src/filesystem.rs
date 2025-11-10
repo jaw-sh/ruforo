@@ -360,6 +360,7 @@ pub async fn insert_payload_as_attachment(
     payload: UploadPayload,
     constraints: Option<PayloadConstraintFn>,
 ) -> Result<Option<UploadResponse>, Error> {
+    return Err(actix_web::error::ErrorInternalServerError("sneed"))?;
     log::info!("Filename: {}", payload.filename);
     log::info!("BLAKE3: {}", payload.hash);
     log::info!("MIME: {}", payload.mime);
@@ -367,6 +368,7 @@ pub async fn insert_payload_as_attachment(
     let dimensions: (Option<i32>, Option<i32>);
     let extension: Option<String>;
 
+    /** removed so xf-chat can build 21-oct/2025
     match crate::ffmpeg::open_with_ffmpeg(&payload.tmp_path) {
         Some(ffmpeg) => {
             dimensions = match crate::ffmpeg::get_dimensions_from_input(&ffmpeg) {
@@ -383,7 +385,7 @@ pub async fn insert_payload_as_attachment(
             extension = get_extension(&payload.filename, &payload.mime);
         }
     };
-
+    */
     let filesize: i64 = payload.data.len().try_into().map_err(|e| {
         log::error!(
             "put_file: failed convert filesize from usize to i64, too big?: {}",
