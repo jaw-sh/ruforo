@@ -225,7 +225,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                     messageSend("/edit " + JSON.stringify({
                         id: parseInt(messageEl.dataset.id, 10),
-                        message: this.innerHTML,
+                        message: this.textContent,
                     }));
                     messageEditReverse();
 
