@@ -211,7 +211,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         contentEl.replaceWith(formEl);
 
-        inputEl.innerHTML = messageEl.rawMessage;
+        inputEl.textContent = messageEl.rawMessage;
         inputAddEventListeners(inputEl);
         inputEl.addEventListener('keydown', function (event) {
             switch (event.key) {
@@ -768,7 +768,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 event.preventDefault();
 
                 messageSend(this.textContent);
-                this.innerHTML = "";
+                this.textContent = "";
 
                 return false;
 
