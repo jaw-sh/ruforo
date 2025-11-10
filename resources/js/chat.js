@@ -220,15 +220,15 @@ document.addEventListener("DOMContentLoaded", function () {
         let inputEl = formEl.querySelector(".chat-input");
         inputEl.id = "edit-message-input";
 
+        const editValue = typeof messageEl.rawMessage === 'string' && messageEl.rawMessage.length
+            ? messageEl.rawMessage
+            : contentEl.textContent;
+
         let submitEl = formEl.querySelector("button.submit");
         //submitEl.id = "edit-message-input";
         submitEl.remove();
 
         contentEl.replaceWith(formEl);
-
-        const editValue = typeof messageEl.rawMessage === 'string' && messageEl.rawMessage.length
-            ? messageEl.rawMessage
-            : messageEl.querySelector('.message').textContent;
 
         inputEl.textContent = editValue;
         inputAddEventListeners(inputEl);
