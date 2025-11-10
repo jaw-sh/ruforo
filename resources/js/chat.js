@@ -13,6 +13,21 @@ document.addEventListener("DOMContentLoaded", function () {
     // Track event listeners for cleanup
     const eventListenerMap = new WeakMap();
 
+    // Reuse a DOM node to decode HTML entities back into plain text
+    const decodeHtmlEntities = (() => {
+        const textarea = document.createElement('textarea');
+        return (value) => {
+            if (typeof value !== 'string') {
+                return '';
+            }
+
+            textarea.innerHTML = value;
+            const decoded = textarea.value;
+            textarea.value = '';
+            return decoded;
+        };
+    })();
+
     function inputAddEventListeners(el) {
         // TODO: Add keyDown event listeners?
         // Right now, the functionality for main input and edit input is totally different.
@@ -211,7 +226,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
         contentEl.replaceWith(formEl);
 
-        inputEl.textContent = messageEl.rawMessage;
+        const editValue = typeof messageEl.rawMessage === 'string' && messageEl.rawMessage.length
+            ? messageEl.rawMessage
+            : messageEl.querySelector('.message').textContent;
+
+        inputEl.textContent = editValue;
         inputAddEventListeners(inputEl);
         inputEl.addEventListener('keydown', function (event) {
             switch (event.key) {
@@ -306,7 +325,7 @@ document.addEventListener("DOMContentLoaded", function () {
             id = parseInt(message.message_id, 10);
             extantEl = document.getElementById(`chat-message-${id}`);
 
-            template.children[0].rawMessage = message.message_raw;
+            template.children[0].rawMessage = decodeHtmlEntities(message.message_raw);
             template.children[0].id = `chat-message-${id}`;
             template.children[0].dataset.id = id;
             template.children[0].dataset.author = author.id;
