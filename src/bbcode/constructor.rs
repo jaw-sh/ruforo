@@ -1,7 +1,6 @@
-use super::{Element, Smilies, Tag};
+use super::{Element, SafeHtml, Smilies, Tag};
 use rctree::Node;
 use std::cell::RefMut;
-use std::collections::HashMap;
 
 /// Converts a Parser's AST into rendered HTML.
 #[derive(Default)]
@@ -17,12 +16,16 @@ impl Constructor {
         }
     }
 
-    pub fn build(&self, mut node: Node<Element>) -> String {
-        let mut output: String = String::new();
+    pub fn build(&self, mut node: Node<Element>) -> SafeHtml {
+        let mut output = SafeHtml::new();
 
         // If we have children, loop through them.
         if node.has_children() {
-            let mut contents: String = String::new();
+            // Both sanitized HTML and raw strings must be maintained for one specific case: URLs.
+            // For correctness, url encoding should be performed on the raw string and not the
+            // sanitized one with HTML entities. Sanitization performed only after URL encoding
+            let mut raw_contents = String::new();
+            let mut safe_contents = SafeHtml::new();
 
             // Are we allowed to have children?
             if node.borrow().can_parent() {
@@ -50,22 +53,27 @@ impl Constructor {
                     }
 
                     if render {
-                        contents.push_str(&self.build(child))
+                        raw_contents.push_str(child.borrow().get_raw());
+                        safe_contents.push(&self.build(child));
                     } else {
-                        contents.push_str(&Self::sanitize(child.borrow().get_raw()));
+                        let item = child.borrow().get_raw();
+                        raw_contents.push_str(item);
+                        safe_contents.push(&SafeHtml::sanitize(item));
                     }
                 }
             }
             // No, so our contents must be handled literally.
             else {
                 for child in node.children() {
-                    contents.push_str(&Self::sanitize(child.borrow().get_raw()));
+                    let item = child.borrow().get_raw();
+                    raw_contents.push_str(item);
+                    safe_contents.push(&SafeHtml::sanitize(item));
                 }
             }
 
-            let res = &self.element_contents(node.borrow_mut(), contents);
-            output.push_str(&self.element_open(node.borrow_mut()));
-            output.push_str(res);
+            let res = &self.element_contents(node.borrow_mut(), safe_contents, &raw_contents);
+            output.push(&self.element_open(node.borrow_mut()));
+            output.push(res);
         }
         // If we do not have children, add our text.
         else {
@@ -73,22 +81,24 @@ impl Constructor {
                 let el = node.borrow_mut();
                 &match el.get_contents() {
                     Some(contents) => {
-                        self.element_contents(el, self.replace_emojis(Self::sanitize(contents)))
+                        let sanitized =
+                            SafeHtml::sanitize_and_replace_smilies(contents, &self.smilies);
+                        self.element_contents(el, sanitized, &contents)
                     }
-                    None => self.element_contents(el, String::new()),
+                    None => self.element_contents(el, SafeHtml::new(), ""),
                 }
             };
 
-            output.push_str(&self.element_open(node.borrow_mut()));
-            output.push_str(res);
+            output.push(&self.element_open(node.borrow_mut()));
+            output.push(res);
         }
 
-        output.push_str(&self.element_close(node.borrow_mut()));
+        output.push(&self.element_close(node.borrow_mut()));
 
         output
     }
 
-    fn element_open(&self, el: RefMut<Element>) -> String {
+    fn element_open(&self, el: RefMut<Element>) -> SafeHtml {
         use super::tag::*;
 
         if let Some(tag) = el.get_tag_name() {
@@ -96,7 +106,7 @@ impl Constructor {
                 match Tag::get_by_name(tag) {
                     Tag::HorizontalRule => Tag::self_closing_tag("hr"),
                     Tag::Linebreak => Tag::self_closing_tag("br"),
-                    Tag::Plain => String::new(), // Not rendered.
+                    Tag::Plain => SafeHtml::new(), // Not rendered.
 
                     Tag::Bold => Tag::open_simple_tag("b"),
                     Tag::Color => Tag::open_color_tag(el),
@@ -117,23 +127,28 @@ impl Constructor {
                 el.to_open_str()
             }
         } else {
-            String::new()
+            SafeHtml::new()
         }
     }
 
-    fn element_contents(&self, el: RefMut<Element>, contents: String) -> String {
+    fn element_contents(
+        &self,
+        el: RefMut<Element>,
+        safe_contents: SafeHtml,
+        raw_contents: &str,
+    ) -> SafeHtml {
         if let Some(tag) = el.get_tag_name() {
             match Tag::get_by_name(tag) {
-                Tag::Image => Tag::fill_img_tag(el, contents),
-                Tag::Link => Tag::fill_url_tag(el, contents),
-                _ => contents,
+                Tag::Image => Tag::fill_img_tag(el, raw_contents),
+                Tag::Link => Tag::fill_url_tag(el, raw_contents, safe_contents),
+                _ => safe_contents,
             }
         } else {
-            contents
+            safe_contents
         }
     }
 
-    fn element_close(&self, el: RefMut<Element>) -> String {
+    fn element_close(&self, el: RefMut<Element>) -> SafeHtml {
         // Only named elements close with output.
         if let Some(tag) = el.get_tag_name() {
             // Only unbroken tags render HTML.
@@ -152,7 +167,7 @@ impl Constructor {
                     Tag::Link => Tag::close_simple_tag("a"),
 
                     // Self-closing tags do not close.
-                    _ => String::new(),
+                    _ => SafeHtml::new(),
                 }
             }
             // Broken tags reverse to original input.
@@ -162,51 +177,8 @@ impl Constructor {
         }
         // Unnamed tags reverse to nothing.
         else {
-            String::new()
+            SafeHtml::new()
         }
-    }
-
-    /// Add emojis
-    pub fn replace_emojis(&self, input: String) -> String {
-        let mut result = input;
-        let mut hits: u8 = 0;
-        let mut hit_map: HashMap<u8, &String> = HashMap::with_capacity(self.smilies.count());
-
-        for (code, replace_with) in self.smilies.iter() {
-            if result.contains(code) {
-                hit_map.insert(hits, replace_with);
-                result = result.replace(code, &format!("\r{}", hits));
-                hits += 1;
-            }
-        }
-
-        for (hit, replace_with) in hit_map {
-            result = result.replace(&format!("\r{}", hit), replace_with);
-        }
-
-        result
-    }
-
-    /// Sanitizes a char for HTML.
-    pub fn sanitize(input: &str) -> String {
-        // Some insane person did an extremely detailed benchmark of this.
-        // https://lise-henry.github.io/articles/optimising_strings.html
-        let len = input.len();
-        let mut output: Vec<u8> = Vec::with_capacity(len * 4);
-
-        for c in input.bytes() {
-            // https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html
-            match c {
-                b'<' => output.extend_from_slice(b"&lt;"),
-                b'>' => output.extend_from_slice(b"&gt;"),
-                b'&' => output.extend_from_slice(b"&amp;"),
-                b'\"' => output.extend_from_slice(b"&quot;"),
-                b'\'' => output.extend_from_slice(b"&#x27;"),
-                _ => output.push(c),
-            }
-        }
-
-        unsafe { String::from_utf8_unchecked(output) }
     }
 }
 
@@ -223,14 +195,14 @@ mod tests {
         ast.append(Node::new(Element::new_from_text("Hello, world!")));
 
         assert_eq!(ast.children().count(), 1);
-        assert_eq!(con.build(ast), "Hello, world!");
+        assert_eq!(con.build(ast).take(), "Hello, world!");
 
         // Second pass
         let mut ast = Node::new(Element::new_root());
         ast.append(Node::new(Element::new_from_text("Foo, bar!")));
 
         assert_eq!(ast.children().count(), 1);
-        assert_eq!(con.build(ast), "Foo, bar!");
+        assert_eq!(con.build(ast).take(), "Foo, bar!");
     }
 
     #[test]
@@ -251,7 +223,7 @@ mod tests {
         let mut ast = Node::new(Element::new_root());
         ast.append(Node::new(Element::new_from_text(":c I want a cookie!")));
 
-        let out = con.build(ast);
+        let out = con.build(ast).take();
         assert_eq!(out, "☹️ I want a 🍪!");
     }
 
@@ -273,7 +245,7 @@ mod tests {
         }
         child.append(Node::new(Element::new_from_text("Hello, world!")));
 
-        let out = con.build(ast);
+        let out = con.build(ast).take();
         assert_eq!(out, "Hello, world!");
     }
 
@@ -284,7 +256,7 @@ mod tests {
 
         let con = Constructor::new();
         let ast = Node::new(Element::new_from_text("Hello, world!"));
-        let out = con.build(ast);
+        let out = con.build(ast).take();
 
         assert_eq!(out, "Hello, world!");
     }
