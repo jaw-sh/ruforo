@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let lastScrollPos = 0;
     let userActivityData = {};
     let scrollAnimationFrame = null;
+    let stopScrollCheck = null;
 
     // Track event listeners for cleanup
     const eventListenerMap = new WeakMap();
@@ -137,11 +138,22 @@ document.addEventListener("DOMContentLoaded", function () {
             let modal = template.children[0];
             modal.id = "chat-modal-delete";
 
-            // Create a lightweight copy without event listeners
-            // Instead of cloning the entire element, just clone the visual parts
+            // Create a lightweight text-only copy to avoid image memory issues
             let messagePreview = document.createElement('div');
             messagePreview.className = 'chat-message';
-            messagePreview.innerHTML = messageEl.querySelector('.main-content').innerHTML;
+
+            // Clone the main content but strip images to prevent memory retention
+            let mainContent = messageEl.querySelector('.main-content');
+            if (mainContent) {
+                let clonedContent = mainContent.cloneNode(true);
+                // Remove all images from the preview to prevent memory leaks
+                Array.from(clonedContent.querySelectorAll('img')).forEach(img => {
+                    let placeholder = document.createElement('span');
+                    placeholder.textContent = '[image]';
+                    img.replaceWith(placeholder);
+                });
+                messagePreview.innerHTML = clonedContent.innerHTML;
+            }
 
             modal.querySelector('.modal-message').appendChild(messagePreview);
 
@@ -196,12 +208,28 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function messageDelete(message) {
         let el = document.getElementById(`chat-message-${message}`);
+        if (!el) return;
+
         let next = el.nextElementSibling;
 
         // Clean up event listeners before removing
         messageRemoveEventListeners(el);
+
+        // Clean up avatar image to release memory
+        let avatarEl = el.querySelector('.avatar');
+        if (avatarEl) {
+            avatarEl.removeAttribute('src');
+            avatarEl.src = '';
+        }
+
+        // Clean up stored data
+        delete el.rawMessage;
+        delete el.originalMessage;
+
         el.remove();
-        messageSetHasParent(next);
+        if (next) {
+            messageSetHasParent(next);
+        }
 
         lastScrollPos = 0;
     }
@@ -258,7 +286,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function messageEditReverse() {
         Array.from(document.querySelectorAll('.chat-message--editing')).forEach(function (el) {
-            let contentEl = el.querySelector('.chat-form').outerHTML = el.originalMessage;
+            let formEl = el.querySelector('.chat-form');
+            if (formEl && el.originalMessage) {
+                formEl.outerHTML = el.originalMessage;
+            }
+            // Clean up the stored original message
+            delete el.originalMessage;
             el.classList.remove("chat-message--editing");
             lastScrollPos = 0;
             document.getElementById('new-message-input').focus({ preventScroll: true });
@@ -409,6 +442,15 @@ document.addEventListener("DOMContentLoaded", function () {
         messageAddEventListeners(el);
 
         if (extantEl !== null) {
+            // Clean up old element before replacing
+            messageRemoveEventListeners(extantEl);
+            let oldAvatar = extantEl.querySelector('.avatar');
+            if (oldAvatar) {
+                oldAvatar.removeAttribute('src');
+                oldAvatar.src = '';
+            }
+            delete extantEl.rawMessage;
+            delete extantEl.originalMessage;
             extantEl.replaceWith(el);
         }
         else {
@@ -428,7 +470,12 @@ document.addEventListener("DOMContentLoaded", function () {
             let avatarEl = oldMessage.querySelector('.avatar');
             if (avatarEl) {
                 avatarEl.removeAttribute('src');
+                avatarEl.src = '';
             }
+
+            // Clean up stored data properties
+            delete oldMessage.rawMessage;
+            delete oldMessage.originalMessage;
 
             oldMessage.remove();
             lastScrollPos = 0;
@@ -500,11 +547,25 @@ document.addEventListener("DOMContentLoaded", function () {
     function messagesDelete() {
         let messagesEl = document.getElementById('chat-messages');
         while (messagesEl.firstChild) {
+            let child = messagesEl.firstChild;
+
             // Clean up event listeners before removing
-            if (messagesEl.firstChild.classList && messagesEl.firstChild.classList.contains('chat-message')) {
-                messageRemoveEventListeners(messagesEl.firstChild);
+            if (child.classList && child.classList.contains('chat-message')) {
+                messageRemoveEventListeners(child);
+
+                // Clean up avatar image to release memory
+                let avatarEl = child.querySelector('.avatar');
+                if (avatarEl) {
+                    avatarEl.removeAttribute('src');
+                    avatarEl.src = '';
+                }
+
+                // Clean up stored data properties
+                delete child.rawMessage;
+                delete child.originalMessage;
             }
-            messagesEl.removeChild(messagesEl.firstChild);
+
+            messagesEl.removeChild(child);
         }
     }
 
@@ -562,13 +623,30 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function scheduleScrollCheck() {
+        // Prevent multiple animation frame loops
         if (scrollAnimationFrame) {
             cancelAnimationFrame(scrollAnimationFrame);
+            scrollAnimationFrame = null;
         }
-        scrollAnimationFrame = requestAnimationFrame(function tick() {
+
+        let isRunning = true;
+
+        function tick() {
+            if (!isRunning) return;
             scrollToNew();
             scrollAnimationFrame = requestAnimationFrame(tick);
-        });
+        }
+
+        scrollAnimationFrame = requestAnimationFrame(tick);
+
+        // Return a cleanup function
+        return function stopScrollCheck() {
+            isRunning = false;
+            if (scrollAnimationFrame) {
+                cancelAnimationFrame(scrollAnimationFrame);
+                scrollAnimationFrame = null;
+            }
+        };
     }
 
     function userActivity(id, activity) {
@@ -714,7 +792,16 @@ document.addEventListener("DOMContentLoaded", function () {
         // Clean up existing websocket if it exists
         if (ws !== null) {
             try {
-                ws.close();
+                // Remove all event listeners by setting handlers to null
+                ws.onopen = null;
+                ws.onclose = null;
+                ws.onerror = null;
+                ws.onmessage = null;
+
+                // Close the connection if still open
+                if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                    ws.close(1000, "Reconnecting");
+                }
             } catch (e) {
                 console.log("Error closing old websocket:", e);
             }
@@ -778,7 +865,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Scroll window
     scrollEl.addEventListener('scroll', scrollerScroll);
     //scrollEl.classList.add('ScrollLocked');
-    scheduleScrollCheck();
+    stopScrollCheck = scheduleScrollCheck();
 
     // Form
     document.getElementById('new-message-input').addEventListener('keydown', function (event) {
@@ -821,13 +908,17 @@ document.addEventListener("DOMContentLoaded", function () {
     // Safely terminate websocket so server knows we're disconnecting.
     window.addEventListener('beforeunload', function () {
         if (ws && ws.readyState == WebSocket.OPEN) {
-            ws.onclose = function () { };
+            ws.onopen = null;
+            ws.onclose = null;
+            ws.onerror = null;
+            ws.onmessage = null;
             ws.close(1000, "Bye!");
         }
 
-        // Cancel animation frame
-        if (scrollAnimationFrame) {
-            cancelAnimationFrame(scrollAnimationFrame);
+        // Cancel animation frame using the cleanup function
+        if (stopScrollCheck) {
+            stopScrollCheck();
+            stopScrollCheck = null;
         }
     });
 
