@@ -252,16 +252,16 @@ impl Handler<message::Edit> for ChatServer {
         let layer = self.layer.to_owned();
         let session = msg.session.to_owned();
         let author = implement::Author::from(&session);
+        log::info!("[edit] {} edited message #{}: {}", session.username, msg.message_id, msg.message);
 
         Box::pin(
             async move {
                 // Get the message.
                 let res = layer.get_message(msg.message_id).await;
 
-                // If we got the message, check if we can delete it.
+                // If we got the message, check if we can edit it.
                 if let Some(message) = &res {
                     if message.user_id == session.id {
-                        log::info!("[edit] {} edited message #{}: {}", session.username, msg.message_id, msg.message);
                         // Edit message.
                         return layer
                             .edit_message(message.message_id, author, msg.message)
