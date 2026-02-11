@@ -201,6 +201,7 @@ impl Handler<message::Delete> for ChatServer {
                 // If we got the message, check if we can delete it.
                 if let Some(message) = &res {
                     if message.user_id == msg.session.id || msg.session.is_staff {
+                        log::info!("[delete] {} deleted message #{}", msg.session.username, msg.message_id);
                         // Delete message.
                         layer.delete_message(message.message_id).await;
                     } else {
@@ -260,7 +261,8 @@ impl Handler<message::Edit> for ChatServer {
                 // If we got the message, check if we can delete it.
                 if let Some(message) = &res {
                     if message.user_id == session.id {
-                        // Delete message.
+                        log::info!("[edit] {} edited message #{}: {}", session.username, msg.message_id, msg.message);
+                        // Edit message.
                         return layer
                             .edit_message(message.message_id, author, msg.message)
                             .await;
@@ -366,6 +368,7 @@ impl Handler<message::Post> for ChatServer {
             let id = msg.id;
             let layer = self.layer.to_owned();
             let session = msg.session.to_owned();
+            log::info!("[room:{}] <{}> {}", msg.room_id, msg.session.username, msg.message);
 
             Box::pin(
                 async move { layer.insert_chat_message(&msg).await }
