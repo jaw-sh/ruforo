@@ -30,8 +30,20 @@ document.addEventListener("DOMContentLoaded", function () {
     })();
 
     function inputAddEventListeners(el) {
-        // TODO: Add keyDown event listeners?
-        // Right now, the functionality for main input and edit input is totally different.
+        // Strip <br> and <div> elements that mobile browsers (especially Firefox
+        // with DE/INTL virtual keyboards) inject into contenteditable during
+        // composition. Without this, they leak through innerHTML on submit.
+        el.addEventListener('input', function () {
+            Array.from(this.querySelectorAll('br, div')).forEach(function (node) {
+                if (node.tagName === 'BR') {
+                    node.remove();
+                } else if (node.tagName === 'DIV') {
+                    // Firefox wraps new lines in <div>; unwrap the text content
+                    node.replaceWith(document.createTextNode(node.textContent));
+                }
+            });
+        });
+
         el.addEventListener('paste', function (event) {
             var text = event.clipboardData.getData('text/plain');
 
@@ -206,6 +218,15 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
+    function cleanupAvatarImage(avatarEl) {
+        if (!avatarEl) return;
+        avatarEl.removeAttribute('src');
+        avatarEl.removeAttribute('srcset');
+        avatarEl.removeAttribute('loading');
+        avatarEl.removeAttribute('decoding');
+        avatarEl.remove();
+    }
+
     function messageDelete(message) {
         let el = document.getElementById(`chat-message-${message}`);
         if (!el) return;
@@ -215,12 +236,8 @@ document.addEventListener("DOMContentLoaded", function () {
         // Clean up event listeners before removing
         messageRemoveEventListeners(el);
 
-        // Clean up avatar image to release memory
-        let avatarEl = el.querySelector('.avatar');
-        if (avatarEl) {
-            avatarEl.removeAttribute('src');
-            avatarEl.src = '';
-        }
+        // Remove avatar from DOM entirely to free decoded bitmap memory
+        cleanupAvatarImage(el.querySelector('.avatar'));
 
         // Clean up stored data
         delete el.rawMessage;
@@ -444,11 +461,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (extantEl !== null) {
             // Clean up old element before replacing
             messageRemoveEventListeners(extantEl);
-            let oldAvatar = extantEl.querySelector('.avatar');
-            if (oldAvatar) {
-                oldAvatar.removeAttribute('src');
-                oldAvatar.src = '';
-            }
+            cleanupAvatarImage(extantEl.querySelector('.avatar'));
             delete extantEl.rawMessage;
             delete extantEl.originalMessage;
             extantEl.replaceWith(el);
@@ -466,12 +479,8 @@ document.addEventListener("DOMContentLoaded", function () {
             // Clean up event listeners
             messageRemoveEventListeners(oldMessage);
 
-            // Clear avatar src to help with memory cleanup
-            let avatarEl = oldMessage.querySelector('.avatar');
-            if (avatarEl) {
-                avatarEl.removeAttribute('src');
-                avatarEl.src = '';
-            }
+            // Remove avatar from DOM entirely to free decoded bitmap memory
+            cleanupAvatarImage(oldMessage.querySelector('.avatar'));
 
             // Clean up stored data properties
             delete oldMessage.rawMessage;
@@ -553,12 +562,8 @@ document.addEventListener("DOMContentLoaded", function () {
             if (child.classList && child.classList.contains('chat-message')) {
                 messageRemoveEventListeners(child);
 
-                // Clean up avatar image to release memory
-                let avatarEl = child.querySelector('.avatar');
-                if (avatarEl) {
-                    avatarEl.removeAttribute('src');
-                    avatarEl.src = '';
-                }
+                // Remove avatar from DOM entirely to free decoded bitmap memory
+                cleanupAvatarImage(child.querySelector('.avatar'));
 
                 // Clean up stored data properties
                 delete child.rawMessage;
@@ -663,12 +668,7 @@ document.addEventListener("DOMContentLoaded", function () {
             delete userActivityData[id];
 
             if (userEl) {
-                // Clean up avatar before removing
-                let avatarEl = userEl.querySelector('.avatar');
-                if (avatarEl) {
-                    avatarEl.removeAttribute('src');
-                    avatarEl.src = '';
-                }
+                cleanupAvatarImage(userEl.querySelector('.avatar'));
                 userEl.remove();
             }
         }
@@ -677,12 +677,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function userActivityDelete() {
         let userEl = document.getElementById(`chat-activity`);
         while (userEl.firstChild) {
-            // Clean up avatar references before removing
-            let avatarEl = userEl.firstChild.querySelector('.avatar');
-            if (avatarEl) {
-                avatarEl.removeAttribute('src');
-                avatarEl.src = '';
-            }
+            cleanupAvatarImage(userEl.firstChild.querySelector ? userEl.firstChild.querySelector('.avatar') : null);
             userEl.removeChild(userEl.firstChild);
         }
         // Clear the data object
@@ -695,7 +690,27 @@ document.addEventListener("DOMContentLoaded", function () {
             userActivityData[id].last_activity = new Date;
 
             if (userEl) {
-                // ???
+                // Update the existing element's last_activity and refresh avatar
+                // if the URL has changed (e.g. user updated their avatar).
+                userEl.last_activity = userActivityData[id].last_activity;
+
+                let avEl = userEl.querySelector('.avatar');
+                let newUrl = userActivityData[id].avatar_url;
+                if (newUrl && avEl && avEl.src !== newUrl) {
+                    avEl.src = newUrl;
+                } else if (newUrl && !avEl) {
+                    // Avatar was previously absent, add one
+                    avEl = document.createElement('img');
+                    avEl.classList.add('avatar');
+                    avEl.src = newUrl;
+                    avEl.alt = userActivityData[id].username;
+                    avEl.setAttribute('loading', 'lazy');
+                    avEl.setAttribute('decoding', 'async');
+                    userEl.prepend(avEl);
+                } else if (!newUrl && avEl) {
+                    // User removed their avatar
+                    cleanupAvatarImage(avEl);
+                }
             }
             else {
                 let usersEl = document.getElementById('chat-activity');
@@ -808,6 +823,10 @@ document.addEventListener("DOMContentLoaded", function () {
             ws = null;
         }
 
+        // Clean up stale activity sidebar elements from previous connection
+        // to prevent avatar images from accumulating across reconnects
+        userActivityDelete();
+
         // TODO: Make this something practical.
         // fixes cross-domain issues that the forum currently enjoy
         // transform "wss://mysite.us/rust-chat" to "wss://mysite.eu/rust-chat" when on mysite.eu, for instance.
@@ -898,8 +917,8 @@ document.addEventListener("DOMContentLoaded", function () {
         event.preventDefault();
         let input = document.getElementById('new-message-input');
 
-        messageSend(input.innerHTML);
-        input.innerHTML = "";
+        messageSend(input.textContent);
+        input.textContent = "";
 
         input.focus({ preventScroll: true });
         return false;

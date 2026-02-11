@@ -14,11 +14,11 @@ async fn get_database_connection() -> Result<DatabaseConnection, DbErr> {
     );
 
     options
-        .max_connections(10240)
-        .min_connections(16)
-        .connect_timeout(Duration::from_secs(10))
-        .idle_timeout(Duration::from_secs(8))
-        .max_lifetime(Duration::from_secs(8))
+        .max_connections(100)
+        .min_connections(5)
+        .connect_timeout(Duration::from_secs(8))
+        .idle_timeout(Duration::from_secs(300))
+        .max_lifetime(Duration::from_secs(300))
         .sqlx_logging(true);
 
     Database::connect(options).await
@@ -75,7 +75,6 @@ async fn main() -> std::io::Result<()> {
     .backlog(20480)
     .max_connections(65536)
     .max_connection_rate(10240)
-    .workers(256)
     .bind(std::env::var("CHAT_WS_BIND").unwrap_or_else(|_| "127.0.0.1:8080".to_owned()))?
     .run()
     .await
