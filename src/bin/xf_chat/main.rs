@@ -72,8 +72,8 @@ async fn main() -> std::io::Result<()> {
             .service(ruforo::web::chat::view_chat_shim)
             .service(ruforo::web::chat::view_public_file)
     })
-    .backlog(20480)
-    .max_connections(65536)
+    .backlog(10240)
+    .max_connections(10240)
     .max_connection_rate(10240)
     .bind(std::env::var("CHAT_WS_BIND").unwrap_or_else(|_| "127.0.0.1:8080".to_owned()))?
     .run()
