@@ -17,7 +17,8 @@ pub async fn init_db(database_url: String) -> &'static DatabaseConnection {
         .min_connections(5)
         .connect_timeout(Duration::from_secs(1))
         .idle_timeout(Duration::from_secs(1))
-        .sqlx_logging(true);
+        .sqlx_logging(true)
+        .sqlx_logging_level(log::LevelFilter::Debug);
 
     let pool = Database::connect(opt)
         .await
