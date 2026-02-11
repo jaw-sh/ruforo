@@ -17,9 +17,9 @@ use std::time::{Duration, Instant};
 use crate::middleware::ClientCtx;
 
 /// How often heartbeat pings are sent
-pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
+pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 /// How long before lack of client response causes a timeout
-pub const CLIENT_TIMEOUT: Duration = Duration::from_secs(5);
+pub const CLIENT_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
     conf.service(view_chat_socket).service(view_chat);
