@@ -218,12 +218,23 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
+    // 1x1 transparent GIF - used to force browser to release decoded bitmap memory
+    const BLANK_GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
     function cleanupAvatarImage(avatarEl) {
         if (!avatarEl) return;
-        avatarEl.removeAttribute('src');
+
+        // Force the browser to release the decoded bitmap by replacing with tiny image
+        // Simply removing src or the element doesn't reliably free bitmap memory in Chrome
+        avatarEl.src = BLANK_GIF;
+
+        // Remove other attributes
         avatarEl.removeAttribute('srcset');
         avatarEl.removeAttribute('loading');
         avatarEl.removeAttribute('decoding');
+        avatarEl.removeAttribute('alt');
+
+        // Now remove from DOM
         avatarEl.remove();
     }
 
@@ -690,26 +701,43 @@ document.addEventListener("DOMContentLoaded", function () {
             userActivityData[id].last_activity = new Date;
 
             if (userEl) {
-                // Update the existing element's last_activity and refresh avatar
-                // if the URL has changed (e.g. user updated their avatar).
+                // Update the existing element's last_activity
                 userEl.last_activity = userActivityData[id].last_activity;
 
+                // Only update avatar if the URL has ACTUALLY changed
+                // Store original URL in dataset to avoid absolute vs relative comparison issues
                 let avEl = userEl.querySelector('.avatar');
-                let newUrl = userActivityData[id].avatar_url;
-                if (newUrl && avEl && avEl.src !== newUrl) {
-                    avEl.src = newUrl;
-                } else if (newUrl && !avEl) {
-                    // Avatar was previously absent, add one
-                    avEl = document.createElement('img');
-                    avEl.classList.add('avatar');
-                    avEl.src = newUrl;
-                    avEl.alt = userActivityData[id].username;
-                    avEl.setAttribute('loading', 'lazy');
-                    avEl.setAttribute('decoding', 'async');
-                    userEl.prepend(avEl);
-                } else if (!newUrl && avEl) {
-                    // User removed their avatar
-                    cleanupAvatarImage(avEl);
+                let newUrl = userActivityData[id].avatar_url || '';
+                let currentUrl = userEl.dataset.avatarUrl || '';
+
+                if (newUrl !== currentUrl) {
+                    userEl.dataset.avatarUrl = newUrl;
+
+                    if (newUrl && avEl) {
+                        // URL changed - replace the entire img element to ensure bitmap is released
+                        let newAvEl = document.createElement('img');
+                        newAvEl.classList.add('avatar');
+                        newAvEl.src = newUrl;
+                        newAvEl.alt = userActivityData[id].username;
+                        newAvEl.setAttribute('loading', 'lazy');
+                        newAvEl.setAttribute('decoding', 'async');
+
+                        // Clean up old element and replace
+                        cleanupAvatarImage(avEl);
+                        userEl.prepend(newAvEl);
+                    } else if (newUrl && !avEl) {
+                        // Avatar was previously absent, add one
+                        avEl = document.createElement('img');
+                        avEl.classList.add('avatar');
+                        avEl.src = newUrl;
+                        avEl.alt = userActivityData[id].username;
+                        avEl.setAttribute('loading', 'lazy');
+                        avEl.setAttribute('decoding', 'async');
+                        userEl.prepend(avEl);
+                    } else if (!newUrl && avEl) {
+                        // User removed their avatar
+                        cleanupAvatarImage(avEl);
+                    }
                 }
             }
             else {
@@ -718,6 +746,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 newEl.id = `chat-activity-${id}`;
                 newEl.dataset.username = userActivityData[id].username;
+                newEl.dataset.avatarUrl = userActivityData[id].avatar_url || '';
                 newEl.last_activity = userActivityData[id].last_activity;
 
                 let avEl = newEl.querySelector('.avatar');

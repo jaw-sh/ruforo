@@ -3,10 +3,18 @@
 use super::orm::session;
 use super::orm::user;
 use super::orm::user_ignored;
+use once_cell::sync::Lazy;
+use regex::Regex;
 use ruforo::web::chat::implement;
 use sea_orm::entity::prelude::*;
 use sea_orm::{DatabaseConnection, FromQueryResult, QuerySelect};
 use serde::Deserialize;
+
+// Pre-compile the regex for extracting userId from XF session data
+static XF_SESSION_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r#"s:6:\\?"?userId\\?"?;i:(?P<user_id>\d+);"#)
+        .expect("Failed to compile XF session regex")
+});
 
 #[derive(FromQueryResult)]
 struct XfSession {
@@ -89,19 +97,12 @@ pub async fn get_user_id_from_cookie(db: &DatabaseConnection, cookie: &String) -
             Some(session) => {
                 //use serde_php::from_bytes;
                 //match from_bytes::<XfSessionSerialized>(str::replace(&session, "\\", "").as_bytes()) {
-                match regex::Regex::new(r#"s:6:\\?"?userId\\?"?;i:(?P<user_id>\d+);"#) {
-                    Ok(ex) => match ex.captures(&String::from_utf8_lossy(&session.session_data)) {
-                        Some(captures) => {
-                            log::debug!("User {:?} has authorized.", &captures["user_id"]);
-                            captures["user_id"].parse::<u32>().unwrap()
-                        }
-                        None => 0,
-                    },
-                    Err(err) => {
-                        log::warn!("FAILED to parse regex {:?}", err);
-                        //log::warn!("FAILED to deserialize {:?}", err);
-                        0
+                match XF_SESSION_REGEX.captures(&String::from_utf8_lossy(&session.session_data)) {
+                    Some(captures) => {
+                        log::debug!("User {:?} has authorized.", &captures["user_id"]);
+                        captures["user_id"].parse::<u32>().unwrap()
                     }
+                    None => 0,
                 }
             }
             None => 0,
