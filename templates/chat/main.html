@@ -17,6 +17,16 @@
     <form id="new-message-form" class="chat-form">
         <input id="chat-input-room" type="hidden" name="room" value="0" />
 
+        <div class="chat-toolbar">
+            <button type="button" class="toolbar-btn" data-tag="b" title="Bold (Ctrl+B)"><b>B</b></button>
+            <button type="button" class="toolbar-btn" data-tag="i" title="Italic (Ctrl+I)"><em>I</em></button>
+            <button type="button" class="toolbar-btn" data-tag="u" title="Underline (Ctrl+U)"><u>U</u></button>
+            <button type="button" class="toolbar-btn" data-tag="s" title="Strikethrough (Ctrl+S)"><s>S</s></button>
+            <button type="button" class="toolbar-btn" data-tag="code" title="Code">Code</button>
+            <button type="button" class="toolbar-btn" data-tag="url" title="Link">URL</button>
+            <button type="button" class="toolbar-btn" data-tag="img" title="Image">IMG</button>
+        </div>
+
         <div class="chat-fields">
             <div id="new-message-input" class="chat-input" name="message" contenteditable="true"
                 aria-label="Message the room" aria-multiline="true"></div>
