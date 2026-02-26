@@ -54,6 +54,8 @@ async fn main() -> std::io::Result<()> {
         .await
         .start();
 
+    ruforo::web::chat::watcher::start_asset_watcher(chat.clone());
+
     crate::xf::permission::configure();
 
     HttpServer::new(move || {

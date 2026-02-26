@@ -2,6 +2,7 @@ pub mod connection;
 pub mod implement;
 pub mod message;
 pub mod server;
+pub mod watcher;
 
 use actix::Addr;
 use actix_files as fs;

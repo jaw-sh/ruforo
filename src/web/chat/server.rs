@@ -6,7 +6,8 @@ use actix::prelude::*;
 use rand::{self, rngs::ThreadRng, Rng};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::SystemTime;
+use actix_web::rt::time;
+use std::time::{Duration, SystemTime};
 
 /// `ChatServer` manages chat rooms and responsible for coordinating chat
 /// session. implementation is super primitive
@@ -317,7 +318,18 @@ impl Handler<message::Join> for ChatServer {
         Box::pin(
             async move {
                 if layer.can_view(session.id, room_id).await {
-                    (true, layer.get_room_history(room_id, 40).await)
+                    match time::timeout(
+                        Duration::from_secs(5),
+                        layer.get_room_history(room_id, 40),
+                    )
+                    .await
+                    {
+                        Ok(history) => (true, history),
+                        Err(_) => {
+                            log::warn!("Room history fetch timed out for room {}", room_id);
+                            (true, Vec::default())
+                        }
+                    }
                 } else {
                     (false, Vec::default())
                 }
@@ -360,43 +372,120 @@ impl Handler<message::Join> for ChatServer {
 }
 
 /// Handler for Message message.
+/// Uses optimistic broadcast: message is sent to the room immediately with a
+/// temporary ID of 0, then the DB write happens asynchronously. On success,
+/// an update_id message is broadcast so clients can replace the temp ID.
 impl Handler<message::Post> for ChatServer {
-    type Result = ResponseActFuture<Self, ()>;
+    type Result = ();
 
-    fn handle(&mut self, msg: message::Post, _: &mut Context<Self>) -> Self::Result {
-        if msg.session.can_send_message() {
-            let id = msg.id;
-            let layer = self.layer.to_owned();
-            let session = msg.session.to_owned();
-            log::info!("[room:{}] <{}> {}", msg.room_id, msg.session.username, msg.message);
-
-            Box::pin(
-                async move { layer.insert_chat_message(&msg).await }
-                    .into_actor(self)
-                    .map(move |message, actor, _| {
-                        if let Some(message) = message {
-                            let room_id = message.room_id;
-
-                            actor.send_message_to_room(
-                                room_id,
-                                serde_json::to_string(&message::SanitaryPosts {
-                                    messages: vec![actor
-                                        .prepare_message(implement::Author::from(&session), message)],
-                                })
-                                .expect("message::Post serialize failure"),
-                            );
-                        }
-                        else {
-                            actor.send_message_to_conn(id, "Failed to send message.".to_string());
-                        }
-                    }),
-            )
-        } else {
+    fn handle(&mut self, msg: message::Post, ctx: &mut Context<Self>) {
+        if !msg.session.can_send_message() {
             self.send_message_to_conn(msg.id, "You cannot send messages.".to_string());
-            Box::pin(async {}.into_actor(self))
+            return;
         }
+
+        let id = msg.id;
+        let room_id = msg.room_id;
+        let session = msg.session.to_owned();
+        log::info!("[room:{}] <{}> {}", msg.room_id, msg.session.username, msg.message);
+
+        // Create a temporary message with message_id 0 and broadcast immediately.
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        let temp_message = implement::Message {
+            user_id: session.id,
+            room_id,
+            message_id: 0,
+            message_date: now,
+            message_edit_date: 0,
+            message: msg.message.clone(),
+        };
+
+        let sanitary = self.prepare_message(implement::Author::from(&session), temp_message);
+        self.send_message_to_room(
+            room_id,
+            serde_json::to_string(&message::SanitaryPosts {
+                messages: vec![sanitary],
+            })
+            .expect("message::Post optimistic serialize failure"),
+        );
+
+        // Spawn background future for DB write with retry logic.
+        let layer = self.layer.clone();
+        ctx.spawn(
+            async move {
+                // Attempt 1
+                let result = layer.insert_chat_message(&msg).await;
+                if let Some(message) = result {
+                    return Ok(message);
+                }
+
+                // Retry 1 after 1 second
+                log::warn!("DB write failed for room {}, retrying in 1s...", room_id);
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                let result = layer.insert_chat_message(&msg).await;
+                if let Some(message) = result {
+                    return Ok(message);
+                }
+
+                // Retry 2 after 2 seconds
+                log::warn!("DB write failed for room {}, retrying in 2s...", room_id);
+                tokio::time::sleep(Duration::from_secs(2)).await;
+                let result = layer.insert_chat_message(&msg).await;
+                if let Some(message) = result {
+                    return Ok(message);
+                }
+
+                Err(())
+            }
+            .into_actor(self)
+            .map(move |result, actor, _ctx| {
+                match result {
+                    Ok(message) => {
+                        // Broadcast the real ID so clients can update the temp ID.
+                        actor.send_message_to_room(
+                            room_id,
+                            format!(
+                                "{{\"update_id\":{{\"old\":0,\"new\":{},\"room_id\":{}}}}}",
+                                message.message_id, room_id
+                            ),
+                        );
+                    }
+                    Err(()) => {
+                        log::error!(
+                            "All DB write retries failed for room {} by user {}",
+                            room_id,
+                            session.username
+                        );
+                        actor.send_message_to_conn(
+                            id,
+                            "Your message was displayed but could not be saved. Please try again."
+                                .to_string(),
+                        );
+                    }
+                }
+            }),
+        );
     }
 }
+/// Handler for UpdateMessageId - broadcast real message ID to room.
+impl Handler<message::UpdateMessageId> for ChatServer {
+    type Result = ();
+
+    fn handle(&mut self, msg: message::UpdateMessageId, _: &mut Context<Self>) {
+        self.send_message_to_room(
+            msg.room_id,
+            format!(
+                "{{\"update_id\":{{\"old\":{},\"new\":{},\"room_id\":{}}}}}",
+                msg.old_id, msg.new_id, msg.room_id
+            ),
+        );
+    }
+}
+
 impl Handler<message::Restart> for ChatServer {
     type Result = ();
 
@@ -404,6 +493,21 @@ impl Handler<message::Restart> for ChatServer {
         if msg.session.is_staff {
             log::warn!("ChatServer is being restarted by command, initiated by {:?}", msg.session.username);
             ctx.stop();
+        }
+    }
+}
+
+/// Handler for AssetChanged - notify all clients to refresh.
+impl Handler<message::AssetChanged> for ChatServer {
+    type Result = ();
+
+    fn handle(&mut self, _: message::AssetChanged, _: &mut Context<Self>) {
+        log::info!("Broadcasting asset change notification to all rooms.");
+        for room_id in self.rooms.keys().cloned().collect::<Vec<_>>() {
+            self.send_message_to_room(
+                room_id,
+                "{\"system\":\"The chat has been updated. Refresh required.\"}".to_string(),
+            );
         }
     }
 }

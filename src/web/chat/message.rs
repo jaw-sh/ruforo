@@ -133,3 +133,21 @@ pub struct SanitaryPosts {
 impl Message for SanitaryPosts {
     type Result = ();
 }
+
+/// Notification with real message ID after DB write succeeds.
+pub struct UpdateMessageId {
+    pub room_id: u32,
+    pub old_id: u32,
+    pub new_id: u32,
+}
+
+impl Message for UpdateMessageId {
+    type Result = ();
+}
+
+/// Notification that frontend assets have changed.
+pub struct AssetChanged;
+
+impl Message for AssetChanged {
+    type Result = ();
+}
