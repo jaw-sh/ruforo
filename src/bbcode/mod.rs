@@ -37,6 +37,24 @@ pub fn parse(input: &str) -> String {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn ditto() {
+        use super::parse;
+
+        assert_eq!(
+            "<button class=\"bbCode tagDitto\">click me</button>",
+            parse("[ditto]click me[/ditto]")
+        );
+        assert_eq!(
+            "<button class=\"bbCode tagDitto\"><b>bold click</b></button>",
+            parse("[ditto][b]bold click[/b][/ditto]")
+        );
+        assert_eq!(
+            "<button class=\"bbCode tagDitto\"></button>",
+            parse("[ditto][/ditto]")
+        );
+    }
+
+    #[test]
     fn img() {
         use super::parse;
 

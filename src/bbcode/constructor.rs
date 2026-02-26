@@ -100,6 +100,7 @@ impl Constructor {
 
                     Tag::Bold => Tag::open_simple_tag("b"),
                     Tag::Color => Tag::open_color_tag(el),
+                    Tag::Ditto => "<button class=\"bbCode tagDitto\">".to_string(),
                     Tag::Italics => Tag::open_simple_tag("i"),
                     Tag::Underline => Tag::open_simple_tag("u"),
                     Tag::Strikethrough => Tag::open_simple_tag("s"),
@@ -143,6 +144,7 @@ impl Constructor {
 
                     Tag::Bold => Tag::close_simple_tag("b"),
                     Tag::Color => Tag::close_simple_tag("span"),
+                    Tag::Ditto => Tag::close_simple_tag("button"),
                     Tag::Italics => Tag::close_simple_tag("i"),
                     Tag::Underline => Tag::close_simple_tag("u"),
                     Tag::Strikethrough => Tag::close_simple_tag("s"),

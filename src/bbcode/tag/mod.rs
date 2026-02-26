@@ -16,6 +16,7 @@ pub enum Tag {
     // Inline Tags
     Bold,
     Color,
+    Ditto,
     Italics,
     Underline,
     Strikethrough,
@@ -36,6 +37,7 @@ impl Tag {
             "br" => Tag::Linebreak,
             "color" => Tag::Color,
             "code" => Tag::Code,
+            "ditto" => Tag::Ditto,
             "hr" => Tag::HorizontalRule,
             "i" => Tag::Italics,
             "img" => Tag::Image,

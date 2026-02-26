@@ -223,7 +223,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
             ws::Message::Text(text) => {
                 let m = text.trim();
 
-                if m.is_empty() || m.len() >= 1024 {
+                if m.is_empty() || m.len() > 2048 {
                     return;
                 }
 
