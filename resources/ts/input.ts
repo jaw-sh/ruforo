@@ -127,8 +127,8 @@ function submitMessage(inputEl: HTMLElement): void {
 }
 
 function autoGrow(el: HTMLElement): void {
-  // Reset height to auto so scrollHeight recalculates
-  el.style.height = 'auto';
+  // Collapse to 0 so scrollHeight reflects actual content, not previous height
+  el.style.height = '0';
   el.style.height = `${el.scrollHeight}px`;
 }
 
