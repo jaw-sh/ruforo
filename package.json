@@ -3,12 +3,10 @@
   "version": "0.1.0",
   "description": "_Name pending._",
   "private": true,
-  "directories": {
-    "test": "tests"
-  },
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "webpack"
+    "dev": "vite build --watch",
+    "build": "vite build"
   },
   "repository": {
     "type": "git",
@@ -18,22 +16,11 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@swc/cli": "^0.1.57",
-    "@swc/core": "^1.2.196",
-    "css-loader": "^6.7.1",
-    "mini-css-extract-plugin": "^2.6.0",
-    "node-sass": "^7.0.1",
-    "regenerator-runtime": "^0.13.9",
-    "sass": "^1.52.1",
-    "sass-loader": "^13.0.0",
-    "style-loader": "^3.3.1",
-    "swc-loader": "^0.2.1",
-    "webpack": "^5.72.1",
-    "webpack-cli": "^4.9.2"
+    "sass": "^1.85.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.1.0"
   },
   "dependencies": {
-    "filepond": "^4.30.3",
-    "hash-wasm": "^4.9.0",
     "micromodal": "^0.4.10"
   }
 }
