@@ -425,7 +425,7 @@ impl Handler<message::Post> for ChatServer {
 
                 // Retry 1 after 1 second
                 log::warn!("DB write failed for room {}, retrying in 1s...", room_id);
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                time::sleep(Duration::from_secs(1)).await;
                 let result = layer.insert_chat_message(&msg).await;
                 if let Some(message) = result {
                     return Ok(message);
@@ -433,7 +433,7 @@ impl Handler<message::Post> for ChatServer {
 
                 // Retry 2 after 2 seconds
                 log::warn!("DB write failed for room {}, retrying in 2s...", room_id);
-                tokio::time::sleep(Duration::from_secs(2)).await;
+                time::sleep(Duration::from_secs(2)).await;
                 let result = layer.insert_chat_message(&msg).await;
                 if let Some(message) = result {
                     return Ok(message);
