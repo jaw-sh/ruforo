@@ -570,7 +570,7 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
   }
 
   // Force set URLs to target new tab.
-  Array.from(template.querySelectorAll('.tagUrl')).forEach(function (el) {
+  Array.from(template.querySelectorAll('.bbcode-url')).forEach(function (el) {
     (el as HTMLAnchorElement).target = '_blank';
   });
 
@@ -680,7 +680,7 @@ export function messagePushPending(pending: PendingMessage): HTMLElement {
   template.querySelector('.report')?.remove();
 
   // Force set URLs to target new tab
-  Array.from(template.querySelectorAll('.tagUrl')).forEach(function (el) {
+  Array.from(template.querySelectorAll('.bbcode-url')).forEach(function (el) {
     (el as HTMLAnchorElement).target = '_blank';
   });
 

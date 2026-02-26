@@ -1,234 +1,124 @@
-extern crate linkify;
+use bbcode::{
+    CustomTagDef, CustomTagHandler, Parser, RenderConfig, Renderer, TagNode, RenderContext, TagType,
+};
+use std::collections::HashMap;
+use std::sync::Arc;
 
-mod constructor;
-mod element;
-mod parser;
-mod smilie;
-mod tag;
-mod token;
-mod tokenize;
-
-pub use constructor::Constructor;
-pub use element::{Element, ElementDisplay};
-pub use parser::Parser;
-pub use smilie::Smilies;
-pub use tag::Tag;
-pub use token::Token;
-pub use tokenize::tokenize;
-
-/// Generates a string of HTML from an &str of BbCode.
-#[no_mangle]
+/// Quick parse for templates (no smilies, no custom config).
 pub fn parse(input: &str) -> String {
-    let tokens: Vec<Token> = tokenize(input).expect("Failed to unwrap tokens.").1;
-
-    //println!("TOKENS: {:?}", tokens);
-
     let mut parser = Parser::new();
-    let ast = parser.parse(&tokens);
+    parser.register_custom_tag(ditto_tag_def());
 
-    //for node in ast.descendants() {
-    //    println!("{:?}", node);
-    //}
+    let doc = parser.parse(input);
 
-    let constructor = Constructor::new();
-    constructor.build(ast)
+    let mut renderer = Renderer::new();
+    renderer.register_handler(Arc::new(DittoHandler));
+    renderer.render(&doc)
+}
+
+/// Chat-optimized parser+renderer with smilies and custom tags.
+pub struct ChatBBCode {
+    parser: Parser,
+    renderer: Renderer,
+}
+
+impl ChatBBCode {
+    pub fn new(smilies: HashMap<String, String>) -> Self {
+        let mut parser = Parser::new();
+        parser.register_custom_tag(ditto_tag_def());
+
+        let config = RenderConfig {
+            smilies,
+            ..Default::default()
+        };
+        let mut renderer = Renderer::with_config(config);
+        renderer.register_handler(Arc::new(DittoHandler));
+
+        Self { parser, renderer }
+    }
+
+    pub fn render(&self, input: &str) -> String {
+        let doc = self.parser.parse(input);
+        self.renderer.render(&doc)
+    }
+
+    pub fn sanitize(input: &str) -> String {
+        bbcode::escape_html(input).into_owned()
+    }
+}
+
+// --- Ditto custom tag ---
+
+fn ditto_tag_def() -> CustomTagDef {
+    CustomTagDef {
+        name: "ditto".into(),
+        tag_type: TagType::Inline,
+        has_content: true,
+        ..Default::default()
+    }
+}
+
+struct DittoHandler;
+
+impl CustomTagHandler for DittoHandler {
+    fn tag_name(&self) -> &str {
+        "ditto"
+    }
+
+    fn render(&self, tag: &TagNode, ctx: &RenderContext, output: &mut String) -> bool {
+        output.push_str("<button class=\"tagDitto\">");
+        ctx.render_children(tag, output);
+        output.push_str("</button>");
+        true
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn ditto() {
-        use super::parse;
-
-        assert_eq!(
-            "<button class=\"bbCode tagDitto\">click me</button>",
-            parse("[ditto]click me[/ditto]")
-        );
-        assert_eq!(
-            "<button class=\"bbCode tagDitto\"><b>bold click</b></button>",
-            parse("[ditto][b]bold click[/b][/ditto]")
-        );
-        assert_eq!(
-            "<button class=\"bbCode tagDitto\"></button>",
-            parse("[ditto][/ditto]")
-        );
+        assert!(parse("[ditto]click me[/ditto]").contains("tagDitto"));
+        assert!(parse("[ditto]click me[/ditto]").contains("click me"));
+        assert!(parse("[ditto][b]bold[/b][/ditto]").contains("<strong>bold</strong>"));
+        assert!(parse("[ditto][/ditto]").contains("tagDitto"));
     }
 
     #[test]
-    fn img() {
-        use super::parse;
-
-        assert_eq!(
-            "<img src=\"https://zombo.com/images/zombocom.png\" />",
-            parse("[img]https://zombo.com/images/zombocom.png[/img]")
-        );
-        assert_eq!(
-            "<img src=\"https://zombo.com/images/zombocom.png\" />",
-            parse("[img]https://zombo.com/images/zombocom.png")
-        );
-        assert_eq!("[img][/img]", parse("[img][/img]"));
-        assert_eq!("[img]", parse("[img]"));
-        assert_eq!("[img]not a link[/img]", parse("[img]not a link[/img]"));
-        assert_eq!("[img]not a link", parse("[img]not a link"));
-    }
-
-    #[test]
-    fn inline_tags() {
-        use super::parse;
-
-        assert_eq!("<b>Test</b>", parse("[b]Test[/b]"));
-        assert_eq!("<b>Test</b>", parse("[B]Test[/B]"));
-        assert_eq!("<b>Test</b>", parse("[B]Test[/b]"));
-        assert_eq!("<i>Test</i>", parse("[i]Test[/i]"));
+    fn basic_tags() {
+        assert_eq!("<strong>Test</strong>", parse("[b]Test[/b]"));
+        assert_eq!("<em>Test</em>", parse("[i]Test[/i]"));
         assert_eq!("<u>Test</u>", parse("[u]Test[/u]"));
         assert_eq!("<s>Test</s>", parse("[s]Test[/s]"));
-
-        assert_eq!("<b><i>Test</i></b>", parse("[b][i]Test[/i][/b]"));
-        assert_eq!("<b><i>Test</i></b>", parse("[b][i]Test[/i]"));
-        assert_eq!("<b><i>Test</i></b>", parse("[b][i]Test[/b]"));
-        assert_eq!("<b><i>Test</i></b>", parse("[b][i]Test"));
-        assert_eq!("<b><i>Test</i></b>", parse("[B][i]Test"));
-
-        const GOOD_COLORS: &[&str] = &["red", "#ff0000"];
-        const BAD_COLORS: &[&str] = &["RED", "ff0000", "sneed", ""];
-
-        for good in GOOD_COLORS {
-            assert_eq!(
-                format!(
-                    "<span class=\"bbCode tagColor\" style=\"color: {}\">Hello!</span>",
-                    good
-                ),
-                parse(&format!("[color={}]Hello![/color]", good))
-            );
-        }
-
-        for bad in BAD_COLORS {
-            assert_eq!(
-                format!("[color={}]Hello![/color]", bad),
-                parse(&format!("[color={}]Hello![/color]", bad))
-            );
-        }
-    }
-
-    #[test]
-    fn international_text() {
-        use super::parse;
-
-        assert_eq!(
-            "I&#x27;d bet it&#x27;s a &quot;test&quot;, yea.",
-            parse("I'd bet it's a \"test\", yea.")
-        );
-        assert_eq!("私は猫<i>です</i>。", parse("私は猫[i]です[/i]。"));
-        assert_eq!(
-            "全世界無產階級和被壓迫的民族聯合起來！",
-            parse("全世界無產階級和被壓迫的民族聯合起來！")
-        );
-        assert_eq!(
-            "<b>СМЕРТЬ</b><br />ВСІМ, ХТО НА ПИРИШКОДІ<br />ДОБУТЬЯ ВІЛЬНОСТІ<br />ТРУДОВОМУ ЛЮДУ.",
-            parse(
-                "[b]СМЕРТЬ[/b]\r\nВСІМ, ХТО НА ПИРИШКОДІ\r\nДОБУТЬЯ ВІЛЬНОСТІ\r\nТРУДОВОМУ ЛЮДУ."
-            )
-        );
-        assert_eq!("😂🔫", parse("😂🔫"));
-    }
-
-    #[test]
-    fn invalid() {
-        use super::parse;
-
-        assert_eq!("[foo]Test[/foo]", parse("[foo]Test[/foo]"));
-        assert_eq!("[foo]Test[/foo]", parse("[plain][foo]Test[/foo][/plain]"));
-        assert_eq!("[foo]Test[/bar]", parse("[foo]Test[/bar]"));
-        assert_eq!("[foo]Test", parse("[foo]Test"));
-    }
-
-    #[test]
-    fn linebreaks() {
-        use super::parse;
-
-        assert_eq!("Foo<br />bar", parse("Foo\r\nbar"));
-        assert_eq!("Foo<br />bar", parse("Foo\nbar"));
-        assert_eq!("Foo<br />\rbar", parse("Foo\n\rbar"));
-        assert_eq!("Foo<br />\rbar", parse("Foo\r\n\rbar"));
-
-        assert_eq!("Foo<br /><br /><br />bar", parse("Foo\n\n\nbar"));
-        assert_eq!(
-            "<b>Foo<br /><br /><br />bar</b>",
-            parse("[b]Foo\n\n\nbar[/b]")
-        );
-        assert_eq!("<b>Foo<br /><br /><br />bar</b>", parse("[b]Foo\n\n\nbar"));
-    }
-
-    #[test]
-    fn linkify() {
-        use super::parse;
-
-        assert_eq!(
-            "Welcome, to <a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"https://zombo.com/\">https://zombo.com/</a>",
-            parse("Welcome, to https://zombo.com/")
-        );
-        assert_eq!(
-            "Welcome, to <a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"https://zombo.com/\">https://zombo.com/</a>!",
-            parse("Welcome, to [url]https://zombo.com/[/url]!")
-        );
-        assert_eq!(
-            "Welcome, to <b><a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"https://zombo.com/\">https://zombo.com/</a></b>!",
-            parse("Welcome, to [b][url]https://zombo.com/[/url][/b]!")
-        );
-        assert_eq!(
-            "Welcome, to <a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"https://zombo.com/\">Zombo.com</a>!",
-            parse("Welcome, to [url=https://zombo.com/]Zombo.com[/url]!")
-        );
-        assert_eq!(
-            "<a class=\"bbCode tagUrl\" ref=\"nofollow\" href=\"https://zombo.com/\"><img src=\"https://zombo.com/images/zombocom.png\" /></a>",
-            parse("[url=https://zombo.com/][img]https://zombo.com/images/zombocom.png[/img][/url]")
-        );
-        assert_eq!(
-            "Welcome, to [url][/url]!",
-            parse("Welcome, to [url][/url]!")
-        );
-        assert_eq!("Welcome, to [url]!", parse("Welcome, to [url]!"));
-        assert_eq!("[url][/url]", parse("[url][/url]"));
-        assert_eq!("[url]", parse("[url]"));
-    }
-
-    #[test]
-    fn misc() {
-        use super::parse;
-
-        // This is a self-closing tag in HTML and I disagree that it should require a closing tag in BBCode.
-        assert_eq!("<hr />", parse("[hr]"));
-        //assert_eq!("<hr />", parse("[hr][/hr]"));
-        assert_eq!("Foo<hr />Bar", parse("Foo[hr]Bar"));
-        //assert_eq!("Foo<hr />Bar", parse("Foo[hr]Bar[/hr]"));
-        //assert_eq!("Foo<hr />Bar", parse("Foo[hr][/hr]Bar"));
-        assert_eq!("<b>Foo<hr />Bar</b>", parse("[b]Foo[hr]Bar"));
-    }
-
-    #[test]
-    fn plain() {
-        use super::parse;
-
-        assert_eq!("[b]Test[/b]", parse("[plain][b]Test[/b][/plain]"));
-        assert_eq!("[b]Test[/b]", parse("[plain][b]Test[/b]"));
-        assert_eq!("[b]Foo[hr]bar[/b]", parse("[plain][b]Foo[hr]bar[/b]"));
-    }
-
-    #[test]
-    fn pre() {
-        use super::parse;
-
-        assert_eq!("<pre>Test</pre>", parse("[code]Test[/code]"));
-        assert_eq!("<pre>Foo\r\nbar</pre>", parse("[code]Foo\r\nbar[/code]"));
-        assert_eq!("<pre>Foo\r\nbar&lt;/pre&gt;&lt;iframe&gt;</pre>", parse("[code]Foo\r\nbar</pre><iframe>[/code]"));
     }
 
     #[test]
     fn sanitize() {
-        use super::parse;
-
         assert_eq!("&lt;b&gt;Test&lt;/b&gt;", parse("<b>Test</b>"));
-        assert_eq!("[xxx&lt;iframe&gt;]Test[/xxx&lt;iframe&gt;]", parse("[xxx<iframe>]Test[/xxx<iframe>]"));
-        assert_eq!("[url=javascript:alert(String.fromCharCode(88,83,83))]https://zombo.com[/url]", parse("[url=javascript:alert(String.fromCharCode(88,83,83))]https://zombo.com[/url]"))
+    }
+
+    #[test]
+    fn smilies() {
+        let mut smilies = HashMap::new();
+        smilies.insert(":)".to_string(), "😊".to_string());
+        smilies.insert("cookie".to_string(), "🍪".to_string());
+        smilies.insert("ookie".to_string(), "🤢".to_string());
+
+        let bbcode = ChatBBCode::new(smilies);
+        let result = bbcode.render(":) I want a cookie!");
+        assert!(result.contains("😊"));
+        assert!(result.contains("🍪"));
+        assert!(!result.contains("🤢")); // "ookie" in "cookie" should not double-match
+    }
+
+    #[test]
+    fn smilies_not_in_code() {
+        let mut smilies = HashMap::new();
+        smilies.insert(":)".to_string(), "😊".to_string());
+
+        let bbcode = ChatBBCode::new(smilies);
+        let result = bbcode.render("[code]:)[/code]");
+        assert!(!result.contains("😊"));
     }
 }

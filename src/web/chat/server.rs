@@ -1,7 +1,7 @@
 use super::implement::{self, UserActivity};
 use super::implement::{ChatLayer, Connection};
 use super::message::{self, SanitaryPost, SanitaryPosts};
-use crate::bbcode::{tokenize, Constructor, Parser, Smilies};
+use crate::bbcode::ChatBBCode;
 use actix::prelude::*;
 use rand::{self, rngs::ThreadRng, Rng};
 use std::collections::{HashMap, HashSet};
@@ -19,8 +19,8 @@ pub struct ChatServer {
     pub connections: HashMap<usize, Connection>,
     /// Room Id -> Vec<Conn Ids>
     pub rooms: HashMap<u32, HashSet<usize>>,
-    // Message BbCode Constructor
-    pub constructor: Constructor,
+    // Message BbCode renderer
+    pub bbcode: ChatBBCode,
 }
 
 impl ChatServer {
@@ -30,23 +30,20 @@ impl ChatServer {
         // Populate rooms
         let rooms = layer.get_room_list().await;
 
-        // Constructor
-        let constructor = Constructor {
-            smilies: Smilies::new_from_tuples(
-                layer
-                    .get_smilie_list()
-                    .await
-                    .into_iter()
-                    .map(|smilie| (smilie.replace.to_string(), smilie.to_html()))
-                    .collect(),
-            ),
-        };
+        // BBCode renderer with smilies
+        let smilies = layer
+            .get_smilie_list()
+            .await
+            .into_iter()
+            .map(|smilie| (smilie.replace.to_string(), smilie.to_html()))
+            .collect();
+        let bbcode = ChatBBCode::new(smilies);
 
         Self {
             rng: rand::thread_rng(),
             connections: HashMap::new(),
             rooms: HashMap::from_iter(rooms.into_iter().map(|r| (r.id, Default::default()))),
-            constructor,
+            bbcode,
             layer,
         }
     }
@@ -112,25 +109,14 @@ impl ChatServer {
         author: implement::Author,
         message: implement::Message,
     ) -> message::SanitaryPost {
-        let tokens = match tokenize(&message.message) {
-            Ok((_, tokens)) => tokens,
-            Err(err) => {
-                log::warn!("Tokenizer error: {:?}", err);
-                unreachable!();
-            }
-        };
-
-        let mut parser = Parser::new();
-        let ast = parser.parse(&tokens);
-
         message::SanitaryPost {
             author,
             room_id: message.room_id,
             message_id: message.message_id,
             message_date: message.message_date,
             message_edit_date: message.message_edit_date,
-            message: self.constructor.build(ast),
-            message_raw: Constructor::sanitize(&message.message),
+            message: self.bbcode.render(&message.message),
+            message_raw: ChatBBCode::sanitize(&message.message),
         }
     }
 

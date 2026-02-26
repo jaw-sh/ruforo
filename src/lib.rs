@@ -1,5 +1,4 @@
 extern crate dotenv;
-extern crate linkify;
 
 pub mod attachment;
 pub mod auth_2fa;
