@@ -93,6 +93,10 @@ function handleServerPayload(data: ServerPayload): void {
   if (data.update_id) {
     messages.resolveMessageId(data.update_id.old, data.update_id.new);
   }
+
+  if (data.can_send !== undefined) {
+    setChatInputEnabled(data.can_send);
+  }
 }
 
 function handleSystemMessage(text: string): void {
@@ -120,6 +124,17 @@ function handleConnected(): void {
 
 function handleDisconnected(): void {
   users.userActivityDelete();
+}
+
+function setChatInputEnabled(enabled: boolean): void {
+  const form = document.querySelector('.chat-form') as HTMLElement | null;
+  if (!form) return;
+
+  const input = form.querySelector('.chat-input') as HTMLTextAreaElement | null;
+  if (input) {
+    input.disabled = !enabled;
+    input.placeholder = enabled ? '' : 'You do not have permission to send messages in this room.';
+  }
 }
 
 function joinByHash(): boolean {

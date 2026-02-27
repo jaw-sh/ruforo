@@ -303,25 +303,29 @@ impl Handler<message::Join> for ChatServer {
         let layer = self.layer.clone();
         Box::pin(
             async move {
-                if layer.can_view(session.id, room_id).await {
+                let (can_view, can_send) = layer.get_room_access(session.id, room_id).await;
+                // Also require the session-level can_send (message_count > 0, etc.)
+                let can_send = can_send && session.can_send;
+
+                if can_view {
                     match time::timeout(
                         Duration::from_secs(5),
                         layer.get_room_history(room_id, 40),
                     )
                     .await
                     {
-                        Ok(history) => (true, history),
+                        Ok(history) => (true, can_send, history),
                         Err(_) => {
                             log::warn!("Room history fetch timed out for room {}", room_id);
-                            (true, Vec::default())
+                            (true, can_send, Vec::default())
                         }
                     }
                 } else {
-                    (false, Vec::default())
+                    (false, false, Vec::default())
                 }
             }
             .into_actor(self)
-            .map(move |(can_view, unsanitized), actor, _ctx| {
+            .map(move |(can_view, can_send, unsanitized), actor, _ctx| {
                 if can_view {
                     let mut messages: Vec<SanitaryPost> = Vec::with_capacity(unsanitized.len());
 
@@ -335,6 +339,12 @@ impl Handler<message::Join> for ChatServer {
                             .expect("SanitaryPosts serialize failure"),
                     );
 
+                    // Tell the client whether they can send in this room.
+                    actor.send_message_to_conn(
+                        id,
+                        format!("{{\"can_send\":{}}}", can_send),
+                    );
+
                     // Put user in room now so messages don't load in during history.
                     actor
                         .rooms
@@ -344,7 +354,7 @@ impl Handler<message::Join> for ChatServer {
 
                     // Announce connection and provide activity to new user.
                     actor.connect_message(room_id, msg.id);
-    
+
                 } else {
                     actor.send_message_to_conn(
                         msg.id,

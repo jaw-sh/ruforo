@@ -18,7 +18,12 @@ struct XfPermissionId {
     permission_combination_id: u32,
 }
 
-pub async fn can_read_room(db: &DatabaseConnection, user_id: u32, room_id: u32) -> bool {
+/// Fetches the permission cache for a user in a room, returning a set of resolved permissions.
+async fn get_room_permissions(
+    db: &DatabaseConnection,
+    user_id: u32,
+    room_id: u32,
+) -> Option<ruforo::permission::CategoryValues> {
     let pc_filter = if let Ok(Some(pc)) = user::Entity::find_by_id(user_id)
         .select_only()
         .column(user::Column::PermissionCombinationId)
@@ -50,22 +55,41 @@ pub async fn can_read_room(db: &DatabaseConnection, user_id: u32, room_id: u32) 
         .one(db)
         .await
     {
-        Ok(val) => match val {
-            Some((val, _)) => match get_permissions().borrow_item_by_label("hbChatRoomView") {
-                Some(perm) => {
-                    let perms = super::permission::json_to_values(val.cache_value);
-                    return perms.can(perm.position);
-                }
-                None => {
-                    log::warn!("Failed to open XF permission category hbChatRoomView");
-                }
-            },
-            None => {}
-        },
-        Err(err) => log::warn!("Failed to fetch XF permissions: {:?}", err),
+        Ok(Some((val, _))) => Some(super::permission::json_to_values(val.cache_value)),
+        Ok(None) => None,
+        Err(err) => {
+            log::warn!("Failed to fetch XF permissions: {:?}", err);
+            None
+        }
     }
+}
 
-    false
+fn check_perm(perms: &ruforo::permission::CategoryValues, label: &str) -> bool {
+    match get_permissions().borrow_item_by_label(label) {
+        Some(perm) => perms.can(perm.position),
+        None => {
+            log::warn!("Failed to open XF permission category {}", label);
+            false
+        }
+    }
+}
+
+pub async fn can_read_room(db: &DatabaseConnection, user_id: u32, room_id: u32) -> bool {
+    match get_room_permissions(db, user_id, room_id).await {
+        Some(perms) => check_perm(&perms, "hbChatRoomView"),
+        None => false,
+    }
+}
+
+/// Returns (can_view, can_send) for a user in a room, with a single DB query.
+pub async fn get_room_access(db: &DatabaseConnection, user_id: u32, room_id: u32) -> (bool, bool) {
+    match get_room_permissions(db, user_id, room_id).await {
+        Some(perms) => (
+            check_perm(&perms, "hbChatRoomView"),
+            check_perm(&perms, "hbChatMessageSend"),
+        ),
+        None => (false, false),
+    }
 }
 
 pub async fn get_room_list(db: &DatabaseConnection) -> Vec<chat_room::Model> {

@@ -203,6 +203,8 @@ impl From<&serde_json::Value> for SpriteParams {
 #[async_trait::async_trait]
 pub trait ChatLayer {
     async fn can_view(&self, session_id: u32, room_id: u32) -> bool;
+    /// Returns (can_view, can_send) for a user in a room.
+    async fn get_room_access(&self, session_id: u32, room_id: u32) -> (bool, bool);
     async fn delete_message(&self, id: u32);
     async fn edit_message(&self, id: u32, author: Author, message: String) -> Option<Message>;
     async fn get_message(&self, message_id: u32) -> Option<Message>;
@@ -233,6 +235,10 @@ pub mod default {
     impl super::ChatLayer for Layer {
         async fn can_view(&self, _: u32, _: u32) -> bool {
             true
+        }
+
+        async fn get_room_access(&self, _: u32, _: u32) -> (bool, bool) {
+            (true, true)
         }
 
         async fn delete_message(&self, _: u32) {

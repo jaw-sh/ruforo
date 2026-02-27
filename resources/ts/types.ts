@@ -42,6 +42,7 @@ export interface ServerPayload {
   user?: Record<string, false>;
   system?: string;
   update_id?: { old: number; new: number; room_id: number };
+  can_send?: boolean;
 }
 
 export interface PendingMessage {

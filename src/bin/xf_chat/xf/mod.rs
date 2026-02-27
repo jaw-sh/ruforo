@@ -19,6 +19,10 @@ impl implement::ChatLayer for XfLayer {
         room::can_read_room(&self.db, session_id, room_id).await
     }
 
+    async fn get_room_access(&self, session_id: u32, room_id: u32) -> (bool, bool) {
+        room::get_room_access(&self.db, session_id, room_id).await
+    }
+
     async fn delete_message(&self, id: u32) {
         message::delete_message(&self.db, id).await
     }
