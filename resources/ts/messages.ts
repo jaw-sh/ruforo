@@ -274,6 +274,14 @@ export function messageDelete(messageId: number): void {
 
   const next = el.nextElementSibling as HTMLElement | null;
 
+  // Release any pending message DOM references
+  ws.releasePendingElement(el);
+
+  // Clear hover reference if it points at this element
+  if (messageHoverEl === el) {
+    messageHoverEl = null;
+  }
+
   // Clean up event listeners before removing
   messageRemoveEventListeners(el as HTMLElement);
 
@@ -596,8 +604,33 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
   messageSetHasParent(el);
 
   // Prune oldest messages with proper cleanup
+  pruneMessages(messagesEl);
+
+  if (messagesEl.children.length > 0) {
+    (messagesEl.children[0] as HTMLElement).classList.remove('chat-message--hasParent');
+  }
+
+  // Scroll down.
+  scrollToNew();
+
+  return el;
+}
+
+// ---------------------------------------------------------------------------
+// Message pruning (shared between messagePush and messagePushPending)
+// ---------------------------------------------------------------------------
+
+function pruneMessages(messagesEl: HTMLElement): void {
   while (messagesEl.children.length > 200) {
     const oldMessage = messagesEl.children[0] as HTMLElement;
+
+    // Release pending DOM references pointing at this element
+    ws.releasePendingElement(oldMessage);
+
+    // Clear messageHoverEl if it points at this element
+    if (messageHoverEl === oldMessage) {
+      messageHoverEl = null;
+    }
 
     // Clean up event listeners
     messageRemoveEventListeners(oldMessage);
@@ -612,15 +645,6 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     oldMessage.remove();
     resetLastScroll();
   }
-
-  if (messagesEl.children.length > 0) {
-    (messagesEl.children[0] as HTMLElement).classList.remove('chat-message--hasParent');
-  }
-
-  // Scroll down.
-  scrollToNew();
-
-  return el;
 }
 
 // ---------------------------------------------------------------------------
@@ -694,15 +718,7 @@ export function messagePushPending(pending: PendingMessage): HTMLElement {
   pending.element = el;
 
   // Prune oldest messages with proper cleanup
-  while (messagesEl.children.length > 200) {
-    const oldMessage = messagesEl.children[0] as HTMLElement;
-    messageRemoveEventListeners(oldMessage);
-    cleanupAvatarImage(oldMessage.querySelector('.avatar') as HTMLImageElement | null);
-    delete (oldMessage as any).rawMessage;
-    delete (oldMessage as any).originalMessage;
-    oldMessage.remove();
-    resetLastScroll();
-  }
+  pruneMessages(messagesEl);
 
   if (messagesEl.children.length > 0) {
     (messagesEl.children[0] as HTMLElement).classList.remove('chat-message--hasParent');
@@ -736,12 +752,16 @@ export function resolveMessageId(oldId: number, newId: number): void {
 // ---------------------------------------------------------------------------
 
 export function messagesDelete(): void {
+  // Clear module-level references to prevent retaining detached DOM trees
+  messageHoverEl = null;
+
   const messagesEl = document.getElementById('chat-messages')!;
   while (messagesEl.firstChild) {
     const child = messagesEl.firstChild as HTMLElement;
 
     // Clean up event listeners before removing
     if (child.classList && child.classList.contains('chat-message')) {
+      ws.releasePendingElement(child);
       messageRemoveEventListeners(child);
 
       // Remove avatar from DOM entirely to free decoded bitmap memory

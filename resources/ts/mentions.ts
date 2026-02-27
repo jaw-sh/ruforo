@@ -92,6 +92,11 @@ export function isActive(): boolean {
 
 export function dismiss(): void {
   if (dropdownEl) {
+    // Clean up avatar images to release decoded bitmaps
+    dropdownEl.querySelectorAll('img').forEach((img) => {
+      (img as HTMLImageElement).src = '';
+      img.remove();
+    });
     dropdownEl.remove();
     dropdownEl = null;
   }

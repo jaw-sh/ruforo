@@ -2,26 +2,29 @@
 
 let scrollEl: HTMLElement;
 let lastScrollPos = 0;
-let scrollAnimationFrame: number | null = null;
-let stopScrollCheckFn: (() => void) | null = null;
+let pendingScroll = false;
 
 export function initScroll(el: HTMLElement): void {
   scrollEl = el;
   scrollEl.addEventListener('scroll', onScroll);
-  stopScrollCheckFn = scheduleScrollCheck();
 }
 
 export function destroyScroll(): void {
-  if (stopScrollCheckFn) {
-    stopScrollCheckFn();
-    stopScrollCheckFn = null;
+  if (scrollEl) {
+    scrollEl.removeEventListener('scroll', onScroll);
   }
 }
 
 export function scrollToNew(): void {
-  if (!scrollEl.classList.contains('ScrollAnchored')) {
-    scrollEl.scrollTo(0, scrollEl.scrollHeight);
-  }
+  if (pendingScroll) return;
+  pendingScroll = true;
+
+  requestAnimationFrame(() => {
+    pendingScroll = false;
+    if (!scrollEl.classList.contains('ScrollAnchored')) {
+      scrollEl.scrollTo(0, scrollEl.scrollHeight);
+    }
+  });
 }
 
 export function resetScrollAnchor(): void {
@@ -47,29 +50,4 @@ function onScroll(this: HTMLElement): void {
   }
 
   lastScrollPos = this.scrollTop;
-}
-
-function scheduleScrollCheck(): () => void {
-  if (scrollAnimationFrame) {
-    cancelAnimationFrame(scrollAnimationFrame);
-    scrollAnimationFrame = null;
-  }
-
-  let isRunning = true;
-
-  function tick(): void {
-    if (!isRunning) return;
-    scrollToNew();
-    scrollAnimationFrame = requestAnimationFrame(tick);
-  }
-
-  scrollAnimationFrame = requestAnimationFrame(tick);
-
-  return () => {
-    isRunning = false;
-    if (scrollAnimationFrame) {
-      cancelAnimationFrame(scrollAnimationFrame);
-      scrollAnimationFrame = null;
-    }
-  };
 }

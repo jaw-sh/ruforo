@@ -95,14 +95,15 @@ export function sendChat(text: string): PendingMessage {
 
   send(text);
 
-  // Set echo timeout
+  // Set echo timeout — if unresolved, drain the entry to prevent memory leak
   setTimeout(() => {
     const idx = pendingMessages.indexOf(pending);
     if (idx !== -1) {
-      // Still pending — mark as potentially failed
+      pendingMessages.splice(idx, 1);
       if (pending.element) {
         pending.element.classList.add('chat-message--retryable');
       }
+      pending.element = undefined; // Release DOM reference
     }
   }, ECHO_TIMEOUT_MS);
 
@@ -145,6 +146,18 @@ export function resendPendingMessages(): void {
   // On reconnect, re-send any messages that were pending
   for (const p of pendingMessages) {
     send(p.text);
+  }
+}
+
+/**
+ * Release the DOM reference on any pending message pointing to this element.
+ * Called when messages are pruned from the DOM to prevent retaining detached trees.
+ */
+export function releasePendingElement(el: HTMLElement): void {
+  for (const p of pendingMessages) {
+    if (p.element === el) {
+      p.element = undefined;
+    }
   }
 }
 

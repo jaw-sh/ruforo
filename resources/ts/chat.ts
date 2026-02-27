@@ -130,6 +130,7 @@ function joinByHash(): boolean {
     scroll.resetScrollAnchor();
     messages.messagesDelete();
     users.userActivityDelete();
+    mentions.dismiss();
     ws.joinRoom(roomId);
     return true;
   }
