@@ -1,5 +1,6 @@
 import type { Author, SanitaryPost, PendingMessage } from './types';
 import * as ws from './ws';
+import { getRoomPermissions } from './chat';
 import { scrollToNew, resetLastScroll } from './scroll';
 
 // 1x1 transparent GIF for avatar cleanup
@@ -561,15 +562,23 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
       template.querySelector('.avatar')?.remove();
     }
 
-    // Add right-content details
-    if (msg.author.id !== APP.user.id) {
-      template.querySelector('.edit')?.remove();
+    // Add right-content details based on room permissions
+    const perms = getRoomPermissions();
+    const isOwn = msg.author.id === APP.user.id;
 
-      if (!APP.user.is_staff) {
-        template.querySelector('.delete')?.remove();
-      }
+    if (!(isOwn ? perms.can_edit_own : perms.can_edit_other)) {
+      template.querySelector('.edit')?.remove();
     }
-    template.querySelector('.report')?.setAttribute('href', `/chat/messages/${msg.message_id}/report`);
+
+    if (!(isOwn ? perms.can_delete_own : perms.can_delete_other)) {
+      template.querySelector('.delete')?.remove();
+    }
+
+    if (isOwn || !perms.can_report) {
+      template.querySelector('.report')?.remove();
+    } else {
+      template.querySelector('.report')?.setAttribute('href', `/chat/messages/${msg.message_id}/report`);
+    }
   } else {
     const rootEl = template.children[0] as HTMLElement;
     rootEl.classList.add('chat-message--systemMsg');

@@ -35,6 +35,19 @@ export interface UserActivity {
   last_activity: number;
 }
 
+export interface RoomPermissions {
+  can_view: boolean;
+  can_send: boolean;
+  can_edit_own: boolean;
+  can_edit_other: boolean;
+  can_delete_own: boolean;
+  can_delete_other: boolean;
+  can_report: boolean;
+  can_view_deleted: boolean;
+  can_undelete: boolean;
+  can_motd: boolean;
+}
+
 export interface ServerPayload {
   messages?: SanitaryPost[];
   delete?: number[];
@@ -42,7 +55,7 @@ export interface ServerPayload {
   user?: Record<string, false>;
   system?: string;
   update_id?: { old: number; new: number; room_id: number };
-  can_send?: boolean;
+  permissions?: RoomPermissions;
 }
 
 export interface PendingMessage {

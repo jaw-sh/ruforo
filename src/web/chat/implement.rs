@@ -54,10 +54,27 @@ pub struct UserActivities {
     pub users: HashMap<u32, UserActivity>,
 }
 
+/// Per-room permissions resolved from XenForo's permission cache on room join.
+/// Stored on the Connection and sent to the client as JSON.
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct RoomPermissions {
+    pub can_view: bool,
+    pub can_send: bool,
+    pub can_edit_own: bool,
+    pub can_edit_other: bool,
+    pub can_delete_own: bool,
+    pub can_delete_other: bool,
+    pub can_report: bool,
+    pub can_view_deleted: bool,
+    pub can_undelete: bool,
+    pub can_motd: bool,
+}
+
 pub struct Connection {
     pub last_activity: u64,
     pub recipient: Recipient<message::Reply>,
     pub session: Session,
+    pub room_perms: RoomPermissions,
 }
 
 #[derive(Debug, FromQueryResult)]
@@ -202,9 +219,8 @@ impl From<&serde_json::Value> for SpriteParams {
 
 #[async_trait::async_trait]
 pub trait ChatLayer {
-    async fn can_view(&self, session_id: u32, room_id: u32) -> bool;
-    /// Returns (can_view, can_send) for a user in a room.
-    async fn get_room_access(&self, session_id: u32, room_id: u32) -> (bool, bool);
+    /// Resolve all per-room permissions for a user. Returns Default (all-false) on failure.
+    async fn get_room_permissions(&self, user_id: u32, room_id: u32) -> RoomPermissions;
     async fn delete_message(&self, id: u32);
     async fn edit_message(&self, id: u32, author: Author, message: String) -> Option<Message>;
     async fn get_message(&self, message_id: u32) -> Option<Message>;
@@ -233,12 +249,19 @@ pub mod default {
 
     #[async_trait::async_trait]
     impl super::ChatLayer for Layer {
-        async fn can_view(&self, _: u32, _: u32) -> bool {
-            true
-        }
-
-        async fn get_room_access(&self, _: u32, _: u32) -> (bool, bool) {
-            (true, true)
+        async fn get_room_permissions(&self, _: u32, _: u32) -> super::RoomPermissions {
+            super::RoomPermissions {
+                can_view: true,
+                can_send: true,
+                can_edit_own: true,
+                can_edit_other: true,
+                can_delete_own: true,
+                can_delete_other: true,
+                can_report: true,
+                can_view_deleted: true,
+                can_undelete: true,
+                can_motd: true,
+            }
         }
 
         async fn delete_message(&self, _: u32) {

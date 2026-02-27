@@ -5,7 +5,7 @@
 
 import '../css/main.scss';
 
-import type { ServerPayload } from './types';
+import type { ServerPayload, RoomPermissions } from './types';
 import * as ws from './ws';
 import * as messages from './messages';
 import * as users from './users';
@@ -13,6 +13,23 @@ import * as scroll from './scroll';
 import * as mentions from './mentions';
 import { initToolbar } from './toolbar';
 import { initInput } from './input';
+
+let roomPerms: RoomPermissions = {
+  can_view: false,
+  can_send: false,
+  can_edit_own: false,
+  can_edit_other: false,
+  can_delete_own: false,
+  can_delete_other: false,
+  can_report: false,
+  can_view_deleted: false,
+  can_undelete: false,
+  can_motd: false,
+};
+
+export function getRoomPermissions(): RoomPermissions {
+  return roomPerms;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   const scrollEl = document.getElementById('chat-scroller')!;
@@ -94,8 +111,9 @@ function handleServerPayload(data: ServerPayload): void {
     messages.resolveMessageId(data.update_id.old, data.update_id.new);
   }
 
-  if (data.can_send !== undefined) {
-    setChatInputEnabled(data.can_send);
+  if (data.permissions) {
+    roomPerms = data.permissions;
+    setChatInputEnabled(roomPerms.can_send);
   }
 }
 
@@ -146,6 +164,18 @@ function joinByHash(): boolean {
     messages.messagesDelete();
     users.userActivityDelete();
     mentions.dismiss();
+    roomPerms = {
+      can_view: false,
+      can_send: false,
+      can_edit_own: false,
+      can_edit_other: false,
+      can_delete_own: false,
+      can_delete_other: false,
+      can_report: false,
+      can_view_deleted: false,
+      can_undelete: false,
+      can_motd: false,
+    };
     ws.joinRoom(roomId);
     return true;
   }

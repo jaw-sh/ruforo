@@ -15,12 +15,8 @@ pub struct XfLayer {
 
 #[async_trait::async_trait]
 impl implement::ChatLayer for XfLayer {
-    async fn can_view(&self, session_id: u32, room_id: u32) -> bool {
-        room::can_read_room(&self.db, session_id, room_id).await
-    }
-
-    async fn get_room_access(&self, session_id: u32, room_id: u32) -> (bool, bool) {
-        room::get_room_access(&self.db, session_id, room_id).await
+    async fn get_room_permissions(&self, user_id: u32, room_id: u32) -> implement::RoomPermissions {
+        room::get_room_permissions_full(&self.db, user_id, room_id).await
     }
 
     async fn delete_message(&self, id: u32) {

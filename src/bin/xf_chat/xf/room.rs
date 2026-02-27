@@ -74,21 +74,26 @@ fn check_perm(perms: &ruforo::permission::CategoryValues, label: &str) -> bool {
     }
 }
 
-pub async fn can_read_room(db: &DatabaseConnection, user_id: u32, room_id: u32) -> bool {
+/// Resolve all chat permissions for a user in a room into a flat struct.
+pub async fn get_room_permissions_full(
+    db: &DatabaseConnection,
+    user_id: u32,
+    room_id: u32,
+) -> implement::RoomPermissions {
     match get_room_permissions(db, user_id, room_id).await {
-        Some(perms) => check_perm(&perms, "hbChatRoomView"),
-        None => false,
-    }
-}
-
-/// Returns (can_view, can_send) for a user in a room, with a single DB query.
-pub async fn get_room_access(db: &DatabaseConnection, user_id: u32, room_id: u32) -> (bool, bool) {
-    match get_room_permissions(db, user_id, room_id).await {
-        Some(perms) => (
-            check_perm(&perms, "hbChatRoomView"),
-            check_perm(&perms, "hbChatMessageSend"),
-        ),
-        None => (false, false),
+        Some(perms) => implement::RoomPermissions {
+            can_view: check_perm(&perms, "hbChatRoomView"),
+            can_send: check_perm(&perms, "hbChatMessageSend"),
+            can_edit_own: check_perm(&perms, "hbChatMessageEditOwn"),
+            can_edit_other: check_perm(&perms, "hbChatMessageEditOther"),
+            can_delete_own: check_perm(&perms, "hbChatMessageDeleteOwn"),
+            can_delete_other: check_perm(&perms, "hbChatMessageDeleteOther"),
+            can_report: check_perm(&perms, "hbChatMessageReport"),
+            can_view_deleted: check_perm(&perms, "hbChatMessageViewDeleted"),
+            can_undelete: check_perm(&perms, "hbChatMessageUndelete"),
+            can_motd: check_perm(&perms, "hbChatRoomMotd"),
+        },
+        None => implement::RoomPermissions::default(),
     }
 }
 

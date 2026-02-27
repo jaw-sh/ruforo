@@ -167,6 +167,7 @@ impl Handler<message::Connect> for ChatServer {
                     .as_secs(),
                 recipient: msg.addr,
                 session: msg.session,
+                room_perms: implement::RoomPermissions::default(),
             },
         );
         id
@@ -179,6 +180,11 @@ impl Handler<message::Delete> for ChatServer {
 
     fn handle(&mut self, msg: message::Delete, _: &mut Context<Self>) -> Self::Result {
         let layer = self.layer.clone();
+        let perms = self
+            .connections
+            .get(&msg.id)
+            .map(|conn| conn.room_perms.clone())
+            .unwrap_or_default();
 
         Box::pin(
             async move {
@@ -187,7 +193,8 @@ impl Handler<message::Delete> for ChatServer {
 
                 // If we got the message, check if we can delete it.
                 if let Some(message) = &res {
-                    if message.user_id == msg.session.id || msg.session.is_staff {
+                    let is_own = message.user_id == msg.session.id;
+                    if (is_own && perms.can_delete_own) || (!is_own && perms.can_delete_other) {
                         log::info!("[delete] {} deleted message #{}", msg.session.username, msg.message_id);
                         // Delete message.
                         layer.delete_message(message.message_id).await;
@@ -239,6 +246,11 @@ impl Handler<message::Edit> for ChatServer {
         let layer = self.layer.to_owned();
         let session = msg.session.to_owned();
         let author = implement::Author::from(&session);
+        let perms = self
+            .connections
+            .get(&msg.id)
+            .map(|conn| conn.room_perms.clone())
+            .unwrap_or_default();
         log::info!("[edit] {} edited message #{}: {}", session.username, msg.message_id, msg.message);
 
         Box::pin(
@@ -248,7 +260,8 @@ impl Handler<message::Edit> for ChatServer {
 
                 // If we got the message, check if we can edit it.
                 if let Some(message) = &res {
-                    if message.user_id == session.id {
+                    let is_own = message.user_id == session.id;
+                    if (is_own && perms.can_edit_own) || (!is_own && perms.can_edit_other) {
                         // Edit message.
                         return layer
                             .edit_message(message.message_id, author, msg.message)
@@ -303,30 +316,30 @@ impl Handler<message::Join> for ChatServer {
         let layer = self.layer.clone();
         Box::pin(
             async move {
-                let (can_view, can_send) = layer.get_room_access(session.id, room_id).await;
+                let mut perms = layer.get_room_permissions(session.id, room_id).await;
                 // Also require the session-level can_send (message_count > 0, etc.)
-                let can_send = can_send && session.can_send;
+                perms.can_send = perms.can_send && session.can_send;
 
-                if can_view {
+                if perms.can_view {
                     match time::timeout(
                         Duration::from_secs(5),
                         layer.get_room_history(room_id, 40),
                     )
                     .await
                     {
-                        Ok(history) => (true, can_send, history),
+                        Ok(history) => (perms, history),
                         Err(_) => {
                             log::warn!("Room history fetch timed out for room {}", room_id);
-                            (true, can_send, Vec::default())
+                            (perms, Vec::default())
                         }
                     }
                 } else {
-                    (false, false, Vec::default())
+                    (perms, Vec::default())
                 }
             }
             .into_actor(self)
-            .map(move |(can_view, can_send, unsanitized), actor, _ctx| {
-                if can_view {
+            .map(move |(perms, unsanitized), actor, _ctx| {
+                if perms.can_view {
                     let mut messages: Vec<SanitaryPost> = Vec::with_capacity(unsanitized.len());
 
                     for (author, message) in unsanitized {
@@ -339,11 +352,20 @@ impl Handler<message::Join> for ChatServer {
                             .expect("SanitaryPosts serialize failure"),
                     );
 
-                    // Tell the client whether they can send in this room.
+                    // Send full permissions to client.
                     actor.send_message_to_conn(
                         id,
-                        format!("{{\"can_send\":{}}}", can_send),
+                        format!(
+                            "{{\"permissions\":{}}}",
+                            serde_json::to_string(&perms)
+                                .expect("RoomPermissions serialize failure")
+                        ),
                     );
+
+                    // Store permissions on the connection.
+                    if let Some(conn) = actor.connections.get_mut(&id) {
+                        conn.room_perms = perms;
+                    }
 
                     // Put user in room now so messages don't load in during history.
                     actor
@@ -375,7 +397,13 @@ impl Handler<message::Post> for ChatServer {
     type Result = ();
 
     fn handle(&mut self, msg: message::Post, ctx: &mut Context<Self>) {
-        if !msg.session.can_send_message() {
+        let can_send = self
+            .connections
+            .get(&msg.id)
+            .map(|conn| conn.room_perms.can_send)
+            .unwrap_or(false);
+
+        if !can_send {
             self.send_message_to_conn(msg.id, "You cannot send messages.".to_string());
             return;
         }
