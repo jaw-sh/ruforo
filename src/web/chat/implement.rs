@@ -127,9 +127,6 @@ pub struct Session {
     pub avatar_url: String,
     pub ignored_users: Vec<u32>,
     pub is_staff: bool,
-    /// Whether this user is allowed to send messages (valid, not banned, has posts).
-    #[serde(skip)]
-    pub can_send: bool,
 }
 
 impl Default for Session {
@@ -140,14 +137,7 @@ impl Default for Session {
             avatar_url: String::new(),
             ignored_users: Default::default(),
             is_staff: false,
-            can_send: false,
         }
-    }
-}
-
-impl Session {
-    pub fn can_send_message(&self) -> bool {
-        self.can_send
     }
 }
 
@@ -360,7 +350,6 @@ pub mod default {
                     avatar_url: "".to_owned(),
                     ignored_users: Vec::new(),
                     is_staff: false,
-                    can_send: true,
                 }
             } else {
                 Session::default()

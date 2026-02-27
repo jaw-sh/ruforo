@@ -22,7 +22,6 @@ struct XfSession {
     pub username: String,
     pub avatar_date: u32,
     pub is_staff: bool,
-    pub message_count: u32,
 }
 
 pub fn avatar_uri(id: u32, date: u32) -> String {
@@ -46,7 +45,6 @@ impl Default for XfSession {
             username: "Guest".to_owned(),
             avatar_date: 0,
             is_staff: false,
-            message_count: 0,
         }
     }
 }
@@ -142,6 +140,5 @@ pub async fn get_session_with_user_id(db: &DatabaseConnection, id: u32) -> imple
         avatar_url: avatar_uri(session.id, session.avatar_date),
         ignored_users,
         is_staff: session.is_staff,
-        can_send: session.id > 0 && session.message_count > 0,
     }
 }

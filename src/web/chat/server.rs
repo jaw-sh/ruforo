@@ -317,8 +317,8 @@ impl Handler<message::Join> for ChatServer {
         Box::pin(
             async move {
                 let mut perms = layer.get_room_permissions(session.id, room_id).await;
-                // Also require the session-level can_send (message_count > 0, etc.)
-                perms.can_send = perms.can_send && session.can_send;
+                // Guests (id 0) can never send
+                perms.can_send = perms.can_send && session.id > 0;
 
                 if perms.can_view {
                     match time::timeout(
