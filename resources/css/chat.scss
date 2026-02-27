@@ -80,6 +80,7 @@ html.chat #chat {
     &.ScrollAnchored::before {
         content: 'Anchored ⚓';
         display: block;
+        color: white;
         border: 2px solid white;
         background: black;
         position: absolute;
@@ -89,7 +90,6 @@ html.chat #chat {
         height: auto;
         padding: 0.2rem;
         pointer-events: none;
-        ;
     }
 }
 
@@ -170,6 +170,11 @@ html.chat #chat {
         border-left: 2px solid transparent;
         padding-left: 0.25rem;
         overflow: hidden;
+
+        .bbcode-code {
+            display: inline;
+            margin: 0;
+        }
 
         .bbcode-url {
             color: #00aef3;
