@@ -2,17 +2,17 @@
 
 :root {
     --background-color: rgb(242, 243, 245);
-    --background-mod-hover: rgba(79, 84, 92, 0.4);
-    --background-mod-active: rgba(79, 84, 92, 0.48);
-    --background-mod-selected: rgba(79, 84, 92, 0.6);
+    --background-mod-hover: rgba(79, 84, 92, 0.16);
+    --background-mod-active: rgba(79, 84, 92, 0.24);
+    --background-mod-selected: rgba(79, 84, 92, 0.32);
 
     --border-color: rgb(116, 128, 0.24);
     --input-background: rgb(235 237 239);
     --text-color: rgb(46, 51, 56);
     --text-muted: rgb(94, 103, 114);
 
-    --modal-background: rgb(54 57 63);
-    --modal-footer-background: rgb(47, 49, 54);
+    --modal-background: rgb(255, 255, 255);
+    --modal-footer-background: rgb(242, 243, 245);
 
     --button-text-color: rgb(255, 255, 255);
     --button-danger-background: rgb(216, 60, 62);
@@ -24,9 +24,14 @@
 
 body.style-dark {
     --background-color: rgb(54, 57, 63);
+    --background-mod-hover: rgba(79, 84, 92, 0.4);
+    --background-mod-active: rgba(79, 84, 92, 0.48);
+    --background-mod-selected: rgba(79, 84, 92, 0.6);
     --border-color: rgba(79, 84, 92, 0.48);
     --input-background: rgb(64, 68, 75);
     --text-color: rgb(220, 221, 222);
     --text-muted: rgb(163, 166, 170);
+    --modal-background: rgb(47, 49, 54);
+    --modal-footer-background: rgb(40, 42, 46);
     --scrollbar-thumb: rgb(32, 34, 37);
 }

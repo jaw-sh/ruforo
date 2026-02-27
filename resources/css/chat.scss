@@ -217,7 +217,7 @@ html.chat #chat {
         user-select: none;
         position: relative;
         overflow: hidden;
-        background-color: rgb(54, 57, 63);
+        background-color: var(--modal-background);
         box-shadow: 0 0 0 1px rgba(4, 4, 5, 0.15);
     }
 
@@ -243,7 +243,7 @@ html.chat #chat {
     }
 
     .button path {
-        fill: rgb(185 187 190);
+        fill: var(--text-muted);
     }
 
     &[id]:not(.chat-message--editing):hover .right-content {
@@ -378,7 +378,7 @@ html.chat #chat {
     display: flex;
     border-radius: 3px;
     background: var(--input-background);
-    color: rgb(255, 255, 255);
+    color: var(--text-color);
     margin: 0 0 24px 0;
 }
 
