@@ -290,9 +290,6 @@ export function messageDelete(messageUuid: string): void {
   // Remove avatar from DOM entirely to free decoded bitmap memory
   cleanupAvatarImage(el.querySelector('.avatar') as HTMLImageElement | null);
 
-  // Clean up stored data
-  delete (el as any).originalMessage;
-
   el.remove();
   if (next) {
     messageSetHasParent(next);
@@ -311,7 +308,13 @@ function messageEdit(messageEl: HTMLElement): void {
   messageEl.classList.add('chat-message--editing');
 
   const contentEl = messageEl.querySelector('.message') as HTMLElement;
-  (messageEl as any).originalMessage = contentEl.outerHTML;
+
+  const editValue = messageEl.dataset.raw
+    ? decodeHtmlEntities(messageEl.dataset.raw)
+    : contentEl.textContent;
+
+  // Hide the original message (keep it in DOM for safe reversal)
+  contentEl.style.display = 'none';
 
   const formEl = document.getElementById('new-message-form')!.cloneNode(true) as HTMLElement;
   formEl.id = 'edit-message-form';
@@ -319,16 +322,13 @@ function messageEdit(messageEl: HTMLElement): void {
   const inputEl = formEl.querySelector('.chat-input') as HTMLElement;
   inputEl.id = 'edit-message-input';
 
-  const editValue = messageEl.dataset.raw
-    ? decodeHtmlEntities(messageEl.dataset.raw)
-    : contentEl.textContent;
-
   const submitEl = formEl.querySelector('button.submit');
   if (submitEl) {
     submitEl.remove();
   }
 
-  contentEl.replaceWith(formEl);
+  // Insert form after the hidden message
+  contentEl.after(formEl);
 
   inputEl.textContent = editValue;
   inputAddEventListeners(inputEl);
@@ -362,12 +362,16 @@ function messageEdit(messageEl: HTMLElement): void {
 
 function messageEditReverse(): void {
   Array.from(document.querySelectorAll('.chat-message--editing')).forEach(function (el) {
-    const formEl = el.querySelector('.chat-form');
-    if (formEl && (el as any).originalMessage) {
-      formEl.outerHTML = (el as any).originalMessage;
+    // Remove the edit form
+    const formEl = el.querySelector('#edit-message-form');
+    if (formEl) {
+      formEl.remove();
     }
-    // Clean up the stored original message
-    delete (el as any).originalMessage;
+    // Restore the hidden message
+    const contentEl = el.querySelector('.message') as HTMLElement | null;
+    if (contentEl) {
+      contentEl.style.display = '';
+    }
     el.classList.remove('chat-message--editing');
     resetLastScroll();
     const newInput = document.getElementById('new-message-input');
@@ -609,7 +613,6 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     // Clean up old element before replacing
     messageRemoveEventListeners(extantEl);
     cleanupAvatarImage(extantEl.querySelector('.avatar') as HTMLImageElement | null);
-    delete (extantEl as any).originalMessage;
     extantEl.replaceWith(el);
   } else {
     el = messagesEl.appendChild(el) as HTMLElement;
@@ -651,9 +654,6 @@ function pruneMessages(messagesEl: HTMLElement): void {
 
     // Remove avatar from DOM entirely to free decoded bitmap memory
     cleanupAvatarImage(oldMessage.querySelector('.avatar') as HTMLImageElement | null);
-
-    // Clean up stored data properties
-    delete (oldMessage as any).originalMessage;
 
     oldMessage.remove();
     resetLastScroll();
@@ -763,8 +763,6 @@ export function messagesDelete(): void {
       // Remove avatar from DOM entirely to free decoded bitmap memory
       cleanupAvatarImage(child.querySelector('.avatar') as HTMLImageElement | null);
 
-      // Clean up stored data properties
-      delete (child as any).originalMessage;
     }
 
     messagesEl.removeChild(child);

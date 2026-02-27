@@ -130,6 +130,12 @@ mod tests {
 
         // Sanitize preserves raw BBCode for edit
         assert_eq!(ChatBBCode::sanitize("[code][b]bold[/b][/code]"), "[code][b]bold[/b][/code]");
+
+        // Unclosed [code] still treats remaining content as verbatim
+        assert!(parse("[code][b]message").contains("[b]message"));
+        assert!(!parse("[code][b]message").contains("<strong>"));
+        assert!(parse("[code][b]message[/b]").contains("[b]message[/b]"));
+        assert!(!parse("[code][b]message[/b]").contains("<strong>"));
     }
 
     #[test]
