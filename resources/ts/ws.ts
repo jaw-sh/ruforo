@@ -128,16 +128,12 @@ export function getPendingMessages(): PendingMessage[] {
 }
 
 /**
- * Try to match an incoming server message against a pending message.
- * Match by content similarity and time proximity.
+ * Resolve the oldest pending message (FIFO).
+ * Called when we receive our own message echoed back from the server.
  */
-export function resolvePending(serverText: string, serverDate: number): PendingMessage | undefined {
-  for (let i = 0; i < pendingMessages.length; i++) {
-    const p = pendingMessages[i];
-    if (p.text === serverText && Math.abs(serverDate - p.timestamp) < 10) {
-      pendingMessages.splice(i, 1);
-      return p;
-    }
+export function resolveNextPending(): PendingMessage | undefined {
+  if (pendingMessages.length > 0) {
+    return pendingMessages.shift();
   }
   return undefined;
 }

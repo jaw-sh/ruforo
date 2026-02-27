@@ -504,11 +504,13 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     id = typeof msg.message_id === 'number' ? msg.message_id : parseInt(String(msg.message_id), 10);
     extantEl = document.getElementById(`chat-message-${id}`);
 
-    // Check if this message matches a pending one
-    const pending = ws.resolvePending(msg.message_raw ? decodeHtmlEntities(msg.message_raw) : '', msg.message_date);
-    if (pending && pending.element) {
-      // Use the pending element as the extant element to replace
-      extantEl = pending.element;
+    // If this is our own message echoed back with a temp ID, resolve the
+    // oldest pending message (FIFO — server broadcasts in send order).
+    if (msg.author.id === APP.user.id && id === 0) {
+      const pending = ws.resolveNextPending();
+      if (pending?.element) {
+        extantEl = pending.element;
+      }
     }
 
     const rootEl = template.children[0] as HTMLElement;
