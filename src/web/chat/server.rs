@@ -112,7 +112,6 @@ impl ChatServer {
         message::SanitaryPost {
             author,
             room_id: message.room_id,
-            message_id: message.message_id,
             message_uuid: message.message_uuid,
             message_date: message.message_date,
             message_edit_date: message.message_edit_date,
@@ -391,9 +390,8 @@ impl Handler<message::Join> for ChatServer {
 }
 
 /// Handler for Message message.
-/// Uses optimistic broadcast: message is sent to the room immediately with a
-/// temporary ID of 0, then the DB write happens asynchronously. On success,
-/// an update_id message is broadcast so clients can replace the temp ID.
+/// Uses optimistic broadcast: message is sent to the room immediately with
+/// the real UUID, then the DB write happens asynchronously.
 impl Handler<message::Post> for ChatServer {
     type Result = ();
 
@@ -414,18 +412,16 @@ impl Handler<message::Post> for ChatServer {
         let session = msg.session.to_owned();
         log::info!("[room:{}] <{}> {}", msg.room_id, msg.session.username, msg.message);
 
-        // Create a temporary message with message_id 0 but real UUID, and broadcast immediately.
+        // Create an optimistic message with the real UUID and broadcast immediately.
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64;
-        let message_uuid = msg.message_uuid;
 
         let temp_message = implement::Message {
             user_id: session.id,
             room_id,
-            message_id: 0,
-            message_uuid,
+            message_uuid: msg.message_uuid,
             message_date: now,
             message_edit_date: 0,
             message: msg.message.clone(),
@@ -446,73 +442,46 @@ impl Handler<message::Post> for ChatServer {
             async move {
                 // Attempt 1
                 let result = layer.insert_chat_message(&msg).await;
-                if let Some(message) = result {
-                    return Ok(message);
+                if result.is_some() {
+                    return Ok(());
                 }
 
                 // Retry 1 after 1 second
                 log::warn!("DB write failed for room {}, retrying in 1s...", room_id);
                 time::sleep(Duration::from_secs(1)).await;
                 let result = layer.insert_chat_message(&msg).await;
-                if let Some(message) = result {
-                    return Ok(message);
+                if result.is_some() {
+                    return Ok(());
                 }
 
                 // Retry 2 after 2 seconds
                 log::warn!("DB write failed for room {}, retrying in 2s...", room_id);
                 time::sleep(Duration::from_secs(2)).await;
                 let result = layer.insert_chat_message(&msg).await;
-                if let Some(message) = result {
-                    return Ok(message);
+                if result.is_some() {
+                    return Ok(());
                 }
 
                 Err(())
             }
             .into_actor(self)
             .map(move |result, actor, _ctx| {
-                match result {
-                    Ok(message) => {
-                        // Broadcast the real message_id so clients can fill it in.
-                        actor.send_message_to_room(
-                            room_id,
-                            format!(
-                                "{{\"update_id\":{{\"uuid\":\"{}\",\"message_id\":{},\"room_id\":{}}}}}",
-                                message_uuid, message.message_id, room_id
-                            ),
-                        );
-                    }
-                    Err(()) => {
-                        log::error!(
-                            "All DB write retries failed for room {} by user {}",
-                            room_id,
-                            session.username
-                        );
-                        actor.send_message_to_conn(
-                            id,
-                            "Your message was displayed but could not be saved. Please try again."
-                                .to_string(),
-                        );
-                    }
+                if let Err(()) = result {
+                    log::error!(
+                        "All DB write retries failed for room {} by user {}",
+                        room_id,
+                        session.username
+                    );
+                    actor.send_message_to_conn(
+                        id,
+                        "Your message was displayed but could not be saved. Please try again."
+                            .to_string(),
+                    );
                 }
             }),
         );
     }
 }
-/// Handler for UpdateMessageId - broadcast real message ID to room.
-impl Handler<message::UpdateMessageId> for ChatServer {
-    type Result = ();
-
-    fn handle(&mut self, msg: message::UpdateMessageId, _: &mut Context<Self>) {
-        self.send_message_to_room(
-            msg.room_id,
-            format!(
-                "{{\"update_id\":{{\"uuid\":\"{}\",\"message_id\":{},\"room_id\":{}}}}}",
-                msg.message_uuid, msg.message_id, msg.room_id
-            ),
-        );
-    }
-}
-
 impl Handler<message::Restart> for ChatServer {
     type Result = ();
 

@@ -81,7 +81,6 @@ pub struct Connection {
 pub struct Message {
     pub user_id: u32,
     pub room_id: u32,
-    pub message_id: u32,
     pub message_uuid: uuid::Uuid,
     pub message_date: i64,
     pub message_edit_date: i64,
@@ -93,7 +92,6 @@ impl From<MessagePgSql> for Message {
         Self {
             user_id: other.user_id as u32,
             room_id: other.room_id as u32,
-            message_id: other.message_id as u32,
             message_uuid: uuid::Uuid::nil(),
             message_date: other.message_date.timestamp(),
             message_edit_date: other.message_edit_date.timestamp(),
@@ -106,7 +104,6 @@ impl From<MessagePgSql> for Message {
 pub struct MessagePgSql {
     pub user_id: i32,
     pub room_id: i32,
-    pub message_id: i32,
     pub message_date: NaiveDateTime,
     pub message_edit_date: NaiveDateTime,
     pub message: String,
@@ -291,7 +288,6 @@ pub mod default {
                     .select_only()
                     .column_as(chat_messages::Column::UserId, "user_id")
                     .column_as(chat_messages::Column::ChatRoomId, "room_id")
-                    .column_as(chat_messages::Column::Id, "message_id")
                     .column_as(chat_messages::Column::CreatedAt, "message_date")
                     .left_join(ugc_revisions::Entity)
                     .column_as(ugc_revisions::Column::Content, "message")
@@ -409,7 +405,6 @@ pub mod default {
                 message: ugc_revision.content,
                 message_date: ugc_revision.created_at.timestamp(),
                 message_edit_date: 0,
-                message_id: chat_message.id as u32,
                 message_uuid: message.message_uuid,
             })
         }

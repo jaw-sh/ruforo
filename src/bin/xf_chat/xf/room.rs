@@ -118,7 +118,7 @@ pub async fn get_room_history(
 ) -> Vec<(implement::Author, implement::Message)> {
     chat_message::Entity::find()
         .filter(chat_message::Column::RoomId.eq(id as u32))
-        .order_by_desc(chat_message::Column::MessageId)
+        .order_by_desc(chat_message::Column::MessageDate)
         .limit(count as u64)
         .find_also_related(user::Entity)
         .all(db)
@@ -142,7 +142,6 @@ pub async fn get_room_history(
                 },
                 implement::Message {
                     message: message.message_text.to_owned(),
-                    message_id: message.message_id,
                     message_uuid: uuid::Uuid::parse_str(&message.message_uuid).unwrap_or_default(),
                     message_date: message.message_date.try_into().unwrap(),
                     message_edit_date: match message.last_edit_date {

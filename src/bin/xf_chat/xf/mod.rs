@@ -98,7 +98,6 @@ impl From<orm::chat_message::Model> for implement::Message {
             user_id: model.user_id.unwrap_or(0),
             room_id: model.room_id,
             message: model.message_text,
-            message_id: model.message_id,
             message_uuid: Uuid::parse_str(&model.message_uuid).unwrap_or_default(),
             message_date: model.message_date.try_into().unwrap(),
             message_edit_date: match model.last_edit_date {

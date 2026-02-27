@@ -21,7 +21,6 @@ export interface Author {
 export interface SanitaryPost {
   author: Author;
   message: string;
-  message_id: number;
   message_uuid: string;
   message_date: number;
   message_edit_date: number;
@@ -55,7 +54,6 @@ export interface ServerPayload {
   users?: Record<string, UserActivity | false>;
   user?: Record<string, false>;
   system?: string;
-  update_id?: { uuid: string; message_id: number; room_id: number };
   permissions?: RoomPermissions;
 }
 

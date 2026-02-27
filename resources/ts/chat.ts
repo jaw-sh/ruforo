@@ -107,10 +107,6 @@ function handleServerPayload(data: ServerPayload): void {
     }
   }
 
-  if (data.update_id) {
-    messages.resolveMessageId(data.update_id.uuid, data.update_id.message_id);
-  }
-
   if (data.permissions) {
     roomPerms = data.permissions;
     setChatInputEnabled(roomPerms.can_send);

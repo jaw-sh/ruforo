@@ -492,7 +492,6 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     message = { message: message as string };
   }
 
-  let id: number | null = null;
   let extantEl: HTMLElement | null = null;
   const messagesEl = document.getElementById('chat-messages')!;
   const template = (document.getElementById('tmp-chat-message') as HTMLTemplateElement).content.cloneNode(true) as DocumentFragment;
@@ -502,7 +501,6 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
   if (author) {
     const msg = message as SanitaryPost;
     const uuid = msg.message_uuid;
-    id = typeof msg.message_id === 'number' ? msg.message_id : parseInt(String(msg.message_id), 10);
     extantEl = document.getElementById(`chat-message-${uuid}`);
 
     // If this is our own message echoed back, resolve the oldest pending
@@ -518,7 +516,6 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     (rootEl as any).rawMessage = decodeHtmlEntities(msg.message_raw);
     rootEl.id = `chat-message-${uuid}`;
     rootEl.dataset.id = uuid;
-    rootEl.dataset.messageId = String(id);
     rootEl.dataset.author = String(author.id);
     rootEl.dataset.timestamp = String(msg.message_date);
 
@@ -741,18 +738,6 @@ export function messagePushPending(pending: PendingMessage): HTMLElement {
   scrollToNew();
 
   return el;
-}
-
-// ---------------------------------------------------------------------------
-// Resolve pending message ID (server sends update_id)
-// ---------------------------------------------------------------------------
-
-export function resolveMessageId(uuid: string, messageId: number): void {
-  const el = document.getElementById(`chat-message-${uuid}`) as HTMLElement | null;
-  if (!el) return;
-
-  el.dataset.messageId = String(messageId);
-  el.classList.remove('chat-message--pending');
 }
 
 // ---------------------------------------------------------------------------

@@ -112,8 +112,6 @@ pub struct SanitaryPost {
 
     /// Sanitized message.
     pub message: String,
-    /// Message ID from database
-    pub message_id: u32,
     /// Unique message identifier
     pub message_uuid: Uuid,
     /// Timestamp of last message edit
@@ -136,17 +134,6 @@ pub struct SanitaryPosts {
 }
 
 impl Message for SanitaryPosts {
-    type Result = ();
-}
-
-/// Notification with real message ID after DB write succeeds.
-pub struct UpdateMessageId {
-    pub room_id: u32,
-    pub message_uuid: Uuid,
-    pub message_id: u32,
-}
-
-impl Message for UpdateMessageId {
     type Result = ();
 }
 
