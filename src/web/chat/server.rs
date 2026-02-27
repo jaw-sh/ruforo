@@ -340,19 +340,8 @@ impl Handler<message::Join> for ChatServer {
             .into_actor(self)
             .map(move |(perms, unsanitized), actor, _ctx| {
                 if perms.can_view {
-                    let mut messages: Vec<SanitaryPost> = Vec::with_capacity(unsanitized.len());
-
-                    for (author, message) in unsanitized {
-                        messages.push(actor.prepare_message(author, message));
-                    }
-
-                    actor.send_message_to_conn(
-                        id,
-                        serde_json::to_string(&SanitaryPosts { messages })
-                            .expect("SanitaryPosts serialize failure"),
-                    );
-
-                    // Send full permissions to client.
+                    // Send permissions BEFORE history so the client
+                    // has can_report/can_edit/etc. when rendering messages.
                     actor.send_message_to_conn(
                         id,
                         format!(
@@ -366,6 +355,18 @@ impl Handler<message::Join> for ChatServer {
                     if let Some(conn) = actor.connections.get_mut(&id) {
                         conn.room_perms = perms;
                     }
+
+                    let mut messages: Vec<SanitaryPost> = Vec::with_capacity(unsanitized.len());
+
+                    for (author, message) in unsanitized {
+                        messages.push(actor.prepare_message(author, message));
+                    }
+
+                    actor.send_message_to_conn(
+                        id,
+                        serde_json::to_string(&SanitaryPosts { messages })
+                            .expect("SanitaryPosts serialize failure"),
+                    );
 
                     // Put user in room now so messages don't load in during history.
                     actor
