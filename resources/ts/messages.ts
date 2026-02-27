@@ -69,8 +69,7 @@ function inputAddEventListeners(el: HTMLElement): void {
 function inputFocusEnd(el: HTMLElement): void {
   setTimeout(function () {
     const range = document.createRange();
-    range.setStart(el, el.childElementCount + 1);
-    range.setEnd(el, el.childElementCount + 1);
+    range.selectNodeContents(el);
     range.collapse(false);
 
     const sel = window.getSelection();
@@ -510,9 +509,11 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     const uuid = msg.message_uuid;
     extantEl = document.getElementById(`chat-message-${uuid}`);
 
-    // If this is our own message echoed back, resolve the oldest pending
-    // message (FIFO — server broadcasts in send order).
-    if (msg.author.id === APP.user.id) {
+    // If this is our own message echoed back AND we didn't find an existing
+    // element by UUID, resolve the oldest pending message (FIFO).
+    // We skip pending resolution when extantEl is already set (e.g. edit
+    // echoes) to avoid consuming the wrong pending entry.
+    if (!extantEl && msg.author.id === APP.user.id) {
       const pending = ws.resolveNextPending();
       if (pending?.element) {
         extantEl = pending.element;
