@@ -1,4 +1,5 @@
 import type { Author, SanitaryPost, PendingMessage } from './types';
+import MicroModal from 'micromodal';
 import * as ws from './ws';
 import { getRoomPermissions } from './chat';
 import { scrollToNew, resetLastScroll } from './scroll';
@@ -195,11 +196,11 @@ function messageButtonDelete(this: HTMLElement): void {
     modal.querySelector('.modal-message')!.appendChild(messagePreview);
 
     const cancelHandler = function () {
-      window.MicroModal.close(modal.id);
+      MicroModal.close(modal.id);
     };
     const deleteHandler = function () {
       ws.send(`/delete ${messageEl.dataset.id}`);
-      window.MicroModal.close(modal.id);
+      MicroModal.close(modal.id);
     };
 
     modal.querySelector('.button.cancel')!.addEventListener('click', cancelHandler);
@@ -208,7 +209,7 @@ function messageButtonDelete(this: HTMLElement): void {
     document.body.appendChild(modal);
 
     // https://micromodal.vercel.app/#configuration
-    window.MicroModal.show(modal.id, {
+    MicroModal.show(modal.id, {
       onClose: (closedModal: { id: string }) => {
         const modalEl = document.getElementById(closedModal.id);
         if (modalEl) {
@@ -424,7 +425,7 @@ function messageMouseLeave(this: HTMLElement, _event: MouseEvent): void {
 function usernameClick(this: HTMLElement, event: Event): void {
   const inputEl = document.getElementById('new-message-input');
   if (inputEl) {
-    inputEl.textContent += `@${this.textContent}, `;
+    inputEl.textContent += `@${this.textContent} `;
     inputFocusEnd(inputEl);
   }
 
@@ -578,7 +579,12 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     if (isOwn || !perms.can_report) {
       template.querySelector('.report')?.remove();
     } else {
-      template.querySelector('.report')?.setAttribute('href', `/chat/messages/${uuid}/report`);
+      const reportEl = template.querySelector('.report');
+      if (reportEl) {
+        reportEl.setAttribute('href', `/chat/messages/${uuid}/report`);
+        reportEl.setAttribute('target', '_blank');
+        reportEl.setAttribute('rel', 'noopener');
+      }
     }
   } else {
     const rootEl = template.children[0] as HTMLElement;

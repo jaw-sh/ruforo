@@ -116,6 +116,13 @@ mod tests {
     }
 
     #[test]
+    fn code_verbatim() {
+        // [code] should not parse inner BBCode
+        assert!(!parse("[code][b]bold[/b][/code]").contains("<strong>"));
+        assert!(parse("[code][b]bold[/b][/code]").contains("[b]bold[/b]"));
+    }
+
+    #[test]
     fn smilies_not_in_code() {
         let mut smilies = HashMap::new();
         smilies.insert(":)".to_string(), "😊".to_string());

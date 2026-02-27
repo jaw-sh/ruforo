@@ -64,12 +64,11 @@ export interface PendingMessage {
   element?: HTMLElement;
 }
 
+declare module 'micromodal' {
+  export function show(id: string, config?: Record<string, unknown>): void;
+  export function close(id: string): void;
+}
+
 declare global {
   const APP: AppConfig;
-  interface Window {
-    MicroModal: {
-      show: (id: string, config?: Record<string, unknown>) => void;
-      close: (id: string) => void;
-    };
-  }
 }

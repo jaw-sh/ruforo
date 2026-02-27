@@ -46,7 +46,7 @@ export function handleInput(inputEl: HTMLElement): void {
   const query = beforeCursor.slice(atIndex + 1);
 
   // Don't show if there's a space in the query (mention is complete)
-  if (query.includes(' ') || query.includes(',')) {
+  if (query.includes(' ')) {
     dismiss();
     return;
   }
@@ -183,7 +183,7 @@ function insertMention(username: string): void {
   const text = mentionAnchorNode.textContent || '';
   const before = text.slice(0, mentionStartOffset);
   const after = text.slice(mentionStartOffset + 1 + mentionQuery.length); // +1 for @
-  const replacement = `@${username}, `;
+  const replacement = `@${username} `;
 
   mentionAnchorNode.textContent = before + replacement + after;
 
