@@ -110,6 +110,9 @@ pub struct Session {
     pub avatar_url: String,
     pub ignored_users: Vec<u32>,
     pub is_staff: bool,
+    /// Whether this user is allowed to send messages (valid, not banned, has posts).
+    #[serde(skip)]
+    pub can_send: bool,
 }
 
 impl Default for Session {
@@ -120,13 +123,14 @@ impl Default for Session {
             avatar_url: String::new(),
             ignored_users: Default::default(),
             is_staff: false,
+            can_send: false,
         }
     }
 }
 
 impl Session {
     pub fn can_send_message(&self) -> bool {
-        self.id > 0
+        self.can_send
     }
 }
 
@@ -198,7 +202,6 @@ impl From<&serde_json::Value> for SpriteParams {
 
 #[async_trait::async_trait]
 pub trait ChatLayer {
-    async fn can_send_message(&self, session: &Session) -> bool;
     async fn can_view(&self, session_id: u32, room_id: u32) -> bool;
     async fn delete_message(&self, id: u32);
     async fn edit_message(&self, id: u32, author: Author, message: String) -> Option<Message>;
@@ -228,10 +231,6 @@ pub mod default {
 
     #[async_trait::async_trait]
     impl super::ChatLayer for Layer {
-        async fn can_send_message(&self, _: &Session) -> bool {
-            true
-        }
-
         async fn can_view(&self, _: u32, _: u32) -> bool {
             true
         }
@@ -332,6 +331,7 @@ pub mod default {
                     avatar_url: "".to_owned(),
                     ignored_users: Vec::new(),
                     is_staff: false,
+                    can_send: true,
                 }
             } else {
                 Session::default()

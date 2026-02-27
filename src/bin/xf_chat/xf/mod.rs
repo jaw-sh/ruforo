@@ -15,10 +15,6 @@ pub struct XfLayer {
 
 #[async_trait::async_trait]
 impl implement::ChatLayer for XfLayer {
-    async fn can_send_message(&self, session: &implement::Session) -> bool {
-        session::can_send_message(&self.db, session.id).await
-    }
-
     async fn can_view(&self, session_id: u32, room_id: u32) -> bool {
         room::can_read_room(&self.db, session_id, room_id).await
     }
@@ -85,16 +81,12 @@ impl implement::ChatLayer for XfLayer {
     }
 
     async fn insert_chat_message(&self, message: &Post) -> Option<implement::Message> {
-        if self.can_send_message(&message.session).await {
-            match message::insert_chat_message(&self.db, message).await {
-                Ok(model) => Some(model),
-                Err(err) => {
-                    log::warn!("XF insert message failed: {:?}", err);
-                    None
-                }
+        match message::insert_chat_message(&self.db, message).await {
+            Ok(model) => Some(model),
+            Err(err) => {
+                log::warn!("XF insert message failed: {:?}", err);
+                None
             }
-        } else {
-            None
         }
     }
 }
