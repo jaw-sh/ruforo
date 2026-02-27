@@ -358,6 +358,9 @@ function messageEdit(messageEl: HTMLElement): void {
 
   // Apparently, .focus() doesn't work on contenteditable=true until one frame after.
   inputFocusEnd(inputEl);
+
+  // Scroll the edit form into view (especially important for bottom messages)
+  inputEl.scrollIntoView({ block: 'nearest' });
 }
 
 function messageEditReverse(): void {
@@ -373,7 +376,7 @@ function messageEditReverse(): void {
       contentEl.style.display = '';
     }
     el.classList.remove('chat-message--editing');
-    resetLastScroll();
+    scrollToNew();
     const newInput = document.getElementById('new-message-input');
     if (newInput) {
       newInput.focus({ preventScroll: true });
