@@ -52,7 +52,7 @@ impl ChatBBCode {
 fn ditto_tag_def() -> CustomTagDef {
     CustomTagDef {
         name: "ditto".into(),
-        tag_type: TagType::Inline,
+        tag_type: TagType::Verbatim,
         has_content: true,
         ..Default::default()
     }
@@ -65,9 +65,10 @@ impl CustomTagHandler for DittoHandler {
         "ditto"
     }
 
-    fn render(&self, tag: &TagNode, ctx: &RenderContext, output: &mut String) -> bool {
+    fn render(&self, tag: &TagNode, _ctx: &RenderContext, output: &mut String) -> bool {
+        let text = tag.inner_text();
         output.push_str("<button class=\"tagDitto\">");
-        ctx.render_children(tag, output);
+        output.push_str(&bbcode::escape_html(&text));
         output.push_str("</button>");
         true
     }
@@ -81,7 +82,9 @@ mod tests {
     fn ditto() {
         assert!(parse("[ditto]click me[/ditto]").contains("tagDitto"));
         assert!(parse("[ditto]click me[/ditto]").contains("click me"));
-        assert!(parse("[ditto][b]bold[/b][/ditto]").contains("<strong>bold</strong>"));
+        // Verbatim: inner BBCode is not processed
+        assert!(parse("[ditto][b]bold[/b][/ditto]").contains("[b]bold[/b]"));
+        assert!(!parse("[ditto][b]bold[/b][/ditto]").contains("<strong>"));
         assert!(parse("[ditto][/ditto]").contains("tagDitto"));
     }
 
