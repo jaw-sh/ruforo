@@ -143,6 +143,7 @@ pub async fn get_room_history(
                 implement::Message {
                     message: message.message_text.to_owned(),
                     message_id: message.message_id,
+                    message_uuid: uuid::Uuid::parse_str(&message.message_uuid).unwrap_or_default(),
                     message_date: message.message_date.try_into().unwrap(),
                     message_edit_date: match message.last_edit_date {
                         Some(date) => date.try_into().unwrap(),

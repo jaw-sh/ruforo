@@ -22,6 +22,7 @@ export interface SanitaryPost {
   author: Author;
   message: string;
   message_id: number;
+  message_uuid: string;
   message_date: number;
   message_edit_date: number;
   message_raw: string;
@@ -50,11 +51,11 @@ export interface RoomPermissions {
 
 export interface ServerPayload {
   messages?: SanitaryPost[];
-  delete?: number[];
+  delete?: string[];
   users?: Record<string, UserActivity | false>;
   user?: Record<string, false>;
   system?: string;
-  update_id?: { old: number; new: number; room_id: number };
+  update_id?: { uuid: string; message_id: number; room_id: number };
   permissions?: RoomPermissions;
 }
 

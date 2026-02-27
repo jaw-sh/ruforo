@@ -269,8 +269,8 @@ export function cleanupAvatarImage(avatarEl: HTMLImageElement | null): void {
 // Message deletion
 // ---------------------------------------------------------------------------
 
-export function messageDelete(messageId: number): void {
-  const el = document.getElementById(`chat-message-${messageId}`);
+export function messageDelete(messageUuid: string): void {
+  const el = document.getElementById(`chat-message-${messageUuid}`);
   if (!el) return;
 
   const next = el.nextElementSibling as HTMLElement | null;
@@ -347,7 +347,7 @@ function messageEdit(messageEl: HTMLElement): void {
         event.preventDefault();
 
         ws.send('/edit ' + JSON.stringify({
-          id: parseInt(messageEl.dataset.id!, 10),
+          uuid: messageEl.dataset.id,
           message: this.textContent,
         }));
         messageEditReverse();
@@ -501,12 +501,13 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
 
   if (author) {
     const msg = message as SanitaryPost;
+    const uuid = msg.message_uuid;
     id = typeof msg.message_id === 'number' ? msg.message_id : parseInt(String(msg.message_id), 10);
-    extantEl = document.getElementById(`chat-message-${id}`);
+    extantEl = document.getElementById(`chat-message-${uuid}`);
 
-    // If this is our own message echoed back with a temp ID, resolve the
-    // oldest pending message (FIFO — server broadcasts in send order).
-    if (msg.author.id === APP.user.id && id === 0) {
+    // If this is our own message echoed back, resolve the oldest pending
+    // message (FIFO — server broadcasts in send order).
+    if (msg.author.id === APP.user.id) {
       const pending = ws.resolveNextPending();
       if (pending?.element) {
         extantEl = pending.element;
@@ -515,8 +516,9 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
 
     const rootEl = template.children[0] as HTMLElement;
     (rootEl as any).rawMessage = decodeHtmlEntities(msg.message_raw);
-    rootEl.id = `chat-message-${id}`;
-    rootEl.dataset.id = String(id);
+    rootEl.id = `chat-message-${uuid}`;
+    rootEl.dataset.id = uuid;
+    rootEl.dataset.messageId = String(id);
     rootEl.dataset.author = String(author.id);
     rootEl.dataset.timestamp = String(msg.message_date);
 
@@ -579,7 +581,7 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     if (isOwn || !perms.can_report) {
       template.querySelector('.report')?.remove();
     } else {
-      template.querySelector('.report')?.setAttribute('href', `/chat/messages/${msg.message_id}/report`);
+      template.querySelector('.report')?.setAttribute('href', `/chat/messages/${uuid}/report`);
     }
   } else {
     const rootEl = template.children[0] as HTMLElement;
@@ -668,7 +670,7 @@ export function messagePushPending(pending: PendingMessage): HTMLElement {
 
   const rootEl = template.children[0] as HTMLElement;
   rootEl.classList.add('chat-message--pending');
-  rootEl.dataset.id = '0';
+  rootEl.dataset.id = 'pending';
   rootEl.dataset.author = String(APP.user.id);
   rootEl.dataset.timestamp = String(pending.timestamp);
 
@@ -745,16 +747,11 @@ export function messagePushPending(pending: PendingMessage): HTMLElement {
 // Resolve pending message ID (server sends update_id)
 // ---------------------------------------------------------------------------
 
-export function resolveMessageId(oldId: number, newId: number): void {
-  // Find element with data-id="0" or matching old id
-  let el = document.querySelector(`.chat-message[data-id="${oldId}"]`) as HTMLElement | null;
-  if (!el) {
-    el = document.querySelector('.chat-message[data-id="0"]') as HTMLElement | null;
-  }
+export function resolveMessageId(uuid: string, messageId: number): void {
+  const el = document.getElementById(`chat-message-${uuid}`) as HTMLElement | null;
   if (!el) return;
 
-  el.dataset.id = String(newId);
-  el.id = `chat-message-${newId}`;
+  el.dataset.messageId = String(messageId);
   el.classList.remove('chat-message--pending');
 }
 

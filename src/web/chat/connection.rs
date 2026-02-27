@@ -5,6 +5,7 @@ use super::{CLIENT_TIMEOUT, HEARTBEAT_INTERVAL};
 use actix::*;
 use actix_web_actors::ws;
 use std::time::Instant;
+use uuid::Uuid;
 
 pub struct Connection {
     /// connection id
@@ -52,14 +53,14 @@ impl Connection {
             return;
         }
 
-        match args[1].parse::<u32>() {
-            Ok(message_id) => {
+        match Uuid::parse_str(args[1].trim()) {
+            Ok(message_uuid) => {
                 self.send_or_reply(
                     ctx,
                     message::Delete {
                         id: self.id,
                         session: self.session.to_owned(),
-                        message_id,
+                        message_uuid,
                     },
                 );
             }
@@ -75,17 +76,24 @@ impl Connection {
 
         #[derive(serde::Deserialize)]
         struct EditFragment {
-            id: u32,
+            uuid: String,
             message: String,
         }
 
         match serde_json::from_str::<EditFragment>(args[1]) {
             Ok(v) => {
+                let message_uuid = match Uuid::parse_str(&v.uuid) {
+                    Ok(uuid) => uuid,
+                    Err(_) => {
+                        ctx.text("Invalid message UUID.");
+                        return;
+                    }
+                };
                 let msg = message::Edit {
                     id: self.id,
                     session: self.session.to_owned(),
                     message: v.message.trim().to_string(),
-                    message_id: v.id,
+                    message_uuid,
                 };
 
                 if !msg.message.is_empty() {
@@ -247,6 +255,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                             session: self.session.to_owned(),
                             message: m.to_string(),
                             room_id: room_id as u32,
+                            message_uuid: Uuid::new_v4(),
                         },
                     )
                 }

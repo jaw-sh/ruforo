@@ -77,11 +77,12 @@ pub struct Connection {
     pub room_perms: RoomPermissions,
 }
 
-#[derive(Debug, FromQueryResult)]
+#[derive(Debug)]
 pub struct Message {
     pub user_id: u32,
     pub room_id: u32,
     pub message_id: u32,
+    pub message_uuid: uuid::Uuid,
     pub message_date: i64,
     pub message_edit_date: i64,
     pub message: String,
@@ -93,6 +94,7 @@ impl From<MessagePgSql> for Message {
             user_id: other.user_id as u32,
             room_id: other.room_id as u32,
             message_id: other.message_id as u32,
+            message_uuid: uuid::Uuid::nil(),
             message_date: other.message_date.timestamp(),
             message_edit_date: other.message_edit_date.timestamp(),
             message: other.message,
@@ -211,9 +213,9 @@ impl From<&serde_json::Value> for SpriteParams {
 pub trait ChatLayer {
     /// Resolve all per-room permissions for a user. Returns Default (all-false) on failure.
     async fn get_room_permissions(&self, user_id: u32, room_id: u32) -> RoomPermissions;
-    async fn delete_message(&self, id: u32);
-    async fn edit_message(&self, id: u32, author: Author, message: String) -> Option<Message>;
-    async fn get_message(&self, message_id: u32) -> Option<Message>;
+    async fn delete_message(&self, uuid: uuid::Uuid);
+    async fn edit_message(&self, uuid: uuid::Uuid, author: Author, message: String) -> Option<Message>;
+    async fn get_message(&self, uuid: uuid::Uuid) -> Option<Message>;
     async fn get_room_history(&self, room_id: u32, limit: usize) -> Vec<(Author, Message)>;
     async fn get_room_list(&self) -> Vec<Room>;
     async fn get_session_from_user_id(&self, id: u32) -> Session;
@@ -254,13 +256,13 @@ pub mod default {
             }
         }
 
-        async fn delete_message(&self, _: u32) {
+        async fn delete_message(&self, _: uuid::Uuid) {
             // TODO
         }
 
         async fn edit_message(
             &self,
-            _: u32,
+            _: uuid::Uuid,
             _: super::Author,
             _: String,
         ) -> Option<super::Message> {
@@ -268,20 +270,9 @@ pub mod default {
             None
         }
 
-        async fn get_message(&self, id: u32) -> Option<super::Message> {
-            chat_messages::Entity::find_by_id(id as i32)
-                .select_only()
-                .column_as(chat_messages::Column::UserId, "user_id")
-                .column_as(chat_messages::Column::ChatRoomId, "room_id")
-                .column_as(chat_messages::Column::Id, "message_id")
-                .column_as(chat_messages::Column::CreatedAt, "message_date")
-                .left_join(ugc_revisions::Entity)
-                .column_as(ugc_revisions::Column::Content, "message")
-                .column_as(ugc_revisions::Column::CreatedAt, "message_edit_date")
-                .into_model::<super::Message>()
-                .one(&self.db)
-                .await
-                .unwrap_or_default()
+        async fn get_message(&self, _uuid: uuid::Uuid) -> Option<super::Message> {
+            // TODO: implement UUID-based lookup for default layer
+            None
         }
 
         async fn get_room_list(&self) -> Vec<Room> {
@@ -419,6 +410,7 @@ pub mod default {
                 message_date: ugc_revision.created_at.timestamp(),
                 message_edit_date: 0,
                 message_id: chat_message.id as u32,
+                message_uuid: message.message_uuid,
             })
         }
     }

@@ -7,6 +7,7 @@ use sea_orm::entity::prelude::*;
 pub struct Model {
     #[sea_orm(primary_key)]
     pub message_id: u32,
+    pub message_uuid: String,
     #[sea_orm(column_type = "Text")]
     pub message_text: String,
     pub message_action: bool,

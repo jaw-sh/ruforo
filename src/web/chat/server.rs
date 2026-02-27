@@ -113,6 +113,7 @@ impl ChatServer {
             author,
             room_id: message.room_id,
             message_id: message.message_id,
+            message_uuid: message.message_uuid,
             message_date: message.message_date,
             message_edit_date: message.message_edit_date,
             message: self.bbcode.render(&message.message),
@@ -189,20 +190,20 @@ impl Handler<message::Delete> for ChatServer {
         Box::pin(
             async move {
                 // Get the message.
-                let res = layer.get_message(msg.message_id).await;
+                let res = layer.get_message(msg.message_uuid).await;
 
                 // If we got the message, check if we can delete it.
                 if let Some(message) = &res {
                     let is_own = message.user_id == msg.session.id;
                     if (is_own && perms.can_delete_own) || (!is_own && perms.can_delete_other) {
-                        log::info!("[delete] {} deleted message #{}", msg.session.username, msg.message_id);
+                        log::info!("[delete] {} deleted message {}", msg.session.username, msg.message_uuid);
                         // Delete message.
-                        layer.delete_message(message.message_id).await;
+                        layer.delete_message(message.message_uuid).await;
                     } else {
                         log::warn!(
                             "User {} tried to delete message {:?}",
                             msg.session.id,
-                            msg.message_id
+                            msg.message_uuid
                         );
                         return None;
                     }
@@ -215,7 +216,7 @@ impl Handler<message::Delete> for ChatServer {
                 if let Some(message) = message {
                     actor.send_message_to_room(
                         message.room_id,
-                        format!("{{\"delete\":[{}]}}", message.message_id),
+                        format!("{{\"delete\":[\"{}\"]}}", message.message_uuid),
                     );
                 } else {
                     actor.send_message_to_conn(msg.id, "Could not delete message.".to_string());
@@ -251,12 +252,12 @@ impl Handler<message::Edit> for ChatServer {
             .get(&msg.id)
             .map(|conn| conn.room_perms.clone())
             .unwrap_or_default();
-        log::info!("[edit] {} edited message #{}: {}", session.username, msg.message_id, msg.message);
+        log::info!("[edit] {} edited message {}: {}", session.username, msg.message_uuid, msg.message);
 
         Box::pin(
             async move {
                 // Get the message.
-                let res = layer.get_message(msg.message_id).await;
+                let res = layer.get_message(msg.message_uuid).await;
 
                 // If we got the message, check if we can edit it.
                 if let Some(message) = &res {
@@ -264,13 +265,13 @@ impl Handler<message::Edit> for ChatServer {
                     if (is_own && perms.can_edit_own) || (!is_own && perms.can_edit_other) {
                         // Edit message.
                         return layer
-                            .edit_message(message.message_id, author, msg.message)
+                            .edit_message(message.message_uuid, author, msg.message)
                             .await;
                     } else {
                         log::warn!(
                             "User {} tried to edit message {:?}",
                             msg.session.id,
-                            msg.message_id
+                            msg.message_uuid
                         );
                         return None;
                     }
@@ -413,16 +414,18 @@ impl Handler<message::Post> for ChatServer {
         let session = msg.session.to_owned();
         log::info!("[room:{}] <{}> {}", msg.room_id, msg.session.username, msg.message);
 
-        // Create a temporary message with message_id 0 and broadcast immediately.
+        // Create a temporary message with message_id 0 but real UUID, and broadcast immediately.
         let now = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64;
+        let message_uuid = msg.message_uuid;
 
         let temp_message = implement::Message {
             user_id: session.id,
             room_id,
             message_id: 0,
+            message_uuid,
             message_date: now,
             message_edit_date: 0,
             message: msg.message.clone(),
@@ -469,12 +472,12 @@ impl Handler<message::Post> for ChatServer {
             .map(move |result, actor, _ctx| {
                 match result {
                     Ok(message) => {
-                        // Broadcast the real ID so clients can update the temp ID.
+                        // Broadcast the real message_id so clients can fill it in.
                         actor.send_message_to_room(
                             room_id,
                             format!(
-                                "{{\"update_id\":{{\"old\":0,\"new\":{},\"room_id\":{}}}}}",
-                                message.message_id, room_id
+                                "{{\"update_id\":{{\"uuid\":\"{}\",\"message_id\":{},\"room_id\":{}}}}}",
+                                message_uuid, message.message_id, room_id
                             ),
                         );
                     }
@@ -503,8 +506,8 @@ impl Handler<message::UpdateMessageId> for ChatServer {
         self.send_message_to_room(
             msg.room_id,
             format!(
-                "{{\"update_id\":{{\"old\":{},\"new\":{},\"room_id\":{}}}}}",
-                msg.old_id, msg.new_id, msg.room_id
+                "{{\"update_id\":{{\"uuid\":\"{}\",\"message_id\":{},\"room_id\":{}}}}}",
+                msg.message_uuid, msg.message_id, msg.room_id
             ),
         );
     }

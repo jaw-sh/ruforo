@@ -86,8 +86,8 @@ function handleServerPayload(data: ServerPayload): void {
   }
 
   if (data.delete) {
-    for (const id of data.delete) {
-      messages.messageDelete(id);
+    for (const uuid of data.delete) {
+      messages.messageDelete(uuid);
     }
   }
 
@@ -108,7 +108,7 @@ function handleServerPayload(data: ServerPayload): void {
   }
 
   if (data.update_id) {
-    messages.resolveMessageId(data.update_id.old, data.update_id.new);
+    messages.resolveMessageId(data.update_id.uuid, data.update_id.message_id);
   }
 
   if (data.permissions) {

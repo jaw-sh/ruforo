@@ -8,6 +8,7 @@ pub mod smilie;
 use actix_web::web::Data;
 use ruforo::web::chat::{implement, message::Post};
 use std::time::Duration;
+use uuid::Uuid;
 
 pub struct XfLayer {
     pub db: sea_orm::DatabaseConnection,
@@ -19,21 +20,21 @@ impl implement::ChatLayer for XfLayer {
         room::get_room_permissions_full(&self.db, user_id, room_id).await
     }
 
-    async fn delete_message(&self, id: u32) {
-        message::delete_message(&self.db, id).await
+    async fn delete_message(&self, uuid: Uuid) {
+        message::delete_message(&self.db, uuid).await
     }
 
     async fn edit_message(
         &self,
-        id: u32,
+        uuid: Uuid,
         author: implement::Author,
         message: String,
     ) -> Option<implement::Message> {
-        message::edit_message(&self.db, id, author, message).await
+        message::edit_message(&self.db, uuid, author, message).await
     }
 
-    async fn get_message(&self, id: u32) -> Option<implement::Message> {
-        message::get_message(&self.db, id).await
+    async fn get_message(&self, uuid: Uuid) -> Option<implement::Message> {
+        message::get_message(&self.db, uuid).await
     }
 
     async fn get_room_list(&self) -> Vec<implement::Room> {
@@ -98,6 +99,7 @@ impl From<orm::chat_message::Model> for implement::Message {
             room_id: model.room_id,
             message: model.message_text,
             message_id: model.message_id,
+            message_uuid: Uuid::parse_str(&model.message_uuid).unwrap_or_default(),
             message_date: model.message_date.try_into().unwrap(),
             message_edit_date: match model.last_edit_date {
                 Some(date) => date.try_into().unwrap(),

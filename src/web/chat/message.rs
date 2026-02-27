@@ -1,6 +1,7 @@
 use super::implement;
 use actix::prelude::*;
 use serde::Serialize;
+use uuid::Uuid;
 
 // Regarding Integers:
 // Database keys should be u32.
@@ -23,7 +24,7 @@ pub struct Delete {
     pub id: usize,
     pub session: implement::Session,
 
-    pub message_id: u32,
+    pub message_uuid: Uuid,
 }
 
 impl Message for Delete {
@@ -46,7 +47,7 @@ pub struct Edit {
     pub session: implement::Session,
 
     pub message: String,
-    pub message_id: u32,
+    pub message_uuid: Uuid,
 }
 
 impl Message for Edit {
@@ -76,6 +77,8 @@ pub struct Post {
     pub message: String,
     /// Recipient room
     pub room_id: u32,
+    /// Unique message identifier, generated before broadcast
+    pub message_uuid: Uuid,
 }
 
 impl Message for Post {
@@ -111,6 +114,8 @@ pub struct SanitaryPost {
     pub message: String,
     /// Message ID from database
     pub message_id: u32,
+    /// Unique message identifier
+    pub message_uuid: Uuid,
     /// Timestamp of last message edit
     pub message_edit_date: i64,
     /// Timestamp of message creation
@@ -137,8 +142,8 @@ impl Message for SanitaryPosts {
 /// Notification with real message ID after DB write succeeds.
 pub struct UpdateMessageId {
     pub room_id: u32,
-    pub old_id: u32,
-    pub new_id: u32,
+    pub message_uuid: Uuid,
+    pub message_id: u32,
 }
 
 impl Message for UpdateMessageId {
