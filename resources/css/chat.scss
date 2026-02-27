@@ -391,8 +391,8 @@ html.chat #chat {
 }
 
 .chat-input {
-    box-sizing: content-box;
-    min-height: 1.375rem;
+    box-sizing: border-box;
+    min-height: calc(1.375rem + 22px);
     max-height: 8rem;
     overflow-y: auto;
     width: 100%;
