@@ -24,18 +24,17 @@ html.chat #chat {
 .chat-room {
     color: var(--text-color);
     text-decoration: none;
-    border: var(--border-color);
     border-radius: 3px;
     padding: 6px;
     cursor: pointer;
 
     &.active {
-        background: var(--border-color);
+        background: var(--background-mod-selected);
         text-decoration: underline;
     }
 
     &:hover {
-        background: var(--border-color);
+        background: var(--background-mod-hover);
         text-decoration: underline;
     }
 }
@@ -249,6 +248,10 @@ html.chat #chat {
 
     .button path {
         fill: var(--text-muted);
+    }
+
+    .button.delete path {
+        fill: white;
     }
 
     &[id]:not(.chat-message--editing):hover .right-content {

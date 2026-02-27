@@ -135,8 +135,8 @@ pub async fn get_room_history(
                         avatar_url: avatar_uri(user.user_id, user.avatar_date),
                     },
                     None => implement::Author {
-                        id: 0,
-                        username: "Guest".to_owned(),
+                        id: message.user_id.unwrap_or(0),
+                        username: message.username.to_owned(),
                         avatar_url: String::new(),
                     },
                 },

@@ -138,11 +138,9 @@ export function resolveNextPending(): PendingMessage | undefined {
   return undefined;
 }
 
-export function resendPendingMessages(): void {
-  // On reconnect, re-send any messages that were pending
-  for (const p of pendingMessages) {
-    send(p.text);
-  }
+/** Discard all pending messages (called on disconnect). */
+export function clearPending(): void {
+  pendingMessages.length = 0;
 }
 
 /**

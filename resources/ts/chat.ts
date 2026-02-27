@@ -126,22 +126,22 @@ function handleRawMessage(text: string): void {
 }
 
 function handleConnected(): void {
-  if (ws.getCurrentRoom() === null) {
-    if (!joinByHash()) {
-      messages.messagePush({ message: 'Connected! You may now join a room.' } as never, undefined);
-    } else {
-      messages.messagePush({ message: 'Connected!' } as never, undefined);
-    }
-  } else {
-    messages.messagePush({ message: 'Connected!' } as never, undefined);
-  }
+  const room = ws.getCurrentRoom();
 
-  // Re-send any pending messages from before disconnect
-  ws.resendPendingMessages();
+  if (room !== null) {
+    // Reconnecting while in a room — rejoin so the server knows.
+    messages.messagePush({ message: 'Reconnected.' } as never, undefined);
+    ws.joinRoom(room);
+  } else if (joinByHash()) {
+    messages.messagePush({ message: 'Connected!' } as never, undefined);
+  } else {
+    messages.messagePush({ message: 'Connected! You may now join a room.' } as never, undefined);
+  }
 }
 
 function handleDisconnected(): void {
   users.userActivityDelete();
+  ws.clearPending();
 }
 
 function setChatInputEnabled(enabled: boolean): void {
