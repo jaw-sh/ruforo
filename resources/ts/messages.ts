@@ -291,7 +291,6 @@ export function messageDelete(messageUuid: string): void {
   cleanupAvatarImage(el.querySelector('.avatar') as HTMLImageElement | null);
 
   // Clean up stored data
-  delete (el as any).rawMessage;
   delete (el as any).originalMessage;
 
   el.remove();
@@ -320,8 +319,8 @@ function messageEdit(messageEl: HTMLElement): void {
   const inputEl = formEl.querySelector('.chat-input') as HTMLElement;
   inputEl.id = 'edit-message-input';
 
-  const editValue = typeof (messageEl as any).rawMessage === 'string' && (messageEl as any).rawMessage.length
-    ? (messageEl as any).rawMessage
+  const editValue = messageEl.dataset.raw
+    ? decodeHtmlEntities(messageEl.dataset.raw)
     : contentEl.textContent;
 
   const submitEl = formEl.querySelector('button.submit');
@@ -514,7 +513,7 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     }
 
     const rootEl = template.children[0] as HTMLElement;
-    (rootEl as any).rawMessage = decodeHtmlEntities(msg.message_raw);
+    rootEl.dataset.raw = msg.message_raw;
     rootEl.id = `chat-message-${uuid}`;
     rootEl.dataset.id = uuid;
     rootEl.dataset.author = String(author.id);
@@ -610,7 +609,6 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     // Clean up old element before replacing
     messageRemoveEventListeners(extantEl);
     cleanupAvatarImage(extantEl.querySelector('.avatar') as HTMLImageElement | null);
-    delete (extantEl as any).rawMessage;
     delete (extantEl as any).originalMessage;
     extantEl.replaceWith(el);
   } else {
@@ -655,7 +653,6 @@ function pruneMessages(messagesEl: HTMLElement): void {
     cleanupAvatarImage(oldMessage.querySelector('.avatar') as HTMLImageElement | null);
 
     // Clean up stored data properties
-    delete (oldMessage as any).rawMessage;
     delete (oldMessage as any).originalMessage;
 
     oldMessage.remove();
@@ -767,7 +764,6 @@ export function messagesDelete(): void {
       cleanupAvatarImage(child.querySelector('.avatar') as HTMLImageElement | null);
 
       // Clean up stored data properties
-      delete (child as any).rawMessage;
       delete (child as any).originalMessage;
     }
 

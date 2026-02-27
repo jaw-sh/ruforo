@@ -118,8 +118,18 @@ mod tests {
     #[test]
     fn code_verbatim() {
         // [code] should not parse inner BBCode
-        assert!(!parse("[code][b]bold[/b][/code]").contains("<strong>"));
-        assert!(parse("[code][b]bold[/b][/code]").contains("[b]bold[/b]"));
+        let result = parse("[code][b]bold[/b][/code]");
+        assert!(!result.contains("<strong>"));
+        assert!(result.contains("[b]bold[/b]"));
+
+        // Also test through ChatBBCode path (with smilies)
+        let bbcode = ChatBBCode::new(HashMap::new());
+        let result2 = bbcode.render("[code][b]bold[/b][/code]");
+        assert!(!result2.contains("<strong>"));
+        assert!(result2.contains("[b]bold[/b]"));
+
+        // Sanitize preserves raw BBCode for edit
+        assert_eq!(ChatBBCode::sanitize("[code][b]bold[/b][/code]"), "[code][b]bold[/b][/code]");
     }
 
     #[test]
