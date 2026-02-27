@@ -139,43 +139,60 @@ pub struct Smilie {
 }
 
 impl Smilie {
+    /// Returns true if this smilie has valid image data for rendering.
+    pub fn is_valid(&self) -> bool {
+        self.sprite_params.is_some() || !self.image_url.is_empty()
+    }
+
     pub fn to_html(&self) -> String {
-        format!("<img src=\"{}\" class=\"smilie\" style=\"{}\" alt=\"{}\" title=\"{}   {}\" loading=\"lazy\" />",
+        format!(
+            "<img src=\"{}\" class=\"smilie\" style=\"{}\" alt=\"{}\" title=\"{}\" loading=\"lazy\" />",
             match &self.sprite_params {
                 Some(_) => "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
                 None => &self.image_url,
             },
             match &self.sprite_params {
-                Some(sp) => format!("width: {}px; height: {}px; background: url({}) no-repeat 0 0; background-size: contain;", sp.w, sp.h, self.image_url),
+                Some(sp) => format!(
+                    "width: {}px; height: {}px; background: url({}) no-repeat {}px {}px; background-size: contain;",
+                    sp.w, sp.h, self.image_url, sp.x, sp.y
+                ),
                 None => String::new(),
             },
             self.replace,
             self.title,
-            self.replace
         )
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpriteParams {
-    h: usize,
-    w: usize,
+    pub h: usize,
+    pub w: usize,
+    pub x: i32,
+    pub y: i32,
 }
 
 impl From<&serde_json::Value> for SpriteParams {
     fn from(json: &serde_json::Value) -> Self {
-        let h = json.get("h");
-        let w = json.get("w");
-
-        if let (Some(h), Some(w)) = (h, w) {
-            if let (Some(h), Some(w)) = (h.as_str(), w.as_str()) {
-                if let (Ok(h), Ok(w)) = (h.parse::<usize>(), w.parse::<usize>()) {
-                    return Self { h, w };
-                }
-            }
+        fn parse_usize(v: &serde_json::Value) -> usize {
+            v.as_str()
+                .and_then(|s| s.parse().ok())
+                .or_else(|| v.as_u64().map(|n| n as usize))
+                .unwrap_or(0)
+        }
+        fn parse_i32(v: &serde_json::Value) -> i32 {
+            v.as_str()
+                .and_then(|s| s.parse().ok())
+                .or_else(|| v.as_i64().map(|n| n as i32))
+                .unwrap_or(0)
         }
 
-        Self { h: 0, w: 0 }
+        Self {
+            h: json.get("h").map(parse_usize).unwrap_or(0),
+            w: json.get("w").map(parse_usize).unwrap_or(0),
+            x: json.get("x").map(parse_i32).unwrap_or(0),
+            y: json.get("y").map(parse_i32).unwrap_or(0),
+        }
     }
 }
 

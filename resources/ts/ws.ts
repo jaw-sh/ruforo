@@ -55,6 +55,7 @@ export function connect(): void {
   // Fix cross-domain issues
   const url = new URL(APP.chat_ws_url);
   url.hostname = window.location.hostname;
+  url.port = window.location.port;
   url.protocol = window.location.protocol === 'http:' ? 'ws:' : 'wss:';
 
   ws = new WebSocket(url.href);
