@@ -426,16 +426,16 @@ impl Handler<message::Post> for ChatServer {
             .unwrap()
             .as_secs() as i64;
 
-        let temp_message = implement::Message {
-            user_id: session.id,
+        // Reuse the rendered HTML from the visible content check above.
+        let sanitary = message::SanitaryPost {
+            author: implement::Author::from(&session),
             room_id,
             message_uuid: msg.message_uuid,
             message_date: now,
             message_edit_date: 0,
-            message: msg.message.clone(),
+            message: rendered,
+            message_raw: ChatBBCode::sanitize(&msg.message),
         };
-
-        let sanitary = self.prepare_message(implement::Author::from(&session), temp_message);
         self.send_message_to_room(
             room_id,
             serde_json::to_string(&message::SanitaryPosts {
