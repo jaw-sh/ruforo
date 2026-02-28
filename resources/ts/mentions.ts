@@ -155,7 +155,7 @@ function showDropdown(inputEl: HTMLElement): void {
     el.addEventListener('mousedown', (e) => {
       e.preventDefault(); // Prevent input blur
       const username = (el as HTMLElement).dataset.username;
-      if (username) insertMention(username);
+      if (username) insertMention(username, true);
     });
   });
 }
@@ -174,7 +174,7 @@ function selectCurrent(): void {
   }
 }
 
-function insertMention(username: string): void {
+function insertMention(username: string, comma = false): void {
   if (!mentionAnchorNode || mentionAnchorNode.nodeType !== Node.TEXT_NODE) {
     dismiss();
     return;
@@ -183,7 +183,7 @@ function insertMention(username: string): void {
   const text = mentionAnchorNode.textContent || '';
   const before = text.slice(0, mentionStartOffset);
   const after = text.slice(mentionStartOffset + 1 + mentionQuery.length); // +1 for @
-  const replacement = `@${username} `;
+  const replacement = `@${username}${comma ? ', ' : ' '}`;
 
   mentionAnchorNode.textContent = before + replacement + after;
 
