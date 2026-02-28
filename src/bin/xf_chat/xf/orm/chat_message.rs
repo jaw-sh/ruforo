@@ -5,8 +5,7 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "xf_hb_chat_message")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub message_id: u32,
+    #[sea_orm(primary_key, auto_increment = false)]
     pub message_uuid: String,
     #[sea_orm(column_type = "Text")]
     pub message_text: String,
