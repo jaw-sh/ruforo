@@ -3,13 +3,28 @@
 let scrollEl: HTMLElement;
 let lastScrollPos = 0;
 let pendingScroll = false;
+let resizeObserver: ResizeObserver | null = null;
 
 export function initScroll(el: HTMLElement): void {
   scrollEl = el;
   scrollEl.addEventListener('scroll', onScroll);
+
+  // Watch the content container for size changes (e.g. images loading in)
+  // so we re-anchor the scroll when content height grows.
+  const contentEl = el.querySelector('#chat-messages');
+  if (contentEl) {
+    resizeObserver = new ResizeObserver(() => {
+      scrollToNew();
+    });
+    resizeObserver.observe(contentEl);
+  }
 }
 
 export function destroyScroll(): void {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
   if (scrollEl) {
     scrollEl.removeEventListener('scroll', onScroll);
   }
