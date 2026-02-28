@@ -19,7 +19,7 @@ async fn get_database_connection() -> Result<DatabaseConnection, DbErr> {
         .connect_timeout(Duration::from_secs(8))
         .idle_timeout(Duration::from_secs(300))
         .max_lifetime(Duration::from_secs(300))
-        .sqlx_logging(true);
+        .sqlx_logging(false);
 
     Database::connect(options).await
 }
