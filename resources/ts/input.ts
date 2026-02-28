@@ -112,13 +112,23 @@ export function inputFocusEnd(el: HTMLElement): void {
   }, 0);
 }
 
+/** When true, show a grayed-out local message until the server echoes it back. */
+let showPendingMessages = false;
+
+export function setShowPendingMessages(enabled: boolean): void {
+  showPendingMessages = enabled;
+}
+
 function submitMessage(inputEl: HTMLElement): void {
   const text = inputEl.textContent?.trim() || '';
   if (text.length === 0) return;
 
-  // Send as pending message for optimistic rendering
-  const pending = ws.sendChat(text);
-  messagePushPending(pending);
+  if (showPendingMessages) {
+    const pending = ws.sendChat(text);
+    messagePushPending(pending);
+  } else {
+    ws.send(text);
+  }
 
   inputEl.textContent = '';
   autoGrow(inputEl);
