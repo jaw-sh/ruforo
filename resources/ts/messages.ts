@@ -10,7 +10,9 @@ const BLANK_GIF = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAA
 // Track event listeners for cleanup
 const eventListenerMap = new WeakMap<HTMLElement, Array<{ target: EventTarget; type: string; handler: EventListener }>>();
 
-// Reuse a DOM node to decode HTML entities back into plain text
+// Reuse a DOM node to decode HTML entities back into plain text.
+// IMPORTANT: Never write to textarea.value — it sets the "dirty" flag,
+// which prevents subsequent innerHTML changes from updating .value.
 const decodeHtmlEntities = (() => {
   const textarea = document.createElement('textarea');
   return (value: string): string => {
@@ -18,9 +20,7 @@ const decodeHtmlEntities = (() => {
       return '';
     }
     textarea.innerHTML = value;
-    const decoded = textarea.value;
-    textarea.value = '';
-    return decoded;
+    return textarea.value;
   };
 })();
 
