@@ -10,9 +10,10 @@ pub struct Model {
     pub title: String,
     pub description: String,
     pub display_order: u32,
-    #[sea_orm(column_type = "Decimal(Some((16, 6)))", nullable)]
-    pub motd_date: Option<Decimal>,
-    pub motd_id: Option<u32>,
+    // TODO: re-add when motd columns exist in the database
+    // #[sea_orm(column_type = "Decimal(Some((16, 6)))", nullable)]
+    // pub motd_date: Option<Decimal>,
+    // pub motd_id: Option<u32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter)]
