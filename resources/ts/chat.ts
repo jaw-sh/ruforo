@@ -141,7 +141,7 @@ function handleDisconnected(): void {
 }
 
 function setChatInputEnabled(enabled: boolean): void {
-  const form = document.querySelector('.chat-form') as HTMLElement | null;
+  const form = document.getElementById('new-message-form') as HTMLElement | null;
   if (!form) return;
 
   const input = form.querySelector('.chat-input') as HTMLTextAreaElement | null;

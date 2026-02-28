@@ -315,21 +315,28 @@ function messageEdit(messageEl: HTMLElement): void {
   // Hide the original message (keep it in DOM for safe reversal)
   contentEl.style.display = 'none';
 
-  const formEl = document.getElementById('new-message-form')!.cloneNode(true) as HTMLElement;
+  // Build edit form from scratch to avoid inheriting state from the main form
+  // (autoGrow inline styles, cloned contenteditable quirks, etc.)
+  const formEl = document.createElement('form');
   formEl.id = 'edit-message-form';
+  formEl.className = 'chat-form';
 
-  const inputEl = formEl.querySelector('.chat-input') as HTMLElement;
+  const fieldsEl = document.createElement('div');
+  fieldsEl.className = 'chat-fields';
+
+  const inputEl = document.createElement('div');
   inputEl.id = 'edit-message-input';
+  inputEl.className = 'chat-input';
+  inputEl.setAttribute('contenteditable', 'true');
+  inputEl.setAttribute('aria-label', 'Edit message');
+  inputEl.setAttribute('aria-multiline', 'true');
+  inputEl.textContent = editValue;
 
-  const submitEl = formEl.querySelector('button.submit');
-  if (submitEl) {
-    submitEl.remove();
-  }
+  fieldsEl.appendChild(inputEl);
+  formEl.appendChild(fieldsEl);
 
   // Insert form after the hidden message
   contentEl.after(formEl);
-
-  inputEl.textContent = editValue;
   inputAddEventListeners(inputEl);
   inputEl.addEventListener('keydown', function (this: HTMLElement, event: KeyboardEvent) {
     switch (event.key) {
