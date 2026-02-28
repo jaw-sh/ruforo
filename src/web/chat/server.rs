@@ -411,6 +411,13 @@ impl Handler<message::Post> for ChatServer {
         let id = msg.id;
         let room_id = msg.room_id;
         let session = msg.session.to_owned();
+
+        // Reject messages with no visible content (e.g. "[b][/b]")
+        let rendered = self.bbcode.render(&msg.message);
+        if !ChatBBCode::has_visible_content(&rendered) {
+            return;
+        }
+
         log::info!("[room:{}] <{}> {}", msg.room_id, msg.session.username, msg.message);
 
         // Create an optimistic message with the real UUID and broadcast immediately.

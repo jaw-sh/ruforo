@@ -45,6 +45,12 @@ impl ChatBBCode {
     pub fn sanitize(input: &str) -> String {
         bbcode::escape_html(input).into_owned()
     }
+
+    /// Check if rendered HTML contains meaningful visible content.
+    /// Delegates to `bbcode::has_visible_content`.
+    pub fn has_visible_content(html: &str) -> bool {
+        bbcode::has_visible_content(html)
+    }
 }
 
 // --- Ditto custom tag ---
@@ -136,6 +142,14 @@ mod tests {
         assert!(!parse("[code][b]message").contains("<strong>"));
         assert!(parse("[code][b]message[/b]").contains("[b]message[/b]"));
         assert!(!parse("[code][b]message[/b]").contains("<strong>"));
+    }
+
+    #[test]
+    fn visible_content() {
+        // Delegates to bbcode::has_visible_content; thorough tests are in bbcode-rs
+        assert!(!ChatBBCode::has_visible_content(&parse("[b][/b]")));
+        assert!(ChatBBCode::has_visible_content(&parse("[b]test[/b]")));
+        assert!(ChatBBCode::has_visible_content(&parse("[img]https://example.com/img.png[/img]")));
     }
 
     #[test]
