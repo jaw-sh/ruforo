@@ -60,6 +60,7 @@ fn ditto_tag_def() -> CustomTagDef {
         name: "ditto".into(),
         tag_type: TagType::Verbatim,
         has_content: true,
+        closes_inlines: true,
         ..Default::default()
     }
 }
