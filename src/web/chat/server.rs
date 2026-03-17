@@ -21,6 +21,8 @@ pub struct ChatServer {
     pub rooms: HashMap<u32, HashSet<usize>>,
     // Message BbCode renderer
     pub bbcode: ChatBBCode,
+    /// Room Id -> pinned MOTD message
+    pub motd: HashMap<u32, SanitaryPost>,
 }
 
 impl ChatServer {
@@ -45,6 +47,7 @@ impl ChatServer {
             rooms: HashMap::from_iter(rooms.into_iter().map(|r| (r.id, Default::default()))),
             bbcode,
             layer,
+            motd: HashMap::new(),
         }
     }
 
@@ -125,6 +128,21 @@ impl ChatServer {
         if let Some(conn) = self.connections.get(&recipient) {
             conn.recipient.do_send(message::Reply(message));
         }
+    }
+
+    /// Find all connection IDs for a user by user_id or username (case-insensitive).
+    fn find_connections_by_user(&self, user_id: u32, username: &str) -> Vec<usize> {
+        self.connections
+            .iter()
+            .filter(|(_, conn)| {
+                if user_id > 0 {
+                    conn.session.id == user_id
+                } else {
+                    conn.session.username.eq_ignore_ascii_case(username)
+                }
+            })
+            .map(|(&id, _)| id)
+            .collect()
     }
 
     /// Send message to all users in a room
@@ -356,6 +374,16 @@ impl Handler<message::Join> for ChatServer {
                         conn.room_perms = perms;
                     }
 
+                    // Send MOTD if one is set for this room
+                    let motd_payload = message::MotdPayload {
+                        motd: actor.motd.get(&room_id).cloned(),
+                    };
+                    actor.send_message_to_conn(
+                        id,
+                        serde_json::to_string(&motd_payload)
+                            .expect("MotdPayload serialize failure"),
+                    );
+
                     let mut messages: Vec<SanitaryPost> = Vec::with_capacity(unsanitized.len());
 
                     for (author, message) in unsanitized {
@@ -490,6 +518,149 @@ impl Handler<message::Post> for ChatServer {
         );
     }
 }
+/// Handler for Whisper message (ephemeral, no DB persistence).
+impl Handler<message::Whisper> for ChatServer {
+    type Result = ();
+
+    fn handle(&mut self, msg: message::Whisper, _: &mut Context<Self>) {
+        let can_send = self
+            .connections
+            .get(&msg.id)
+            .map(|conn| conn.room_perms.can_send)
+            .unwrap_or(false);
+
+        if !can_send {
+            self.send_message_to_conn(msg.id, "You cannot send messages.".to_string());
+            return;
+        }
+
+        let recipient_conns =
+            self.find_connections_by_user(msg.recipient_id, &msg.recipient_username);
+
+        if recipient_conns.is_empty() {
+            self.send_message_to_conn(msg.id, "User is not online.".to_string());
+            return;
+        }
+
+        // Get recipient Author from first matching connection
+        let recipient_author = match recipient_conns
+            .first()
+            .and_then(|id| self.connections.get(id))
+        {
+            Some(conn) => implement::Author::from(&conn.session),
+            None => {
+                self.send_message_to_conn(msg.id, "User is not online.".to_string());
+                return;
+            }
+        };
+
+        let rendered = self.bbcode.render(&msg.message);
+        if !ChatBBCode::has_visible_content(&rendered) {
+            return;
+        }
+
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        let sender_author = implement::Author::from(&msg.session);
+
+        let payload = message::WhisperPayload {
+            whisper: message::WhisperPost {
+                author: sender_author.clone(),
+                recipient: recipient_author.clone(),
+                message: rendered,
+                message_raw: ChatBBCode::sanitize(&msg.message),
+                message_date: now,
+            },
+        };
+
+        let json =
+            serde_json::to_string(&payload).expect("WhisperPayload serialize failure");
+
+        // Send to all recipient connections (cross-room)
+        for &conn_id in &recipient_conns {
+            self.send_message_to_conn(conn_id, json.clone());
+        }
+
+        // Send to sender too (if sender is different from recipient)
+        let sender_id = msg.session.id;
+        if recipient_author.id != sender_id {
+            self.send_message_to_conn(msg.id, json);
+        }
+    }
+}
+
+/// Handler for Motd message (in-memory, per-room).
+impl Handler<message::Motd> for ChatServer {
+    type Result = ResponseActFuture<Self, ()>;
+
+    fn handle(&mut self, msg: message::Motd, _: &mut Context<Self>) -> Self::Result {
+        let can_motd = self
+            .connections
+            .get(&msg.id)
+            .map(|conn| conn.room_perms.can_motd)
+            .unwrap_or(false);
+
+        if !can_motd {
+            self.send_message_to_conn(
+                msg.id,
+                "You do not have permission to set the MOTD.".to_string(),
+            );
+            return Box::pin(async {}.into_actor(self).map(|_, _, _| ()));
+        }
+
+        let room_id = msg.room_id;
+
+        match msg.message_uuid {
+            None => {
+                // Clear MOTD
+                self.motd.remove(&room_id);
+                let payload = message::MotdPayload { motd: None };
+                let json = serde_json::to_string(&payload)
+                    .expect("MotdPayload serialize failure");
+                self.send_message_to_room(room_id, json);
+                Box::pin(async {}.into_actor(self).map(|_, _, _| ()))
+            }
+            Some(uuid) => {
+                let layer = self.layer.clone();
+                Box::pin(
+                    async move { layer.get_message_with_author(uuid).await }
+                        .into_actor(self)
+                        .map(move |result, actor, _ctx| {
+                            match result {
+                                Some((author, message)) => {
+                                    if message.room_id != room_id {
+                                        actor.send_message_to_conn(
+                                            msg.id,
+                                            "That message is not in this room.".to_string(),
+                                        );
+                                        return;
+                                    }
+                                    let sanitary = actor.prepare_message(author, message);
+                                    actor.motd.insert(room_id, sanitary.clone());
+                                    let payload = message::MotdPayload {
+                                        motd: Some(sanitary),
+                                    };
+                                    let json = serde_json::to_string(&payload)
+                                        .expect("MotdPayload serialize failure");
+                                    actor.send_message_to_room(room_id, json);
+                                }
+                                None => {
+                                    actor.send_message_to_conn(
+                                        msg.id,
+                                        "Message not found.".to_string(),
+                                    );
+                                }
+                            }
+                        }),
+                )
+            }
+        }
+    }
+}
+
 impl Handler<message::Restart> for ChatServer {
     type Result = ();
 

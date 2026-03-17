@@ -105,7 +105,7 @@ impl Message for Restart {
 }
 
 /// A post from the server containing public, sanitized data.
-#[derive(serde::Serialize)]
+#[derive(Clone, serde::Serialize)]
 pub struct SanitaryPost {
     /// Public author information
     pub author: implement::Author,
@@ -135,6 +135,51 @@ pub struct SanitaryPosts {
 
 impl Message for SanitaryPosts {
     type Result = ();
+}
+
+/// Whisper message from one user to another (ephemeral, not persisted).
+pub struct Whisper {
+    pub id: usize,
+    pub session: implement::Session,
+    pub message: String,
+    pub recipient_id: u32,
+    pub recipient_username: String,
+}
+
+impl Message for Whisper {
+    type Result = ();
+}
+
+/// Wire format for whisper sent to both sender and recipient.
+#[derive(serde::Serialize)]
+pub struct WhisperPost {
+    pub author: implement::Author,
+    pub recipient: implement::Author,
+    pub message: String,
+    pub message_raw: String,
+    pub message_date: i64,
+}
+
+#[derive(serde::Serialize)]
+pub struct WhisperPayload {
+    pub whisper: WhisperPost,
+}
+
+/// Request to set or clear the MOTD for a room.
+pub struct Motd {
+    pub id: usize,
+    pub session: implement::Session,
+    pub room_id: u32,
+    pub message_uuid: Option<Uuid>,
+}
+
+impl Message for Motd {
+    type Result = ();
+}
+
+#[derive(serde::Serialize)]
+pub struct MotdPayload {
+    pub motd: Option<SanitaryPost>,
 }
 
 /// Notification that frontend assets have changed.

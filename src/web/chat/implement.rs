@@ -220,6 +220,7 @@ pub trait ChatLayer {
     fn get_session_key_from_request(&self, req: &actix_web::HttpRequest) -> Option<String>;
     async fn get_user_id_from_token(&self, cookie: Option<String>) -> u32;
     async fn insert_chat_message(&self, message: &message::Post) -> Option<Message>;
+    async fn get_message_with_author(&self, uuid: uuid::Uuid) -> Option<(Author, Message)>;
 }
 
 // When we diverge from the XF compat, this can probably be compressed out of a trait.
@@ -358,6 +359,11 @@ pub mod default {
                 Some(cookie) => cookie.parse::<u32>().unwrap_or(0),
                 None => 0,
             }
+        }
+
+        async fn get_message_with_author(&self, _uuid: uuid::Uuid) -> Option<(super::Author, super::Message)> {
+            // TODO: implement for default layer
+            None
         }
 
         async fn insert_chat_message(&self, message: &message::Post) -> Option<super::Message> {

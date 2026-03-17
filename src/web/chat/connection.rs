@@ -129,6 +129,105 @@ impl Connection {
         }
     }
 
+    fn cmd_motd(&self, ctx: &mut ws::WebsocketContext<Self>, args: Vec<&str>) {
+        let room_id = match self.room {
+            Some(room) => room as u32,
+            None => {
+                ctx.text("You must be in a room to set the MOTD.");
+                return;
+            }
+        };
+
+        if args.len() != 2 {
+            ctx.text("Usage: /motd <uuid> or /motd clear");
+            return;
+        }
+
+        let arg = args[1].trim();
+        let message_uuid = if arg.eq_ignore_ascii_case("clear") {
+            None
+        } else {
+            match Uuid::parse_str(arg) {
+                Ok(uuid) => Some(uuid),
+                Err(_) => {
+                    ctx.text("Invalid UUID. Usage: /motd <uuid> or /motd clear");
+                    return;
+                }
+            }
+        };
+
+        self.send_or_reply(
+            ctx,
+            message::Motd {
+                id: self.id,
+                session: self.session.to_owned(),
+                room_id,
+                message_uuid,
+            },
+        );
+    }
+
+    fn cmd_whisper(&self, ctx: &mut ws::WebsocketContext<Self>, args: Vec<&str>) {
+        if args.len() != 2 {
+            ctx.text("Usage: /w @Username message or /w user_id message");
+            return;
+        }
+
+        let rest = args[1].trim();
+        if rest.is_empty() {
+            ctx.text("Usage: /w @Username message or /w user_id message");
+            return;
+        }
+
+        let (recipient_id, recipient_username, msg) = if let Some(without_at) = rest.strip_prefix('@') {
+            // @Username, message  or  @Username message
+            // Try splitting on ", " first, then " "
+            let (name, msg) = if let Some(pos) = without_at.find(", ") {
+                (&without_at[..pos], without_at[pos + 2..].to_string())
+            } else if let Some(pos) = without_at.find(' ') {
+                (&without_at[..pos], without_at[pos + 1..].to_string())
+            } else {
+                ctx.text("Usage: /w @Username message");
+                return;
+            };
+            (0u32, name.to_string(), msg)
+        } else if let Some(pos) = rest.find(|c: char| !c.is_ascii_digit()) {
+            // Numeric ID prefix
+            let id_str = &rest[..pos];
+            if let Ok(id) = id_str.parse::<u32>() {
+                let remainder = rest[pos..].trim_start();
+                let msg = if let Some(stripped) = remainder.strip_prefix(',') {
+                    stripped.trim_start().to_string()
+                } else {
+                    remainder.to_string()
+                };
+                (id, String::new(), msg)
+            } else {
+                ctx.text("Invalid user ID.");
+                return;
+            }
+        } else {
+            ctx.text("Usage: /w @Username message or /w user_id message");
+            return;
+        };
+
+        if msg.trim().is_empty() {
+            ctx.text("Cannot send an empty whisper.");
+            return;
+        }
+
+        self.send_or_reply(
+            ctx,
+            message::Whisper {
+                id: self.id,
+                session: self.session.to_owned(),
+                message: msg,
+                recipient_id,
+                recipient_username,
+            },
+        );
+    }
+
     fn cmd_restart(&mut self, ctx: &mut ws::WebsocketContext<Self>, _: Vec<&str>) {
         self.send_or_reply(
             ctx,
@@ -242,7 +341,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                         "/delete" => self.cmd_delete(ctx, v),
                         "/edit" => self.cmd_edit(ctx, v),
                         "/join" => self.cmd_join(ctx, v),
+                        "/motd" => self.cmd_motd(ctx, v),
                         "/reset" => self.cmd_restart(ctx, v),
+                        "/w" => self.cmd_whisper(ctx, v),
                         _ => ctx.text(format!("Unknown command: {:?}", m)),
                     }
                 }

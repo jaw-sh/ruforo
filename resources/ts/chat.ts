@@ -5,7 +5,7 @@
 
 import '../css/main.scss';
 
-import type { ServerPayload, RoomPermissions } from './types';
+import type { ServerPayload, RoomPermissions, SanitaryPost } from './types';
 import * as ws from './ws';
 import * as messages from './messages';
 import * as users from './users';
@@ -107,6 +107,14 @@ function handleServerPayload(data: ServerPayload): void {
     }
   }
 
+  if (data.whisper) {
+    messages.whisperPush(data.whisper);
+  }
+
+  if (data.motd !== undefined) {
+    setMotd(data.motd);
+  }
+
   if (data.permissions) {
     roomPerms = data.permissions;
     setChatInputEnabled(roomPerms.can_send);
@@ -140,6 +148,19 @@ function handleDisconnected(): void {
   ws.clearPending();
 }
 
+function setMotd(motd: SanitaryPost | null): void {
+  const el = document.getElementById('chat-motd');
+  if (!el) return;
+
+  if (motd) {
+    el.innerHTML = motd.message;
+    el.style.display = '';
+  } else {
+    el.innerHTML = '';
+    el.style.display = 'none';
+  }
+}
+
 function setChatInputEnabled(enabled: boolean): void {
   const form = document.getElementById('new-message-form') as HTMLElement | null;
   if (!form) return;
@@ -160,6 +181,7 @@ function joinByHash(): boolean {
     messages.messagesDelete();
     users.userActivityDelete();
     mentions.dismiss();
+    setMotd(null);
     roomPerms = {
       can_view: false,
       can_send: false,

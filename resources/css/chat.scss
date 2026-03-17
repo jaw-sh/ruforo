@@ -536,6 +536,41 @@ html.chat #chat {
     }
 }
 
+#chat-motd {
+    flex-shrink: 0;
+    padding: 6px 16px;
+    background: var(--background-mod-selected);
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: 1.6em;
+    line-height: 1.6em;
+    transition: max-height 0.2s ease;
+
+    &:hover {
+        max-height: 20em;
+        white-space: normal;
+    }
+}
+
+.chat-message--whisper {
+    .message {
+        border-left-color: rgba(128, 0, 255, 0.5);
+        background-color: rgba(128, 0, 255, 0.08);
+        font-style: italic;
+    }
+
+    .whisper-direction {
+        color: var(--text-muted);
+        font-style: italic;
+    }
+
+    .right-content {
+        display: none !important;
+    }
+}
+
 .chat-message--pending {
     opacity: 0.5;
 

@@ -1,4 +1,4 @@
-import type { Author, SanitaryPost, PendingMessage } from './types';
+import type { Author, SanitaryPost, PendingMessage, WhisperPost } from './types';
 import MicroModal from 'micromodal';
 import * as ws from './ws';
 import { getRoomPermissions } from './chat';
@@ -749,6 +749,94 @@ export function messagePushPending(pending: PendingMessage): HTMLElement {
   }
 
   // Scroll down.
+  scrollToNew();
+
+  return el;
+}
+
+// ---------------------------------------------------------------------------
+// Whisper push
+// ---------------------------------------------------------------------------
+
+export function whisperPush(whisper: WhisperPost): HTMLElement {
+  const messagesEl = document.getElementById('chat-messages')!;
+  const template = (document.getElementById('tmp-chat-message') as HTMLTemplateElement).content.cloneNode(true) as DocumentFragment;
+
+  const isSender = whisper.author.id === APP.user.id;
+  const otherParty = isSender ? whisper.recipient : whisper.author;
+
+  const rootEl = template.children[0] as HTMLElement;
+  rootEl.classList.add('chat-message--whisper');
+  rootEl.dataset.whisperPartner = otherParty.username;
+  rootEl.dataset.whisperPartnerId = String(otherParty.id);
+  rootEl.dataset.author = String(whisper.author.id);
+  rootEl.dataset.timestamp = String(whisper.message_date);
+
+  // Set message content
+  template.querySelector('.message')!.innerHTML = whisper.message;
+
+  // Set author line
+  const authorEl = template.querySelector('.author') as HTMLElement;
+  if (isSender) {
+    authorEl.innerHTML = `<span class="whisper-direction">To ${otherParty.username}</span>`;
+  } else {
+    authorEl.innerHTML = `<span class="whisper-direction">${whisper.author.username} whispers</span>`;
+  }
+  authorEl.dataset.id = String(otherParty.id);
+
+  // Click on author fills input with /w command
+  authorEl.addEventListener('click', (e: Event) => {
+    e.preventDefault();
+    const inputEl = document.getElementById('new-message-input');
+    if (inputEl) {
+      inputEl.textContent = `/w @${otherParty.username}, `;
+      inputFocusEnd(inputEl);
+    }
+  });
+
+  // Set timestamps
+  Array.from(template.querySelectorAll('.timestamp')).forEach(function (el) {
+    const time = new Date(whisper.message_date * 1000);
+    const hours = time.getHours();
+    const minutes = String(time.getMinutes()).padStart(2, '0');
+
+    el.setAttribute('datetime', String(whisper.message_date));
+
+    if (el.classList.contains('relative')) {
+      el.innerHTML = time.toLocaleTimeString();
+    } else {
+      el.innerHTML = (hours % 12) + ':' + minutes + ' ' + (hours >= 12 ? 'PM' : 'AM');
+    }
+  });
+
+  // Avatar = other party's avatar
+  if (otherParty.avatar_url.length > 0) {
+    const avatarEl = template.querySelector('.avatar') as HTMLImageElement;
+    avatarEl.setAttribute('src', otherParty.avatar_url);
+    avatarEl.setAttribute('loading', 'lazy');
+    avatarEl.setAttribute('decoding', 'async');
+  } else {
+    template.querySelector('.avatar')?.remove();
+  }
+
+  // Remove action buttons for whispers
+  template.querySelector('.edit')?.remove();
+  template.querySelector('.delete')?.remove();
+  template.querySelector('.report')?.remove();
+
+  // Force set URLs to target new tab
+  Array.from(template.querySelectorAll('.bbcode-url')).forEach(function (el) {
+    (el as HTMLAnchorElement).target = '_blank';
+  });
+
+  const el = template.children[0] as HTMLElement;
+  messageAddEventListeners(el);
+  messagesEl.appendChild(el);
+
+  // Whispers never group with regular messages
+  el.classList.remove('chat-message--hasParent');
+
+  // Scroll down
   scrollToNew();
 
   return el;

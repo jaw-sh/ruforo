@@ -48,6 +48,14 @@ export interface RoomPermissions {
   can_motd: boolean;
 }
 
+export interface WhisperPost {
+  author: Author;
+  recipient: Author;
+  message: string;
+  message_raw: string;
+  message_date: number;
+}
+
 export interface ServerPayload {
   messages?: SanitaryPost[];
   delete?: string[];
@@ -55,6 +63,8 @@ export interface ServerPayload {
   user?: Record<string, false>;
   system?: string;
   permissions?: RoomPermissions;
+  whisper?: WhisperPost;
+  motd?: SanitaryPost | null;
 }
 
 export interface PendingMessage {

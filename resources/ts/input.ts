@@ -119,9 +119,27 @@ export function setShowPendingMessages(enabled: boolean): void {
   showPendingMessages = enabled;
 }
 
+function expandWhisperReply(text: string): string {
+  if (!text.startsWith('/r ') && text !== '/r') return text;
+
+  // Find the last whisper message in the DOM
+  const whispers = document.querySelectorAll('.chat-message--whisper');
+  if (whispers.length === 0) return text;
+
+  const lastWhisper = whispers[whispers.length - 1] as HTMLElement;
+  const partner = lastWhisper.dataset.whisperPartner;
+  if (!partner) return text;
+
+  const rest = text.length > 3 ? text.substring(3) : '';
+  return `/w @${partner}, ${rest}`;
+}
+
 function submitMessage(inputEl: HTMLElement): void {
-  const text = inputEl.textContent?.trim() || '';
+  let text = inputEl.textContent?.trim() || '';
   if (text.length === 0) return;
+
+  // Expand /r to /w @LastPartner,
+  text = expandWhisperReply(text);
 
   if (showPendingMessages) {
     const pending = ws.sendChat(text);

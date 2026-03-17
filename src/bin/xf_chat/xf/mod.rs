@@ -81,6 +81,10 @@ impl implement::ChatLayer for XfLayer {
         }
     }
 
+    async fn get_message_with_author(&self, uuid: Uuid) -> Option<(implement::Author, implement::Message)> {
+        message::get_message_with_author(&self.db, uuid).await
+    }
+
     async fn insert_chat_message(&self, message: &Post) -> Option<implement::Message> {
         match message::insert_chat_message(&self.db, message).await {
             Ok(model) => Some(model),

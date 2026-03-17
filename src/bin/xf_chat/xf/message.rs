@@ -61,6 +61,50 @@ pub async fn edit_message(
     }
 }
 
+pub async fn get_message_with_author(
+    db: &DatabaseConnection,
+    uuid: Uuid,
+) -> Option<(implement::Author, implement::Message)> {
+    match chat_message::Entity::find()
+        .filter(chat_message::Column::MessageUuid.eq(uuid.to_string()))
+        .find_also_related(super::orm::user::Entity)
+        .one(db)
+        .await
+    {
+        Ok(Some((msg, user))) => {
+            let author = match user {
+                Some(user) => implement::Author {
+                    id: user.user_id,
+                    username: user.username.to_owned(),
+                    avatar_url: super::session::avatar_uri(user.user_id, user.avatar_date),
+                },
+                None => implement::Author {
+                    id: msg.user_id.unwrap_or(0),
+                    username: msg.username.to_owned(),
+                    avatar_url: String::new(),
+                },
+            };
+            let message = implement::Message {
+                message: msg.message_text.to_owned(),
+                message_uuid: Uuid::parse_str(&msg.message_uuid).unwrap_or_default(),
+                message_date: msg.message_date.try_into().unwrap(),
+                message_edit_date: match msg.last_edit_date {
+                    Some(date) => date.try_into().unwrap(),
+                    None => 0,
+                },
+                room_id: msg.room_id,
+                user_id: msg.user_id.unwrap_or(0),
+            };
+            Some((author, message))
+        }
+        Ok(None) => None,
+        Err(err) => {
+            log::warn!("Error pulling XF chat message with author by UUID: {:?}", err);
+            None
+        }
+    }
+}
+
 pub async fn get_message(db: &DatabaseConnection, uuid: Uuid) -> Option<implement::Message> {
     match chat_message::Entity::find()
         .filter(chat_message::Column::MessageUuid.eq(uuid.to_string()))
