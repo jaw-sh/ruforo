@@ -923,8 +923,13 @@ export function whisperPush(whisper: WhisperPost): HTMLElement {
   messageAddEventListeners(el);
   messagesEl.appendChild(el);
 
-  // Whispers never group with regular messages
-  el.classList.remove('chat-message--hasParent');
+  // Group consecutive whispers from the same author, but not with regular messages
+  const prev = el.previousElementSibling as HTMLElement | null;
+  if (prev !== null && prev.classList.contains('chat-message--whisper')) {
+    messageSetHasParent(el);
+  } else {
+    el.classList.remove('chat-message--hasParent');
+  }
 
   // Scroll down
   scrollToNew();
