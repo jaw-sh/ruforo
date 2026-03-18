@@ -558,6 +558,7 @@ html.chat #chat {
     position: relative;
     z-index: 10;
     height: 40px;
+    overflow: hidden;
     background: var(--background-color);
     border-bottom: 1px solid var(--border-color);
 
@@ -605,6 +606,7 @@ html.chat #chat {
 
     // Expanded on hover: absolute overlay, no reflow
     &:hover {
+        overflow: visible;
         .chat-message {
             position: absolute;
             top: 0;
