@@ -634,8 +634,8 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     template.querySelector('.left-content')?.remove();
   }
 
-  // Force set URLs to target new tab.
-  Array.from(template.querySelectorAll('.bbcode-url')).forEach(function (el) {
+  // Force all links to open in a new tab.
+  Array.from(template.querySelectorAll('a[href]')).forEach(function (el) {
     (el as HTMLAnchorElement).target = '_blank';
   });
 
@@ -836,6 +836,11 @@ export function buildMotdMessage(msg: SanitaryPost): HTMLElement {
   template.querySelector('.edit')?.remove();
   template.querySelector('.delete')?.remove();
   template.querySelector('.report')?.remove();
+
+  // Force all links to open in a new tab.
+  Array.from(template.querySelectorAll('a[href]')).forEach(function (el) {
+    (el as HTMLAnchorElement).target = '_blank';
+  });
 
   const el = template.children[0] as HTMLElement;
   return el;
