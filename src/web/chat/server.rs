@@ -231,6 +231,20 @@ impl Handler<message::Delete> for ChatServer {
             .into_actor(self)
             .map(move |message, actor, _ctx| {
                 if let Some(message) = message {
+                    // Clear MOTD if the deleted message was pinned
+                    if actor
+                        .motd
+                        .get(&message.room_id)
+                        .map(|m| m.message_uuid == message.message_uuid)
+                        .unwrap_or(false)
+                    {
+                        actor.motd.remove(&message.room_id);
+                        let payload = message::MotdPayload { motd: None };
+                        let json = serde_json::to_string(&payload)
+                            .expect("MotdPayload serialize failure");
+                        actor.send_message_to_room(message.room_id, json);
+                    }
+
                     actor.send_message_to_room(
                         message.room_id,
                         format!("{{\"delete\":[\"{}\"]}}", message.message_uuid),

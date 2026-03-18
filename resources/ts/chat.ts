@@ -152,24 +152,17 @@ function setMotd(motd: SanitaryPost | null): void {
   const el = document.getElementById('chat-motd');
   if (!el) return;
 
+  // Clean up previous MOTD message element
+  const prev = el.querySelector('.chat-message');
+  if (prev) {
+    messages.messageRemoveEventListeners(prev as HTMLElement);
+    messages.cleanupAvatarImage(prev.querySelector('.avatar') as HTMLImageElement | null);
+  }
+
   if (motd) {
-    const avatarHtml = motd.author.avatar_url
-      ? `<img class="motd-avatar" src="${motd.author.avatar_url}" alt="" />`
-      : '';
-    const previewDiv = document.createElement('div');
-    previewDiv.className = 'motd-preview';
-    previewDiv.innerHTML = `${avatarHtml}<span class="motd-text">${motd.message}</span>`;
-
-    const detailDiv = document.createElement('div');
-    detailDiv.className = 'motd-detail';
-    const time = new Date(motd.message_date * 1000);
-    detailDiv.innerHTML =
-      `<div class="motd-meta"><strong>${motd.author.username}</strong> <span class="motd-time">${time.toLocaleString()}</span></div>` +
-      `<div class="motd-full">${motd.message}</div>`;
-
+    const msgEl = messages.buildMotdMessage(motd);
     el.innerHTML = '';
-    el.appendChild(previewDiv);
-    el.appendChild(detailDiv);
+    el.appendChild(msgEl);
     el.style.display = '';
   } else {
     el.innerHTML = '';

@@ -538,73 +538,86 @@ html.chat #chat {
 
 #chat-motd {
     flex-shrink: 0;
-    position: relative;
     background: var(--background-mod-selected);
     border-bottom: 1px solid var(--border-color);
+    overflow: hidden;
 
-    .motd-preview {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 4px 16px;
-        height: 32px;
-        overflow: hidden;
+    // Collapsed: single compact row
+    .chat-message {
+        margin-top: 0;
+        padding-left: 36px;
+        padding-right: 8px;
+        transition: padding-left 0.15s ease;
     }
 
-    .motd-avatar {
+    .avatar {
         width: 24px;
         height: 24px;
-        border-radius: 50%;
-        flex-shrink: 0;
+        left: 8px;
+        top: 4px;
+        transition: width 0.15s ease, height 0.15s ease, left 0.15s ease, top 0.15s ease;
     }
 
-    .motd-text {
+    .meta {
+        display: none;
+        transition: opacity 0.15s ease;
+        opacity: 0;
+    }
+
+    .message {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        font-size: 0.875rem;
         line-height: 32px;
+        font-size: 0.875rem;
+        transition: white-space 0.15s ease, line-height 0.15s ease, font-size 0.15s ease;
 
         img {
             display: none;
         }
     }
 
-    .motd-detail {
-        display: none;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        z-index: 10;
-        background: var(--background-mod-selected);
-        border-bottom: 1px solid var(--border-color);
-        padding: 8px 16px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    }
-
-    .motd-meta {
-        font-size: 0.75rem;
-        margin-bottom: 4px;
-    }
-
-    .motd-time {
-        color: var(--text-muted);
-        margin-left: 0.5em;
-    }
-
-    .motd-full {
-        overflow-wrap: break-word;
-        word-break: break-word;
-
-        img {
-            max-height: 200px;
-            max-width: 100%;
+    .left-content {
+        .timestamp {
+            display: none !important;
         }
     }
 
-    &:hover .motd-detail {
-        display: block;
+    .right-content {
+        display: none !important;
+    }
+
+    // Expanded on hover: full chat message
+    &:hover {
+        .chat-message {
+            padding-left: 64px;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            left: 16px;
+            top: 8px;
+        }
+
+        .meta {
+            display: block;
+            opacity: 1;
+        }
+
+        .message {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: unset;
+            line-height: inherit;
+            font-size: inherit;
+
+            img {
+                display: inline;
+                max-height: 250px;
+                max-width: 250px;
+            }
+        }
     }
 }
 

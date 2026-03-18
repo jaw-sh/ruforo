@@ -755,6 +755,65 @@ export function messagePushPending(pending: PendingMessage): HTMLElement {
 }
 
 // ---------------------------------------------------------------------------
+// MOTD message builder
+// ---------------------------------------------------------------------------
+
+export function buildMotdMessage(msg: SanitaryPost): HTMLElement {
+  const template = (document.getElementById('tmp-chat-message') as HTMLTemplateElement).content.cloneNode(true) as DocumentFragment;
+
+  const rootEl = template.children[0] as HTMLElement;
+  rootEl.classList.add('chat-message--motd');
+  rootEl.dataset.id = msg.message_uuid;
+  rootEl.dataset.author = String(msg.author.id);
+  rootEl.dataset.timestamp = String(msg.message_date);
+
+  template.querySelector('.message')!.innerHTML = msg.message;
+
+  // Author
+  const authorEl = template.querySelector('.author') as HTMLElement;
+  authorEl.innerHTML = msg.author.username;
+  authorEl.dataset.id = String(msg.author.id);
+
+  // Timestamps
+  Array.from(template.querySelectorAll('.timestamp')).forEach(function (el) {
+    const time = new Date(msg.message_date * 1000);
+    const hours = time.getHours();
+    const minutes = String(time.getMinutes()).padStart(2, '0');
+    el.setAttribute('datetime', String(msg.message_date));
+
+    if (el.classList.contains('relative')) {
+      const dayThen = new Date(msg.message_date * 1000).setHours(0, 0, 0, 0);
+      const dayNow = new Date().setHours(0, 0, 0, 0);
+      if (dayThen === dayNow) {
+        el.innerHTML = time.toLocaleTimeString();
+      } else {
+        el.innerHTML = time.toLocaleDateString() + ' ' + time.toLocaleTimeString();
+      }
+    } else {
+      el.innerHTML = (hours % 12) + ':' + minutes + ' ' + (hours >= 12 ? 'PM' : 'AM');
+    }
+  });
+
+  // Avatar
+  if (msg.author.avatar_url.length > 0) {
+    const avatarEl = template.querySelector('.avatar') as HTMLImageElement;
+    avatarEl.setAttribute('src', msg.author.avatar_url);
+    avatarEl.setAttribute('loading', 'lazy');
+    avatarEl.setAttribute('decoding', 'async');
+  } else {
+    template.querySelector('.avatar')?.remove();
+  }
+
+  // Remove action buttons
+  template.querySelector('.edit')?.remove();
+  template.querySelector('.delete')?.remove();
+  template.querySelector('.report')?.remove();
+
+  const el = template.children[0] as HTMLElement;
+  return el;
+}
+
+// ---------------------------------------------------------------------------
 // Whisper push
 // ---------------------------------------------------------------------------
 
