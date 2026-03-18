@@ -313,12 +313,29 @@ impl Handler<message::Edit> for ChatServer {
             .into_actor(self)
             .map(move |message, actor, _ctx| {
                 if let Some(message) = message {
+                    let sanitary =
+                        actor.prepare_message(implement::Author::from(&session), message);
+
+                    // Update MOTD if this message is pinned
+                    if actor
+                        .motd
+                        .get(&sanitary.room_id)
+                        .map(|m| m.message_uuid == sanitary.message_uuid)
+                        .unwrap_or(false)
+                    {
+                        actor.motd.insert(sanitary.room_id, sanitary.clone());
+                        let payload = message::MotdPayload {
+                            motd: Some(sanitary.clone()),
+                        };
+                        let json = serde_json::to_string(&payload)
+                            .expect("MotdPayload serialize failure");
+                        actor.send_message_to_room(sanitary.room_id, json);
+                    }
+
                     actor.send_message_to_room(
-                        message.room_id,
+                        sanitary.room_id,
                         serde_json::to_string(&message::SanitaryPosts {
-                            messages: vec![
-                                actor.prepare_message(implement::Author::from(&session), message)
-                            ],
+                            messages: vec![sanitary],
                         })
                         .expect("ClientMessages serialize failure"),
                     );

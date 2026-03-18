@@ -878,10 +878,10 @@ export function whisperPush(whisper: WhisperPost): HTMLElement {
     }
   });
 
-  // Avatar = other party's avatar
-  if (otherParty.avatar_url.length > 0) {
+  // Avatar = sender's avatar
+  if (whisper.author.avatar_url.length > 0) {
     const avatarEl = template.querySelector('.avatar') as HTMLImageElement;
-    avatarEl.setAttribute('src', otherParty.avatar_url);
+    avatarEl.setAttribute('src', whisper.author.avatar_url);
     avatarEl.setAttribute('loading', 'lazy');
     avatarEl.setAttribute('decoding', 'async');
   } else {

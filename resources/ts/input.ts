@@ -33,7 +33,7 @@ export function initInput(): void {
         if (text.length === 0 || isCursorAtStart(inputEl)) {
           e.preventDefault();
           const messageEls = document.getElementById('chat-messages')!.querySelectorAll(
-            `.chat-message[data-author='${APP.user.id}']`
+            `.chat-message[data-author='${APP.user.id}']:not(.chat-message--whisper)`
           );
           if (messageEls.length > 0) {
             messageEdit(messageEls[messageEls.length - 1] as HTMLElement);

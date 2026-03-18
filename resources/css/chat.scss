@@ -559,7 +559,9 @@ html.chat #chat {
         margin-top: 0;
         padding-left: 36px;
         padding-right: 8px;
-        transition: padding-left 0.15s ease;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        transition: padding 0.15s ease;
     }
 
     .avatar {
@@ -603,6 +605,8 @@ html.chat #chat {
     &:hover {
         .chat-message {
             padding-left: 64px;
+            padding-top: 8px;
+            padding-bottom: 8px;
         }
 
         .avatar {
