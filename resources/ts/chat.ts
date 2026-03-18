@@ -133,7 +133,11 @@ function handleConnected(): void {
   const room = ws.getCurrentRoom();
 
   if (room !== null) {
-    // Reconnecting while in a room — rejoin so the server knows.
+    // Reconnecting while in a room — clear stale state before rejoin.
+    scroll.resetScrollAnchor();
+    messages.messagesDelete();
+    users.userActivityDelete();
+    setMotd(null);
     messages.messagePush({ message: 'Reconnected.' } as never, undefined);
     ws.joinRoom(room);
   } else if (joinByHash()) {

@@ -1,6 +1,7 @@
 /** Manages scroll anchoring — auto-scroll to bottom unless user scrolled up. */
 
 let scrollEl: HTMLElement;
+let anchorBtn: HTMLElement | null = null;
 let lastScrollPos = 0;
 let pendingScroll = false;
 let resizeObserver: ResizeObserver | null = null;
@@ -8,6 +9,15 @@ let resizeObserver: ResizeObserver | null = null;
 export function initScroll(el: HTMLElement): void {
   scrollEl = el;
   scrollEl.addEventListener('scroll', onScroll);
+
+  // Wire up the "scroll to bottom" button
+  anchorBtn = el.querySelector('#scroll-anchor-btn');
+  if (anchorBtn) {
+    anchorBtn.addEventListener('click', () => {
+      resetScrollAnchor();
+      scrollEl.scrollTo(0, scrollEl.scrollHeight);
+    });
+  }
 
   // Watch the content container for size changes (e.g. images loading in)
   // so we re-anchor the scroll when content height grows.
@@ -45,6 +55,7 @@ export function scrollToNew(): void {
 export function resetScrollAnchor(): void {
   scrollEl.classList.remove('ScrollAnchored');
   scrollEl.classList.add('ScrollAnchorConsume');
+  lastScrollPos = scrollEl.scrollTop;
 }
 
 export function resetLastScroll(): void {
