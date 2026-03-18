@@ -495,6 +495,14 @@ export function messageSetHasParent(el: HTMLElement): boolean {
   const prev = el.previousElementSibling as HTMLElement | null;
 
   if (prev !== null) {
+    // Never group across the whisper/non-whisper boundary
+    const prevIsWhisper = prev.classList.contains('chat-message--whisper');
+    const elIsWhisper = el.classList.contains('chat-message--whisper');
+    if (prevIsWhisper !== elIsWhisper) {
+      el.classList.remove('chat-message--hasParent');
+      return false;
+    }
+
     if (prev.dataset.author === el.dataset.author) {
       // Allow to break into new groups if too much time has passed.
       const timeLast = parseInt(prev.dataset.timestamp!, 10);
@@ -923,13 +931,7 @@ export function whisperPush(whisper: WhisperPost): HTMLElement {
   messageAddEventListeners(el);
   messagesEl.appendChild(el);
 
-  // Group consecutive whispers from the same author, but not with regular messages
-  const prev = el.previousElementSibling as HTMLElement | null;
-  if (prev !== null && prev.classList.contains('chat-message--whisper')) {
-    messageSetHasParent(el);
-  } else {
-    el.classList.remove('chat-message--hasParent');
-  }
+  messageSetHasParent(el);
 
   // Scroll down
   scrollToNew();
