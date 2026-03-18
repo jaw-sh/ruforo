@@ -98,7 +98,7 @@ export function messageAddEventListeners(element: HTMLElement): void {
   }
 
   const authorEl = element.querySelector('.author') as HTMLElement | null;
-  if (authorEl !== null) {
+  if (authorEl !== null && !element.classList.contains('chat-message--whisper')) {
     authorEl.addEventListener('click', usernameClick as EventListener);
     listeners.push({ target: authorEl, type: 'click', handler: usernameClick as EventListener });
   }
