@@ -117,6 +117,10 @@ export function messageAddEventListeners(element: HTMLElement): void {
   Array.from(element.querySelectorAll('.button')).forEach(function (buttonEl) {
     let handler: EventListener | null = null;
     switch (buttonEl.classList[1]) {
+      case 'pin':
+        handler = messageButtonPin;
+        buttonEl.addEventListener('click', handler);
+        break;
       case 'edit':
         handler = messageButtonEdit;
         buttonEl.addEventListener('click', handler);
@@ -161,6 +165,17 @@ export function messageRemoveEventListeners(element: HTMLElement): void {
       target.removeEventListener(type, handler);
     });
     eventListenerMap.delete(element);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pin (MOTD) button
+// ---------------------------------------------------------------------------
+
+function messageButtonPin(this: HTMLElement): void {
+  const messageEl = this.closest('.chat-message') as HTMLElement | null;
+  if (messageEl !== null && messageEl.dataset.id) {
+    ws.send(`/motd ${messageEl.dataset.id}`);
   }
 }
 
@@ -582,6 +597,10 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     const perms = getRoomPermissions();
     const isOwn = msg.author.id === APP.user.id;
 
+    if (!perms.can_motd) {
+      template.querySelector('.pin')?.remove();
+    }
+
     if (!(isOwn ? perms.can_edit_own : perms.can_edit_other)) {
       template.querySelector('.edit')?.remove();
     }
@@ -721,8 +740,8 @@ export function messagePushPending(pending: PendingMessage): HTMLElement {
     template.querySelector('.avatar')?.remove();
   }
 
-  // Pending messages are ours, so keep edit button but remove report
-  // Actually, hide all buttons for pending messages since they don't have a real ID yet
+  // Pending messages don't have a real ID yet — remove all buttons
+  template.querySelector('.pin')?.remove();
   template.querySelector('.edit')?.remove();
   template.querySelector('.delete')?.remove();
   template.querySelector('.report')?.remove();
@@ -804,7 +823,8 @@ export function buildMotdMessage(msg: SanitaryPost): HTMLElement {
     template.querySelector('.avatar')?.remove();
   }
 
-  // Remove action buttons
+  // Remove action buttons from MOTD display
+  template.querySelector('.pin')?.remove();
   template.querySelector('.edit')?.remove();
   template.querySelector('.delete')?.remove();
   template.querySelector('.report')?.remove();
@@ -889,6 +909,7 @@ export function whisperPush(whisper: WhisperPost): HTMLElement {
   }
 
   // Remove action buttons for whispers
+  template.querySelector('.pin')?.remove();
   template.querySelector('.edit')?.remove();
   template.querySelector('.delete')?.remove();
   template.querySelector('.report')?.remove();
