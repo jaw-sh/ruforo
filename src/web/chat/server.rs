@@ -610,13 +610,21 @@ impl Handler<message::Whisper> for ChatServer {
         let json =
             serde_json::to_string(&payload).expect("WhisperPayload serialize failure");
 
-        // Send to all recipient connections (cross-room)
+        let sender_id = msg.session.id;
+
+        // Send to recipient connections, skipping those that ignore the sender
         for &conn_id in &recipient_conns {
-            self.send_message_to_conn(conn_id, json.clone());
+            let dominated = self
+                .connections
+                .get(&conn_id)
+                .map(|conn| conn.session.ignored_users.contains(&sender_id))
+                .unwrap_or(false);
+            if !dominated {
+                self.send_message_to_conn(conn_id, json.clone());
+            }
         }
 
         // Send to sender too (if sender is different from recipient)
-        let sender_id = msg.session.id;
         if recipient_author.id != sender_id {
             self.send_message_to_conn(msg.id, json);
         }
