@@ -557,7 +557,7 @@ html.chat #chat {
     // Collapsed: single compact row
     .chat-message {
         margin-top: 0;
-        padding-left: 36px;
+        padding-left: 40px;
         padding-right: 8px;
         padding-top: 4px;
         padding-bottom: 4px;
@@ -565,9 +565,9 @@ html.chat #chat {
     }
 
     .avatar {
-        width: 24px;
-        height: 24px;
-        left: 8px;
+        width: 32px;
+        height: 32px;
+        left: 4px;
         top: 4px;
         transition: width 0.15s ease, height 0.15s ease, left 0.15s ease, top 0.15s ease;
     }
