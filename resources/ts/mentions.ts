@@ -174,7 +174,7 @@ function selectCurrent(): void {
   }
 }
 
-function insertMention(username: string, comma = false): void {
+function insertMention(username: string, comma = true): void {
   if (!mentionAnchorNode || mentionAnchorNode.nodeType !== Node.TEXT_NODE) {
     dismiss();
     return;

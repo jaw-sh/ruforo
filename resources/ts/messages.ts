@@ -437,7 +437,7 @@ function messageMouseLeave(this: HTMLElement, _event: MouseEvent): void {
 function usernameClick(this: HTMLElement, event: Event): void {
   const inputEl = document.getElementById('new-message-input');
   if (inputEl) {
-    inputEl.textContent += `@${this.textContent} `;
+    inputEl.textContent += `@${this.textContent}, `;
     inputFocusEnd(inputEl);
   }
 
