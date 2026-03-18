@@ -75,6 +75,10 @@ pub struct Connection {
     pub recipient: Recipient<message::Reply>,
     pub session: Session,
     pub room_perms: RoomPermissions,
+    /// Last whisper recipient user ID (for rate limiting target switches)
+    pub last_whisper_target: u32,
+    /// Timestamp of last whisper to a different target
+    pub last_whisper_time: u64,
 }
 
 #[derive(Debug)]

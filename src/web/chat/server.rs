@@ -186,6 +186,8 @@ impl Handler<message::Connect> for ChatServer {
                 recipient: msg.addr,
                 session: msg.session,
                 room_perms: implement::RoomPermissions::default(),
+                last_whisper_target: 0,
+                last_whisper_time: 0,
             },
         );
         id
@@ -585,6 +587,29 @@ impl Handler<message::Whisper> for ChatServer {
             }
         };
 
+        // Rate limit: 5s cooldown when switching whisper targets (non-moderators only)
+        if let Some(conn) = self.connections.get(&msg.id) {
+            let perms = &conn.room_perms;
+            let is_mod = perms.can_motd || perms.can_edit_other || perms.can_delete_other;
+            if !is_mod
+                && conn.last_whisper_target > 0
+                && conn.last_whisper_target != recipient_author.id
+            {
+                let now = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+                if now - conn.last_whisper_time < 5 {
+                    self.send_message_to_conn(
+                        msg.id,
+                        "Please wait a few seconds before whispering a different user."
+                            .to_string(),
+                    );
+                    return;
+                }
+            }
+        }
+
         let rendered = self.bbcode.render(&msg.message);
         if !ChatBBCode::has_visible_content(&rendered) {
             return;
@@ -611,6 +636,12 @@ impl Handler<message::Whisper> for ChatServer {
             serde_json::to_string(&payload).expect("WhisperPayload serialize failure");
 
         let sender_id = msg.session.id;
+
+        // Update whisper target tracking
+        if let Some(conn) = self.connections.get_mut(&msg.id) {
+            conn.last_whisper_target = recipient_author.id;
+            conn.last_whisper_time = now as u64;
+        }
 
         // Send to recipient connections, skipping those that ignore the sender
         for &conn_id in &recipient_conns {

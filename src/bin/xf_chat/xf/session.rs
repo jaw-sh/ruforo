@@ -90,7 +90,6 @@ pub async fn get_session_with_user_id(db: &DatabaseConnection, id: u32) -> imple
             .column(user::Column::Username)
             .column(user::Column::AvatarDate)
             .column(user::Column::IsStaff)
-            .column(user::Column::MessageCount)
             .filter(user::Column::UserId.eq(id))
             .filter(user::Column::UserState.eq("valid"))
             .filter(user::Column::IsBanned.eq(false))
