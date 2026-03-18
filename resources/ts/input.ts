@@ -51,6 +51,7 @@ export function initInput(): void {
 
   // Auto-grow on input
   inputEl.addEventListener('input', () => {
+    expandWhisperReplyInline(inputEl);
     autoGrow(inputEl);
     mentions.handleInput(inputEl);
   });
@@ -119,27 +120,35 @@ export function setShowPendingMessages(enabled: boolean): void {
   showPendingMessages = enabled;
 }
 
-function expandWhisperReply(text: string): string {
-  if (!text.startsWith('/r ') && text !== '/r') return text;
+/** Expand "/r " to "/w @Partner, " inline as the user types, WoW-style. */
+function expandWhisperReplyInline(inputEl: HTMLElement): void {
+  const text = inputEl.textContent || '';
+  if (text !== '/r ' && text !== '/r\u00a0') return;
 
-  // Find the last whisper message in the DOM
   const whispers = document.querySelectorAll('.chat-message--whisper');
-  if (whispers.length === 0) return text;
+  if (whispers.length === 0) return;
 
   const lastWhisper = whispers[whispers.length - 1] as HTMLElement;
   const partner = lastWhisper.dataset.whisperPartner;
-  if (!partner) return text;
+  if (!partner) return;
 
-  const rest = text.length > 3 ? text.substring(3) : '';
-  return `/w @${partner}, ${rest}`;
+  const replacement = `/w @${partner}, `;
+  inputEl.textContent = replacement;
+
+  // Place cursor at end
+  const sel = window.getSelection();
+  if (sel) {
+    const range = document.createRange();
+    range.selectNodeContents(inputEl);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
 }
 
 function submitMessage(inputEl: HTMLElement): void {
-  let text = inputEl.textContent?.trim() || '';
+  const text = inputEl.textContent?.trim() || '';
   if (text.length === 0) return;
-
-  // Expand /r to /w @LastPartner,
-  text = expandWhisperReply(text);
 
   if (showPendingMessages) {
     const pending = ws.sendChat(text);
