@@ -775,18 +775,28 @@ export function whisperPush(whisper: WhisperPost): HTMLElement {
   // Set message content
   template.querySelector('.message')!.innerHTML = whisper.message;
 
-  // Set author line
+  // Set author line: direction label is a separate span, author contains only the name
+  const metaEl = template.querySelector('.meta') as HTMLElement;
   const authorEl = template.querySelector('.author') as HTMLElement;
+  const directionEl = document.createElement('span');
+  directionEl.className = 'whisper-direction';
+
   if (isSender) {
-    authorEl.innerHTML = `<span class="whisper-direction">To ${otherParty.username}</span>`;
+    directionEl.textContent = 'To';
+    metaEl.insertBefore(directionEl, authorEl);
   } else {
-    authorEl.innerHTML = `<span class="whisper-direction">${whisper.author.username} whispers</span>`;
+    directionEl.textContent = 'whispers';
+    // Insert after author (before timestamp)
+    authorEl.after(directionEl);
   }
+
+  authorEl.innerHTML = otherParty.username;
   authorEl.dataset.id = String(otherParty.id);
 
-  // Click on author fills input with /w command
+  // Override default click: fill /w command instead of @mention
   authorEl.addEventListener('click', (e: Event) => {
     e.preventDefault();
+    e.stopPropagation();
     const inputEl = document.getElementById('new-message-input');
     if (inputEl) {
       inputEl.textContent = `/w @${otherParty.username}, `;

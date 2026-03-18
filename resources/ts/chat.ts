@@ -153,7 +153,23 @@ function setMotd(motd: SanitaryPost | null): void {
   if (!el) return;
 
   if (motd) {
-    el.innerHTML = motd.message;
+    const avatarHtml = motd.author.avatar_url
+      ? `<img class="motd-avatar" src="${motd.author.avatar_url}" alt="" />`
+      : '';
+    const previewDiv = document.createElement('div');
+    previewDiv.className = 'motd-preview';
+    previewDiv.innerHTML = `${avatarHtml}<span class="motd-text">${motd.message}</span>`;
+
+    const detailDiv = document.createElement('div');
+    detailDiv.className = 'motd-detail';
+    const time = new Date(motd.message_date * 1000);
+    detailDiv.innerHTML =
+      `<div class="motd-meta"><strong>${motd.author.username}</strong> <span class="motd-time">${time.toLocaleString()}</span></div>` +
+      `<div class="motd-full">${motd.message}</div>`;
+
+    el.innerHTML = '';
+    el.appendChild(previewDiv);
+    el.appendChild(detailDiv);
     el.style.display = '';
   } else {
     el.innerHTML = '';
