@@ -553,7 +553,7 @@ html.chat #chat {
     position: relative;
     z-index: 10;
     height: 40px;
-    background: var(--background-mod-selected);
+    background: var(--background-color);
     border-bottom: 1px solid var(--border-color);
 
     // Collapsed: single compact row
@@ -608,7 +608,7 @@ html.chat #chat {
             padding-left: 64px;
             padding-top: 8px;
             padding-bottom: 8px;
-            background: var(--background-mod-selected);
+            background: var(--background-color);
             border-bottom: 1px solid var(--border-color);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
