@@ -539,6 +539,13 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     const uuid = msg.message_uuid;
     extantEl = document.getElementById(`chat-message-${uuid}`);
 
+    // Edit of a message no longer in the visible history — skip silently.
+    // Without this, edits to old/pruned messages (e.g. a pinned MOTD updated
+    // every minute) would be re-injected as new messages in the chat feed.
+    if (!extantEl && msg.message_edit_date > 0) {
+      return template.children[0] as HTMLElement;
+    }
+
     // If this is our own message echoed back AND we didn't find an existing
     // element by UUID, resolve the oldest pending message (FIFO).
     // We skip pending resolution when extantEl is already set (e.g. edit
