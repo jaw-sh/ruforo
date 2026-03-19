@@ -539,10 +539,22 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     const uuid = msg.message_uuid;
     extantEl = document.getElementById(`chat-message-${uuid}`);
 
-    // Edit of a message no longer in the visible history — skip silently.
+    // Edit of a message no longer in the visible history.
     // Without this, edits to old/pruned messages (e.g. a pinned MOTD updated
     // every minute) would be re-injected as new messages in the chat feed.
+    // If the edit matches the current MOTD, update it in-place.
     if (!extantEl && msg.message_edit_date > 0) {
+      const motdEl = document.getElementById('chat-motd');
+      if (motdEl && motdEl.dataset.motdUuid === uuid) {
+        const motdMsgEl = motdEl.querySelector('.message');
+        if (motdMsgEl) {
+          motdMsgEl.innerHTML = msg.message;
+          // Re-target links inside updated MOTD
+          Array.from(motdMsgEl.querySelectorAll('a[href]')).forEach(function (a) {
+            (a as HTMLAnchorElement).target = '_blank';
+          });
+        }
+      }
       return template.children[0] as HTMLElement;
     }
 

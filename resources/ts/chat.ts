@@ -167,9 +167,11 @@ function setMotd(motd: SanitaryPost | null): void {
     const msgEl = messages.buildMotdMessage(motd);
     el.innerHTML = '';
     el.appendChild(msgEl);
+    el.dataset.motdUuid = motd.message_uuid;
     el.style.display = '';
   } else {
     el.innerHTML = '';
+    delete el.dataset.motdUuid;
     el.style.display = 'none';
   }
 }
