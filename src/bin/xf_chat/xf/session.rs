@@ -21,16 +21,19 @@ struct XfSession {
     pub id: u32,
     pub username: String,
     pub avatar_date: u32,
+    pub avatar_format: Option<String>,
     pub is_staff: bool,
 }
 
-pub fn avatar_uri(id: u32, date: u32) -> String {
+pub fn avatar_uri(id: u32, date: u32, format: Option<&str>) -> String {
     if date > 0 {
+        let ext = format.filter(|s| !s.is_empty()).unwrap_or("jpg");
         format!(
-            "{}/data/avatars/m/{}/{}.jpg?{}",
+            "{}/data/avatars/m/{}/{}.{}?{}",
             std::env::var("XF_PUBLIC_URL").expect("XF_PUBLIC_URL must be set in .env"),
             id / 1000,
             id,
+            ext,
             date
         )
     } else {
@@ -44,6 +47,7 @@ impl Default for XfSession {
             id: 0,
             username: "Guest".to_owned(),
             avatar_date: 0,
+            avatar_format: None,
             is_staff: false,
         }
     }
@@ -89,6 +93,7 @@ pub async fn get_session_with_user_id(db: &DatabaseConnection, id: u32) -> imple
             .column_as(user::Column::UserId, "id")
             .column(user::Column::Username)
             .column(user::Column::AvatarDate)
+            .column(user::Column::AvatarFormat)
             .column(user::Column::IsStaff)
             .filter(user::Column::UserId.eq(id))
             .filter(user::Column::UserState.eq("valid"))
@@ -136,7 +141,7 @@ pub async fn get_session_with_user_id(db: &DatabaseConnection, id: u32) -> imple
     implement::Session {
         id: session.id,
         username: session.username,
-        avatar_url: avatar_uri(session.id, session.avatar_date),
+        avatar_url: avatar_uri(session.id, session.avatar_date, session.avatar_format.as_deref()),
         ignored_users,
         is_staff: session.is_staff,
     }

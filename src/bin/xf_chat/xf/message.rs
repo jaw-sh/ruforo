@@ -76,7 +76,7 @@ pub async fn get_message_with_author(
                 Some(user) => implement::Author {
                     id: user.user_id,
                     username: user.username.to_owned(),
-                    avatar_url: super::session::avatar_uri(user.user_id, user.avatar_date),
+                    avatar_url: super::session::avatar_uri(user.user_id, user.avatar_date, user.avatar_format.as_deref()),
                 },
                 None => implement::Author {
                     id: msg.user_id.unwrap_or(0),

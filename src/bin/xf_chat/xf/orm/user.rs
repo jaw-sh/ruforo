@@ -14,6 +14,7 @@ pub struct Model {
     pub avatar_date: u32,
     pub avatar_width: u16,
     pub avatar_height: u16,
+    pub avatar_format: Option<String>,
     pub is_moderator: u8,
     pub is_admin: u8,
     pub is_banned: u8,
