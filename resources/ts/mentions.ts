@@ -143,12 +143,24 @@ function showDropdown(inputEl: HTMLElement): void {
   // Render items
   activeIndex = Math.min(activeIndex, items.length - 1);
 
-  dropdownEl.innerHTML = items.map((item, i) => {
-    const avatarHtml = item.avatar_url
-      ? `<img class="mention-avatar" src="${item.avatar_url}" loading="lazy" />`
-      : '';
-    return `<div class="mention-item${i === activeIndex ? ' active' : ''}" data-username="${item.username}">${avatarHtml}<span class="mention-name">${item.username}</span></div>`;
-  }).join('');
+  dropdownEl.innerHTML = '';
+  items.forEach((item, i) => {
+    const itemEl = document.createElement('div');
+    itemEl.className = i === activeIndex ? 'mention-item active' : 'mention-item';
+    itemEl.dataset.username = item.username;
+    if (item.avatar_url) {
+      const img = document.createElement('img');
+      img.className = 'mention-avatar';
+      img.src = item.avatar_url;
+      img.loading = 'lazy';
+      itemEl.appendChild(img);
+    }
+    const nameEl = document.createElement('span');
+    nameEl.className = 'mention-name';
+    nameEl.textContent = item.username;
+    itemEl.appendChild(nameEl);
+    dropdownEl!.appendChild(itemEl);
+  });
 
   // Click handlers
   dropdownEl.querySelectorAll('.mention-item').forEach((el) => {

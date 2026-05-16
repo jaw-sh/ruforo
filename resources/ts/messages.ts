@@ -583,7 +583,7 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
 
     // Add meta details
     const authorEl = template.querySelector('.author') as HTMLElement;
-    authorEl.innerHTML = author.username;
+    authorEl.textContent = author.username;
     authorEl.dataset.id = String(author.id);
 
     Array.from(template.querySelectorAll('.timestamp')).forEach(function (el) {
@@ -738,7 +738,7 @@ export function messagePushPending(pending: PendingMessage): HTMLElement {
   // Add meta details using current user
   const authorEl = template.querySelector('.author') as HTMLElement;
   if (authorEl) {
-    authorEl.innerHTML = APP.user.username;
+    authorEl.textContent = APP.user.username;
     authorEl.dataset.id = String(APP.user.id);
   }
 
@@ -817,7 +817,7 @@ export function buildMotdMessage(msg: SanitaryPost): HTMLElement {
 
   // Author
   const authorEl = template.querySelector('.author') as HTMLElement;
-  authorEl.innerHTML = msg.author.username;
+  authorEl.textContent = msg.author.username;
   authorEl.dataset.id = String(msg.author.id);
 
   // Timestamps
@@ -901,7 +901,7 @@ export function whisperPush(whisper: WhisperPost): HTMLElement {
     authorEl.after(directionEl);
   }
 
-  authorEl.innerHTML = otherParty.username;
+  authorEl.textContent = otherParty.username;
   authorEl.dataset.id = String(otherParty.id);
 
   // Override default click: fill /w command instead of @mention
