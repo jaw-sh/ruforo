@@ -540,22 +540,24 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     extantEl = document.getElementById(`chat-message-${uuid}`);
 
     // Edit of a message no longer in the visible history.
-    // Without this, edits to old/pruned messages (e.g. a pinned MOTD updated
-    // every minute) would be re-injected as new messages in the chat feed.
-    // If the edit matches the current MOTD, update it in-place.
+    // The MOTD bot re-edits its pinned message periodically; we update the
+    // MOTD container in-place and suppress re-injection into the chat feed.
+    // For all other edited-but-not-in-DOM messages (e.g. initial history
+    // load when joining a room — same SanitaryPosts payload as live edits),
+    // fall through so the message renders normally; otherwise edited
+    // messages would silently vanish from new users' history on refresh.
     if (!extantEl && msg.message_edit_date > 0) {
       const motdEl = document.getElementById('chat-motd');
       if (motdEl && motdEl.dataset.motdUuid === uuid) {
         const motdMsgEl = motdEl.querySelector('.message');
         if (motdMsgEl) {
           motdMsgEl.innerHTML = msg.message;
-          // Re-target links inside updated MOTD
           Array.from(motdMsgEl.querySelectorAll('a[href]')).forEach(function (a) {
             (a as HTMLAnchorElement).target = '_blank';
           });
         }
+        return template.children[0] as HTMLElement;
       }
-      return template.children[0] as HTMLElement;
     }
 
     // If this is our own message echoed back AND we didn't find an existing
