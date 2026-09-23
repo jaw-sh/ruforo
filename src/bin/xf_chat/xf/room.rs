@@ -6,9 +6,6 @@ use ruforo::web::chat::implement;
 use sea_orm::{entity::*, query::*, DatabaseConnection, FromQueryResult, QueryFilter};
 
 #[derive(FromQueryResult)]
-struct Nothing {}
-
-#[derive(FromQueryResult)]
 struct XfPermissionCache {
     cache_value: serde_json::Value,
 }
@@ -51,11 +48,29 @@ async fn get_room_permissions(
             permission_cache_content::Column::CacheValue,
             "A_cache_value",
         )
-        .into_model::<XfPermissionCache, Nothing>()
+        // Global permission cache of the same combination, for general.view.
+        .column_as(
+            permission_combination::Column::CacheValue,
+            "B_cache_value",
+        )
+        .into_model::<XfPermissionCache, XfPermissionCache>()
         .one(db)
         .await
     {
-        Ok(Some((val, _))) => Some(super::permission::json_to_values(val.cache_value)),
+        Ok(Some((val, global))) => {
+            // Mirror XF: a user without general.view (e.g. board access revoked)
+            // cannot use any room, regardless of per-room chat permissions.
+            let can_view_board = global
+                .as_ref()
+                .and_then(|g| g.cache_value.get("general"))
+                .and_then(|g| g.get("view"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            if !can_view_board {
+                return None;
+            }
+            Some(super::permission::json_to_values(val.cache_value))
+        }
         Ok(None) => None,
         Err(err) => {
             log::warn!("Failed to fetch XF permissions: {:?}", err);
@@ -118,6 +133,8 @@ pub async fn get_room_history(
 ) -> Vec<(implement::Author, implement::Message)> {
     chat_message::Entity::find()
         .filter(chat_message::Column::RoomId.eq(id as u32))
+        // Soft-deleted messages (XF Deleter / chat /delete) stay out of history.
+        .filter(chat_message::Column::DeletedDate.is_null())
         .order_by_desc(chat_message::Column::MessageDate)
         .limit(count as u64)
         .find_also_related(user::Entity)

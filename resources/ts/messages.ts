@@ -204,7 +204,9 @@ function messageButtonDelete(this: HTMLElement): void {
         placeholder.textContent = '[image]';
         img.replaceWith(placeholder);
       });
-      messagePreview.innerHTML = clonedContent.innerHTML;
+      // Move the cloned nodes over directly; re-serialising via innerHTML
+      // would re-parse the markup (mXSS-prone).
+      messagePreview.append(...Array.from(clonedContent.childNodes));
     }
 
     modal.querySelector('.modal-message')!.appendChild(messagePreview);

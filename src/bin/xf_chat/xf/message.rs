@@ -1,13 +1,27 @@
 use super::orm::chat_message;
 use ruforo::web::chat::implement;
 use ruforo::web::chat::message;
+use sea_orm::sea_query::Expr;
 use sea_orm::{entity::*, prelude::*, DatabaseConnection, QueryFilter};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
-pub async fn delete_message(db: &DatabaseConnection, uuid: Uuid) {
-    match chat_message::Entity::delete_many()
+/// Soft-deletes a chat message, mirroring XF's Message::softDelete(): the row is
+/// kept for moderation/evidence with deleted_date/deleted_user_id/deleted_username
+/// set and message_update bumped. Permanent deletion is only done from XF.
+pub async fn delete_message(db: &DatabaseConnection, uuid: Uuid, deleter: implement::Author) {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards");
+    let timestamp = Decimal::new(timestamp.as_micros() as i64, 6);
+
+    match chat_message::Entity::update_many()
+        .col_expr(chat_message::Column::DeletedDate, Expr::value(timestamp))
+        .col_expr(chat_message::Column::DeletedUserId, Expr::value(deleter.id))
+        .col_expr(chat_message::Column::DeletedUsername, Expr::value(deleter.username))
+        .col_expr(chat_message::Column::MessageUpdate, Expr::value(timestamp))
         .filter(chat_message::Column::MessageUuid.eq(uuid.to_string()))
+        .filter(chat_message::Column::DeletedDate.is_null())
         .exec(db)
         .await
     {
@@ -31,6 +45,7 @@ pub async fn edit_message(
 
     let model: chat_message::Model = match chat_message::Entity::find()
         .filter(chat_message::Column::MessageUuid.eq(uuid.to_string()))
+        .filter(chat_message::Column::DeletedDate.is_null())
         .one(db)
         .await
     {
@@ -51,6 +66,8 @@ pub async fn edit_message(
     active.message_text = Set(message);
     active.last_edit_date = Set(Some(timestamp));
     active.last_edit_user_id = Set(Some(author.id));
+    active.last_edit_username = Set(Some(author.username));
+    active.message_update = Set(timestamp);
 
     match active.update(db).await {
         Ok(model) => Some(implement::Message::from(model)),
@@ -67,6 +84,7 @@ pub async fn get_message_with_author(
 ) -> Option<(implement::Author, implement::Message)> {
     match chat_message::Entity::find()
         .filter(chat_message::Column::MessageUuid.eq(uuid.to_string()))
+        .filter(chat_message::Column::DeletedDate.is_null())
         .find_also_related(super::orm::user::Entity)
         .one(db)
         .await
@@ -108,6 +126,7 @@ pub async fn get_message_with_author(
 pub async fn get_message(db: &DatabaseConnection, uuid: Uuid) -> Option<implement::Message> {
     match chat_message::Entity::find()
         .filter(chat_message::Column::MessageUuid.eq(uuid.to_string()))
+        .filter(chat_message::Column::DeletedDate.is_null())
         .one(db)
         .await
     {

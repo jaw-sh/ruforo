@@ -1,5 +1,6 @@
 pub mod message;
 pub mod orm;
+pub mod origin;
 pub mod permission;
 pub mod room;
 pub mod session;
@@ -20,8 +21,8 @@ impl implement::ChatLayer for XfLayer {
         room::get_room_permissions_full(&self.db, user_id, room_id).await
     }
 
-    async fn delete_message(&self, uuid: Uuid) {
-        message::delete_message(&self.db, uuid).await
+    async fn delete_message(&self, uuid: Uuid, deleter: implement::Author) {
+        message::delete_message(&self.db, uuid, deleter).await
     }
 
     async fn edit_message(

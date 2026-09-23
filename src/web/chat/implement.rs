@@ -214,7 +214,8 @@ impl From<&serde_json::Value> for SpriteParams {
 pub trait ChatLayer {
     /// Resolve all per-room permissions for a user. Returns Default (all-false) on failure.
     async fn get_room_permissions(&self, user_id: u32, room_id: u32) -> RoomPermissions;
-    async fn delete_message(&self, uuid: uuid::Uuid);
+    /// Soft-delete a message on behalf of `deleter`.
+    async fn delete_message(&self, uuid: uuid::Uuid, deleter: Author);
     async fn edit_message(&self, uuid: uuid::Uuid, author: Author, message: String) -> Option<Message>;
     async fn get_message(&self, uuid: uuid::Uuid) -> Option<Message>;
     async fn get_room_history(&self, room_id: u32, limit: usize) -> Vec<(Author, Message)>;
@@ -258,7 +259,7 @@ pub mod default {
             }
         }
 
-        async fn delete_message(&self, _: uuid::Uuid) {
+        async fn delete_message(&self, _: uuid::Uuid, _: super::Author) {
             // TODO
         }
 

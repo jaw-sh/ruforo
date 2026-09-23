@@ -13,7 +13,7 @@ use implement::{ChatLayer, Room};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 use crate::middleware::ClientCtx;
@@ -27,34 +27,70 @@ pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
     conf.service(view_chat_socket).service(view_chat);
 }
 
-/// Browser origins permitted to open the chat WebSocket.
-///
-/// `CHAT_ALLOWED_ORIGINS` (comma-separated, e.g. `https://example.com,https://example.net`)
-/// takes precedence; otherwise the origin of `XF_PUBLIC_URL` is used.
-static ALLOWED_ORIGINS: Lazy<Vec<String>> = Lazy::new(|| {
-    let list = match std::env::var("CHAT_ALLOWED_ORIGINS") {
-        Ok(v) if !v.trim().is_empty() => v
-            .split(',')
-            .map(normalize_origin)
-            .filter(|s| !s.is_empty())
-            .collect::<Vec<_>>(),
-        _ => std::env::var("XF_PUBLIC_URL")
-            .ok()
-            .map(|url| vec![url_origin(&url)])
-            .unwrap_or_default(),
-    };
-    if list.is_empty() {
-        log::warn!("No CHAT_ALLOWED_ORIGINS or XF_PUBLIC_URL set; all browser WebSocket origins will be rejected.");
+/// Statically configured browser origins permitted to open the chat WebSocket:
+/// the origin of `XF_PUBLIC_URL` plus every entry of `CHAT_ALLOWED_ORIGINS`
+/// (comma-separated, e.g. `https://example.com,http://example.onion`).
+static STATIC_ALLOWED_ORIGINS: Lazy<Vec<String>> = Lazy::new(|| {
+    let mut list: Vec<String> = std::env::var("XF_PUBLIC_URL")
+        .ok()
+        .map(|url| url_origin(&url))
+        .filter(|s| !s.is_empty())
+        .into_iter()
+        .collect();
+    if let Ok(v) = std::env::var("CHAT_ALLOWED_ORIGINS") {
+        list.extend(v.split(',').map(normalize_origin).filter(|s| !s.is_empty()));
     }
     list
 });
+
+/// Origins discovered at runtime by the chat layer (e.g. the XF MultiSite domain
+/// list), refreshed periodically via [`set_dynamic_allowed_origins`].
+static DYNAMIC_ALLOWED_ORIGINS: Lazy<RwLock<Vec<String>>> = Lazy::new(|| RwLock::new(Vec::new()));
+
+/// Replaces the runtime-discovered origin allow-list.
+pub fn set_dynamic_allowed_origins(origins: Vec<String>) {
+    let origins: Vec<String> = origins
+        .iter()
+        .map(|o| normalize_origin(o))
+        .filter(|s| !s.is_empty())
+        .collect();
+    match DYNAMIC_ALLOWED_ORIGINS.write() {
+        Ok(mut guard) => *guard = origins,
+        Err(poisoned) => *poisoned.into_inner() = origins,
+    }
+}
+
+fn is_origin_allowed(origin: &str) -> bool {
+    if STATIC_ALLOWED_ORIGINS.iter().any(|allowed| allowed == origin) {
+        return true;
+    }
+    match DYNAMIC_ALLOWED_ORIGINS.read() {
+        Ok(guard) => guard.iter().any(|allowed| allowed == origin),
+        Err(poisoned) => poisoned.into_inner().iter().any(|allowed| allowed == origin),
+    }
+}
 
 fn normalize_origin(origin: &str) -> String {
     origin.trim().trim_end_matches('/').to_ascii_lowercase()
 }
 
+/// Turns a bare hostname into a browser origin: `https://host`, except Tor
+/// onion services, which are served over plain `http://`.
+pub fn host_to_origin(host: &str) -> String {
+    let host = host.trim().trim_end_matches('/').to_ascii_lowercase();
+    if host.is_empty() {
+        return String::new();
+    }
+    let bare = host.split(':').next().unwrap_or("");
+    if bare.ends_with(".onion") {
+        format!("http://{}", host)
+    } else {
+        format!("https://{}", host)
+    }
+}
+
 /// Reduces a URL like `https://host:port/path` to its origin `https://host:port`.
-fn url_origin(url: &str) -> String {
+pub fn url_origin(url: &str) -> String {
     let url = url.trim();
     let origin = match url.find("://") {
         Some(idx) => {
@@ -82,7 +118,7 @@ fn check_ws_origin(req: &HttpRequest) -> Result<(), Error> {
         },
     };
 
-    if ALLOWED_ORIGINS.iter().any(|allowed| *allowed == origin) {
+    if is_origin_allowed(&origin) {
         Ok(())
     } else {
         log::warn!("Rejected chat WebSocket from disallowed origin {:?}", origin);
@@ -344,6 +380,22 @@ mod tests {
         assert_eq!(url_origin("https://XF.test"), "https://xf.test");
         assert_eq!(url_origin("https://xf.test/"), "https://xf.test");
         assert_eq!(url_origin("https://xf.test:5443/forum/"), "https://xf.test:5443");
+    }
+
+    #[test]
+    fn host_to_origin_schemes() {
+        assert_eq!(host_to_origin("XF.pa.test"), "https://xf.pa.test");
+        assert_eq!(host_to_origin("abcdef.onion"), "http://abcdef.onion");
+        assert_eq!(host_to_origin(""), "");
+    }
+
+    #[test]
+    fn dynamic_origins_are_checked() {
+        assert!(!is_origin_allowed("https://mirror.example"));
+        set_dynamic_allowed_origins(vec!["https://Mirror.example/".to_owned()]);
+        assert!(is_origin_allowed("https://mirror.example"));
+        set_dynamic_allowed_origins(vec![]);
+        assert!(!is_origin_allowed("https://mirror.example"));
     }
 
     #[test]

@@ -200,24 +200,31 @@ impl Handler<message::Delete> for ChatServer {
 
     fn handle(&mut self, msg: message::Delete, _: &mut Context<Self>) -> Self::Result {
         let layer = self.layer.clone();
-        let perms = self
-            .connections
-            .get(&msg.id)
-            .map(|conn| conn.room_perms.clone())
-            .unwrap_or_default();
 
         Box::pin(
             async move {
-                // Get the message.
+                // Get the message (soft-deleted messages are not returned).
                 let res = layer.get_message(msg.message_uuid).await;
 
-                // If we got the message, check if we can delete it.
+                // If we got the message, check if we can delete it. Permissions are
+                // resolved for the message's own room, not the connection's current
+                // room. Room 0 (whispers/announcements) has no room permissions, so
+                // nobody can delete those over the socket.
                 if let Some(message) = &res {
-                    let is_own = message.user_id == msg.session.id;
-                    if (is_own && perms.can_delete_own) || (!is_own && perms.can_delete_other) {
+                    let perms = if message.room_id > 0 {
+                        layer.get_room_permissions(msg.session.id, message.room_id).await
+                    } else {
+                        implement::RoomPermissions::default()
+                    };
+                    let is_own = msg.session.id > 0 && message.user_id == msg.session.id;
+                    if perms.can_view
+                        && ((is_own && perms.can_delete_own) || (!is_own && perms.can_delete_other))
+                    {
                         log::info!("[delete] {} deleted message {}", msg.session.username, msg.message_uuid);
-                        // Delete message.
-                        layer.delete_message(message.message_uuid).await;
+                        // Soft-delete message.
+                        layer
+                            .delete_message(message.message_uuid, implement::Author::from(&msg.session))
+                            .await;
                     } else {
                         log::warn!(
                             "User {} tried to delete message {:?}",
@@ -280,22 +287,25 @@ impl Handler<message::Edit> for ChatServer {
         let layer = self.layer.to_owned();
         let session = msg.session.to_owned();
         let author = implement::Author::from(&session);
-        let perms = self
-            .connections
-            .get(&msg.id)
-            .map(|conn| conn.room_perms.clone())
-            .unwrap_or_default();
         log::info!("[edit] {} edited message {}: {}", session.username, msg.message_uuid, msg.message);
 
         Box::pin(
             async move {
-                // Get the message.
+                // Get the message (soft-deleted messages are not returned).
                 let res = layer.get_message(msg.message_uuid).await;
 
-                // If we got the message, check if we can edit it.
+                // If we got the message, check if we can edit it, using the
+                // permissions of the message's own room (room 0 = none).
                 if let Some(message) = &res {
-                    let is_own = message.user_id == session.id;
-                    if (is_own && perms.can_edit_own) || (!is_own && perms.can_edit_other) {
+                    let perms = if message.room_id > 0 {
+                        layer.get_room_permissions(session.id, message.room_id).await
+                    } else {
+                        implement::RoomPermissions::default()
+                    };
+                    let is_own = session.id > 0 && message.user_id == session.id;
+                    if perms.can_view
+                        && ((is_own && perms.can_edit_own) || (!is_own && perms.can_edit_other))
+                    {
                         // Edit message.
                         return layer
                             .edit_message(message.message_uuid, author, msg.message)
