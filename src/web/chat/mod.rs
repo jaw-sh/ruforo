@@ -10,6 +10,7 @@ use actix_web::{get, web, web::Data, Error, HttpRequest, HttpResponse, Responder
 use actix_web_actors::ws;
 use askama_actix::Template;
 use implement::{ChatLayer, Room};
+use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -26,6 +27,82 @@ pub(super) fn configure(conf: &mut actix_web::web::ServiceConfig) {
     conf.service(view_chat_socket).service(view_chat);
 }
 
+/// Browser origins permitted to open the chat WebSocket.
+///
+/// `CHAT_ALLOWED_ORIGINS` (comma-separated, e.g. `https://example.com,https://example.net`)
+/// takes precedence; otherwise the origin of `XF_PUBLIC_URL` is used.
+static ALLOWED_ORIGINS: Lazy<Vec<String>> = Lazy::new(|| {
+    let list = match std::env::var("CHAT_ALLOWED_ORIGINS") {
+        Ok(v) if !v.trim().is_empty() => v
+            .split(',')
+            .map(normalize_origin)
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>(),
+        _ => std::env::var("XF_PUBLIC_URL")
+            .ok()
+            .map(|url| vec![url_origin(&url)])
+            .unwrap_or_default(),
+    };
+    if list.is_empty() {
+        log::warn!("No CHAT_ALLOWED_ORIGINS or XF_PUBLIC_URL set; all browser WebSocket origins will be rejected.");
+    }
+    list
+});
+
+fn normalize_origin(origin: &str) -> String {
+    origin.trim().trim_end_matches('/').to_ascii_lowercase()
+}
+
+/// Reduces a URL like `https://host:port/path` to its origin `https://host:port`.
+fn url_origin(url: &str) -> String {
+    let url = url.trim();
+    let origin = match url.find("://") {
+        Some(idx) => {
+            let after = idx + 3;
+            match url[after..].find('/') {
+                Some(slash) => &url[..after + slash],
+                None => url,
+            }
+        }
+        None => url,
+    };
+    normalize_origin(origin)
+}
+
+/// Cross-site WebSocket hijacking guard. Browsers always send `Origin` on a
+/// WebSocket handshake, so a present-but-unlisted Origin is rejected. Requests
+/// without an Origin (non-browser clients) cannot carry a victim's cookies
+/// cross-site and are allowed.
+fn check_ws_origin(req: &HttpRequest) -> Result<(), Error> {
+    let origin = match req.headers().get(actix_web::http::header::ORIGIN) {
+        None => return Ok(()),
+        Some(value) => match value.to_str() {
+            Ok(s) => normalize_origin(s),
+            Err(_) => return Err(actix_web::error::ErrorForbidden("Invalid origin")),
+        },
+    };
+
+    if ALLOWED_ORIGINS.iter().any(|allowed| *allowed == origin) {
+        Ok(())
+    } else {
+        log::warn!("Rejected chat WebSocket from disallowed origin {:?}", origin);
+        Err(actix_web::error::ErrorForbidden("Origin not allowed"))
+    }
+}
+
+/// Serializes a value to JSON that is safe to inline inside an HTML <script>.
+/// serde_json does not escape `<`, so a username such as `</script>` would
+/// otherwise terminate the script element.
+fn script_safe_json<T: serde::Serialize>(value: &T) -> String {
+    serde_json::to_string(value)
+        .expect("JSON stringify failed")
+        .replace('<', "\\u003c")
+        .replace('>', "\\u003e")
+        .replace('&', "\\u0026")
+        .replace('\u{2028}', "\\u2028")
+        .replace('\u{2029}', "\\u2029")
+}
+
 /// Entry point for our websocket route
 #[get("/chat.ws")]
 pub async fn view_chat_socket(
@@ -33,6 +110,8 @@ pub async fn view_chat_socket(
     req: HttpRequest,
     stream: web::Payload,
 ) -> Result<HttpResponse, Error> {
+    check_ws_origin(&req)?;
+
     let layer = req
         .app_data::<Data<Arc<dyn ChatLayer>>>()
         .expect("No chat layer.");
@@ -68,6 +147,8 @@ pub async fn view_xf_chat_socket(
     req: HttpRequest,
     stream: web::Payload,
 ) -> Result<HttpResponse, Error> {
+    check_ws_origin(&req)?;
+
     let layer = req
         .app_data::<Data<Arc<dyn ChatLayer>>>()
         .expect("No chat layer.");
@@ -119,7 +200,7 @@ pub async fn view_chat(client: ClientCtx, req: HttpRequest) -> impl Responder {
                 user: {},
             }}",
             std::env::var("CHAT_WS_URL").expect("CHAT_WS_URL needs to be set in .env"),
-            serde_json::to_string(&session).expect("XfSession stringify failed"),
+            script_safe_json(&session),
         ),
         rooms: layer.get_room_list().await,
     }
@@ -205,7 +286,7 @@ pub async fn view_chat_shim(req: HttpRequest, query: web::Query<ChatTestData>) -
                 user: {},
             }}",
             std::env::var("XF_WS_URL").expect("XF_WS_URL needs to be set in .env"),
-            serde_json::to_string(&session).expect("XfSession stringify failed"),
+            script_safe_json(&session),
         ),
         nonce: hasher.finalize().to_string(),
         webpack_time,
@@ -252,4 +333,26 @@ async fn view_public_file(req: HttpRequest) -> Result<fs::NamedFile, Error> {
 
     let file = fs::NamedFile::open(canonical_requested)?;
     Ok(file.use_last_modified(true))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn url_origin_strips_path_and_case() {
+        assert_eq!(url_origin("https://XF.test"), "https://xf.test");
+        assert_eq!(url_origin("https://xf.test/"), "https://xf.test");
+        assert_eq!(url_origin("https://xf.test:5443/forum/"), "https://xf.test:5443");
+    }
+
+    #[test]
+    fn script_safe_json_escapes_markup() {
+        let out = script_safe_json(&"</script><b>&");
+        assert!(!out.contains('<') && !out.contains('>') && !out.contains('&'));
+        assert_eq!(
+            serde_json::from_str::<String>(&out).unwrap(),
+            "</script><b>&"
+        );
+    }
 }

@@ -532,7 +532,14 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
   const messagesEl = document.getElementById('chat-messages')!;
   const template = (document.getElementById('tmp-chat-message') as HTMLTemplateElement).content.cloneNode(true) as DocumentFragment;
 
-  template.querySelector('.message')!.innerHTML = (message as SanitaryPost).message;
+  // Only server-rendered (sanitized BbCode) posts carry an author. Author-less
+  // messages are system/raw text frames, which may echo user input
+  // (e.g. "Unknown command: ..."), so never parse them as HTML.
+  if (author) {
+    template.querySelector('.message')!.innerHTML = (message as SanitaryPost).message;
+  } else {
+    template.querySelector('.message')!.textContent = (message as SanitaryPost).message;
+  }
 
   if (author) {
     const msg = message as SanitaryPost;
@@ -554,6 +561,7 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
           motdMsgEl.innerHTML = msg.message;
           Array.from(motdMsgEl.querySelectorAll('a[href]')).forEach(function (a) {
             (a as HTMLAnchorElement).target = '_blank';
+            (a as HTMLAnchorElement).rel = 'noopener noreferrer';
           });
         }
         return template.children[0] as HTMLElement;
@@ -658,6 +666,7 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
   // Force all links to open in a new tab.
   Array.from(template.querySelectorAll('a[href]')).forEach(function (el) {
     (el as HTMLAnchorElement).target = '_blank';
+    (el as HTMLAnchorElement).rel = 'noopener noreferrer';
   });
 
   // Check tagging.
@@ -778,6 +787,7 @@ export function messagePushPending(pending: PendingMessage): HTMLElement {
   // Force set URLs to target new tab
   Array.from(template.querySelectorAll('.bbcode-url')).forEach(function (el) {
     (el as HTMLAnchorElement).target = '_blank';
+    (el as HTMLAnchorElement).rel = 'noopener noreferrer';
   });
 
   const el = template.children[0] as HTMLElement;
@@ -861,6 +871,7 @@ export function buildMotdMessage(msg: SanitaryPost): HTMLElement {
   // Force all links to open in a new tab.
   Array.from(template.querySelectorAll('a[href]')).forEach(function (el) {
     (el as HTMLAnchorElement).target = '_blank';
+    (el as HTMLAnchorElement).rel = 'noopener noreferrer';
   });
 
   const el = template.children[0] as HTMLElement;
@@ -951,6 +962,7 @@ export function whisperPush(whisper: WhisperPost): HTMLElement {
   // Force set URLs to target new tab
   Array.from(template.querySelectorAll('.bbcode-url')).forEach(function (el) {
     (el as HTMLAnchorElement).target = '_blank';
+    (el as HTMLAnchorElement).rel = 'noopener noreferrer';
   });
 
   const el = template.children[0] as HTMLElement;

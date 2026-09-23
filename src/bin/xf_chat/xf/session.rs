@@ -1,20 +1,161 @@
-// This is dark magic which interprets the XF2 PHP-serialized session keys.
+// Interprets the XF2 PHP-serialized session record (xf_session.session_data).
+//
+// XF itself (XF\Session\DbStorage + XF\App::getVisitorFromSession) only trusts a
+// session that is unexpired and whose `passwordDate` matches the user's current
+// xf_user_profile.password_date. We mirror those checks here and read `userId`
+// and `passwordDate` only from the top level of the serialized array, instead of
+// pattern-matching anywhere inside the blob (where user-influenced strings live).
 
 use super::orm::session;
 use super::orm::user;
 use super::orm::user_ignored;
-use once_cell::sync::Lazy;
-use regex::Regex;
 use ruforo::web::chat::implement;
 use sea_orm::entity::prelude::*;
-use sea_orm::{DatabaseConnection, FromQueryResult, QuerySelect};
-use serde::Deserialize;
+use sea_orm::{DatabaseConnection, DbBackend, FromQueryResult, QuerySelect, Statement};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-// Pre-compile the regex for extracting userId from XF session data
-static XF_SESSION_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"s:6:\\?"?userId\\?"?;i:(?P<user_id>\d+);"#)
-        .expect("Failed to compile XF session regex")
-});
+/// Top-level integer fields we care about from a PHP-serialized XF session array.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct XfSessionFields {
+    user_id: Option<u64>,
+    password_date: Option<u64>,
+}
+
+/// Minimal cursor over PHP `serialize()` output. Only what XF session data needs:
+/// arrays, strings, ints, floats, bools and null. Objects/references abort parsing.
+struct PhpCursor<'a> {
+    buf: &'a [u8],
+    pos: usize,
+}
+
+enum PhpScalar<'a> {
+    Int(i64),
+    Str(&'a [u8]),
+    Other,
+}
+
+impl<'a> PhpCursor<'a> {
+    fn new(buf: &'a [u8]) -> Self {
+        Self { buf, pos: 0 }
+    }
+
+    fn expect(&mut self, b: u8) -> Option<()> {
+        if *self.buf.get(self.pos)? == b {
+            self.pos += 1;
+            Some(())
+        } else {
+            None
+        }
+    }
+
+    /// Reads bytes up to (not including) `delim`, consuming the delimiter.
+    fn read_until(&mut self, delim: u8) -> Option<&'a [u8]> {
+        let start = self.pos;
+        let rel = self.buf.get(start..)?.iter().position(|&c| c == delim)?;
+        self.pos = start + rel + 1;
+        Some(&self.buf[start..start + rel])
+    }
+
+    fn read_int(&mut self, delim: u8) -> Option<i64> {
+        std::str::from_utf8(self.read_until(delim)?).ok()?.parse().ok()
+    }
+
+    /// Parses one value. Arrays are walked (and discarded) so the cursor stays aligned.
+    fn value(&mut self, depth: usize) -> Option<PhpScalar<'a>> {
+        if depth > 32 {
+            return None;
+        }
+        let tag = *self.buf.get(self.pos)?;
+        self.pos += 1;
+        match tag {
+            b'N' => {
+                self.expect(b';')?;
+                Some(PhpScalar::Other)
+            }
+            b'b' | b'd' => {
+                self.expect(b':')?;
+                self.read_until(b';')?;
+                Some(PhpScalar::Other)
+            }
+            b'i' => {
+                self.expect(b':')?;
+                Some(PhpScalar::Int(self.read_int(b';')?))
+            }
+            b's' => {
+                self.expect(b':')?;
+                let len = usize::try_from(self.read_int(b':')?).ok()?;
+                self.expect(b'"')?;
+                let end = self.pos.checked_add(len)?;
+                let s = self.buf.get(self.pos..end)?;
+                self.pos = end;
+                self.expect(b'"')?;
+                self.expect(b';')?;
+                Some(PhpScalar::Str(s))
+            }
+            b'a' => {
+                self.expect(b':')?;
+                let count = self.read_int(b':')?;
+                self.expect(b'{')?;
+                for _ in 0..count {
+                    self.value(depth + 1)?; // key
+                    self.value(depth + 1)?; // value
+                }
+                self.expect(b'}')?;
+                Some(PhpScalar::Other)
+            }
+            // Objects, references, custom serialization: not expected in XF sessions.
+            _ => None,
+        }
+    }
+}
+
+/// Extracts top-level `userId` / `passwordDate` from XF session data.
+/// Returns None if the blob is not a well-formed top-level PHP array.
+fn parse_xf_session(data: &[u8]) -> Option<XfSessionFields> {
+    let mut cur = PhpCursor::new(data);
+    cur.expect(b'a')?;
+    cur.expect(b':')?;
+    let count = cur.read_int(b':')?;
+    cur.expect(b'{')?;
+
+    let mut fields = XfSessionFields::default();
+    for _ in 0..count {
+        let key = cur.value(1)?;
+        let val = cur.value(1)?;
+        if let (PhpScalar::Str(k), PhpScalar::Int(v)) = (key, val) {
+            match k {
+                b"userId" => fields.user_id = u64::try_from(v).ok(),
+                b"passwordDate" => fields.password_date = u64::try_from(v).ok(),
+                _ => {}
+            }
+        }
+    }
+    cur.expect(b'}')?;
+
+    Some(fields)
+}
+
+#[derive(FromQueryResult)]
+struct XfPasswordDate {
+    password_date: u32,
+}
+
+async fn get_password_date(db: &DatabaseConnection, user_id: u32) -> Option<u32> {
+    match XfPasswordDate::find_by_statement(Statement::from_sql_and_values(
+        DbBackend::MySql,
+        "SELECT password_date FROM xf_user_profile WHERE user_id = ?",
+        vec![user_id.into()],
+    ))
+    .one(db)
+    .await
+    {
+        Ok(row) => row.map(|r| r.password_date),
+        Err(err) => {
+            log::warn!("Failed to fetch XF password date: {:?}", err);
+            None
+        }
+    }
+}
 
 #[derive(FromQueryResult)]
 struct XfSession {
@@ -53,35 +194,78 @@ impl Default for XfSession {
     }
 }
 
-#[allow(non_snake_case)]
-#[derive(Debug, Deserialize, Eq, PartialEq)]
-struct XfSessionSerialized {
-    userId: u32,
-}
-
 pub async fn get_user_id_from_cookie(db: &DatabaseConnection, cookie: &String) -> u32 {
-    match session::Entity::find_by_id(cookie.as_bytes().to_vec())
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let now = u32::try_from(now).unwrap_or(u32::MAX);
+
+    // Same predicate as XF\Session\DbStorage::getSession(): expired rows are dead.
+    let session = match session::Entity::find_by_id(cookie.as_bytes().to_vec())
+        .filter(session::Column::ExpiryDate.gte(now))
         .one(db)
         .await
     {
-        Ok(session) => match session {
-            Some(session) => {
-                //use serde_php::from_bytes;
-                //match from_bytes::<XfSessionSerialized>(str::replace(&session, "\\", "").as_bytes()) {
-                match XF_SESSION_REGEX.captures(&String::from_utf8_lossy(&session.session_data)) {
-                    Some(captures) => {
-                        log::debug!("User {:?} has authorized.", &captures["user_id"]);
-                        captures["user_id"].parse::<u32>().unwrap()
-                    }
-                    None => 0,
-                }
-            }
-            None => 0,
-        },
+        Ok(Some(session)) => session,
+        Ok(None) => return 0,
         Err(err) => {
             log::warn!("Failed to fetch user session: {:?}", err);
-            0
+            return 0;
         }
+    };
+
+    let fields = match parse_xf_session(&session.session_data) {
+        Some(fields) => fields,
+        None => {
+            log::debug!("Unparseable XF session data; treating as guest.");
+            return 0;
+        }
+    };
+
+    let user_id = match fields.user_id.and_then(|id| u32::try_from(id).ok()) {
+        Some(id) if id > 0 => id,
+        _ => return 0,
+    };
+
+    // Mirror XF\App::getVisitorFromSession(): a password change invalidates sessions.
+    let session_pw_date = fields.password_date.unwrap_or(0);
+    let user_pw_date = get_password_date(db, user_id).await.unwrap_or(0);
+    if session_pw_date != u64::from(user_pw_date) {
+        log::debug!("Session passwordDate mismatch for user {}; treating as guest.", user_id);
+        return 0;
+    }
+
+    log::debug!("User {:?} has authorized.", user_id);
+    user_id
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_top_level_user_id() {
+        let data = br#"a:3:{s:6:"userId";i:42;s:12:"passwordDate";i:1700000000;s:16:"dismissedNotices";a:0:{}}"#;
+        assert_eq!(
+            parse_xf_session(data),
+            Some(XfSessionFields { user_id: Some(42), password_date: Some(1700000000) })
+        );
+    }
+
+    #[test]
+    fn ignores_nested_and_string_embedded_user_id() {
+        // A user-influenced string containing a fake userId must not be trusted,
+        // nor may a nested array's userId key.
+        let data = br#"a:2:{s:8:"redirect";s:21:"s:6:"userId";i:1;xxxx";s:5:"inner";a:1:{s:6:"userId";i:1;}}"#;
+        assert_eq!(parse_xf_session(data), Some(XfSessionFields::default()));
+    }
+
+    #[test]
+    fn rejects_malformed() {
+        assert_eq!(parse_xf_session(b"s:6:\"userId\";i:1;"), None);
+        assert_eq!(parse_xf_session(b"a:1:{s:6:\"userId\";i:1;"), None);
+        assert_eq!(parse_xf_session(b"a:1:{s:99:\"userId\";i:1;}"), None);
     }
 }
 
