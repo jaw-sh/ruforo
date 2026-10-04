@@ -1,8 +1,9 @@
-use super::orm::chat_message;
+use super::orm::{chat_message, user};
 use ruforo::web::chat::implement;
 use ruforo::web::chat::message;
 use sea_orm::sea_query::Expr;
-use sea_orm::{entity::*, prelude::*, DatabaseConnection, QueryFilter};
+use sea_orm::{entity::*, prelude::*, query::*, Condition, DatabaseConnection, QueryFilter};
+use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
@@ -112,6 +113,7 @@ pub async fn get_message_with_author(
                 },
                 room_id: msg.room_id,
                 user_id: msg.user_id.unwrap_or(0),
+                recipient_id: msg.recipient_id,
             };
             Some((author, message))
         }
@@ -156,6 +158,8 @@ pub async fn insert_chat_message(
         room_id: Set(message.room_id as u32),
         user_id: Set(Some(message.session.id)),
         username: Set(message.session.username.to_owned()),
+        recipient_id: Set(message.recipient_id),
+        recipient_username: Set(message.recipient_username.to_owned()),
         ..Default::default()
     }
     .insert(db)
@@ -165,4 +169,168 @@ pub async fn insert_chat_message(
         Ok(model) => Ok(implement::Message::from(model)),
         Err(err) => Err(anyhow::Error::new(err)),
     }
+}
+
+/// Build an Author from an XF user row.
+fn author_from_user(user: &user::Model) -> implement::Author {
+    implement::Author {
+        id: user.user_id,
+        username: user.username.to_owned(),
+        avatar_url: super::session::avatar_uri(
+            user.user_id,
+            user.avatar_date,
+            user.avatar_format.as_deref(),
+        ),
+    }
+}
+
+/// Resolve a direct message recipient. Looks up by id when `user_id` is
+/// nonzero, otherwise by username. Applies the same validity conditions as
+/// session loading, so banned and unconfirmed accounts are not addressable.
+pub async fn find_author(
+    db: &DatabaseConnection,
+    user_id: u32,
+    username: &str,
+) -> Option<implement::Author> {
+    let filter = if user_id > 0 {
+        user::Column::UserId.eq(user_id)
+    } else if !username.is_empty() {
+        user::Column::Username.eq(username.to_owned())
+    } else {
+        return None;
+    };
+
+    match user::Entity::find()
+        .filter(filter)
+        .filter(user::Column::UserState.eq("valid"))
+        .filter(user::Column::IsBanned.eq(false))
+        .one(db)
+        .await
+    {
+        Ok(Some(user)) => Some(author_from_user(&user)),
+        Ok(None) => None,
+        Err(err) => {
+            log::warn!("Error resolving direct message recipient: {:?}", err);
+            None
+        }
+    }
+}
+
+/// Direct messages sent to or by `user_id`, newest `limit` rows no older than
+/// `since` (unix seconds), returned oldest-first.
+pub async fn get_direct_message_history(
+    db: &DatabaseConnection,
+    user_id: u32,
+    limit: usize,
+    since: i64,
+) -> Vec<implement::DirectMessage> {
+    if user_id == 0 {
+        return Vec::new();
+    }
+
+    let since = Decimal::new(since.max(0) * 1_000_000, 6);
+
+    // Anchored on room_id 0 so the idx_room_date (room_id, message_date) index
+    // bounds the scan to direct messages inside the window, and yields them
+    // already ordered. Without it the optimizer ranges over every direct
+    // message ever sent and then filesorts.
+    let rows = match chat_message::Entity::find()
+        .filter(chat_message::Column::RoomId.eq(0u32))
+        .filter(chat_message::Column::RecipientId.is_not_null())
+        .filter(
+            Condition::any()
+                .add(chat_message::Column::UserId.eq(user_id))
+                .add(chat_message::Column::RecipientId.eq(user_id)),
+        )
+        .filter(chat_message::Column::MessageDate.gte(since))
+        .filter(chat_message::Column::DeletedDate.is_null())
+        .order_by_desc(chat_message::Column::MessageDate)
+        .limit(limit as u64)
+        .all(db)
+        .await
+    {
+        Ok(rows) => rows,
+        Err(err) => {
+            log::warn!("Error pulling XF direct message history: {:?}", err);
+            return Vec::new();
+        }
+    };
+
+    if rows.is_empty() {
+        return Vec::new();
+    }
+
+    // Resolve every participant in one query so avatars are correct for both
+    // sides of each conversation.
+    let mut user_ids: Vec<u32> = Vec::with_capacity(rows.len() * 2);
+    for row in &rows {
+        if let Some(id) = row.user_id {
+            user_ids.push(id);
+        }
+        if let Some(id) = row.recipient_id {
+            user_ids.push(id);
+        }
+    }
+    user_ids.sort_unstable();
+    user_ids.dedup();
+
+    let authors: HashMap<u32, implement::Author> = match user::Entity::find()
+        .filter(user::Column::UserId.is_in(user_ids))
+        .all(db)
+        .await
+    {
+        Ok(users) => users
+            .iter()
+            .map(|user| (user.user_id, author_from_user(user)))
+            .collect(),
+        Err(err) => {
+            log::warn!("Error resolving direct message participants: {:?}", err);
+            HashMap::new()
+        }
+    };
+
+    /// Falls back to the name stored on the row when the account is gone.
+    fn author_or_stored(
+        authors: &HashMap<u32, implement::Author>,
+        id: u32,
+        username: &str,
+    ) -> implement::Author {
+        authors
+            .get(&id)
+            .cloned()
+            .unwrap_or_else(|| implement::Author {
+                id,
+                username: username.to_owned(),
+                avatar_url: String::new(),
+            })
+    }
+
+    rows.into_iter()
+        .rev()
+        .filter_map(|row| {
+            let recipient_id = row.recipient_id?;
+            let author_id = row.user_id.unwrap_or(0);
+
+            Some(implement::DirectMessage {
+                author: author_or_stored(&authors, author_id, &row.username),
+                recipient: author_or_stored(
+                    &authors,
+                    recipient_id,
+                    row.recipient_username.as_deref().unwrap_or_default(),
+                ),
+                message: implement::Message {
+                    message: row.message_text,
+                    message_uuid: Uuid::parse_str(&row.message_uuid).unwrap_or_default(),
+                    message_date: row.message_date.try_into().unwrap_or(0),
+                    message_edit_date: match row.last_edit_date {
+                        Some(date) => date.try_into().unwrap_or(0),
+                        None => 0,
+                    },
+                    room_id: row.room_id,
+                    user_id: author_id,
+                    recipient_id: Some(recipient_id),
+                },
+            })
+        })
+        .collect()
 }

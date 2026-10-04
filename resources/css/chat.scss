@@ -665,6 +665,25 @@ html.chat #chat {
     }
 }
 
+// Direct messages that arrived while the user was away.
+.chat-message--whisperNew {
+    .message {
+        border-left-color: rgba(128, 0, 255, 1);
+        background-color: rgba(128, 0, 255, 0.16);
+    }
+
+    .whisper-direction::after {
+        content: 'new';
+        background-color: rgba(128, 0, 255, 0.35);
+        border-radius: 0.2rem;
+        font-size: 0.75em;
+        font-style: normal;
+        margin-left: 0.25rem;
+        padding: 0 0.25rem;
+        text-transform: uppercase;
+    }
+}
+
 .chat-message--pending {
     opacity: 0.5;
 

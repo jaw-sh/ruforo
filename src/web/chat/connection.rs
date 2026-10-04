@@ -224,6 +224,7 @@ impl Connection {
                 message: msg,
                 recipient_id,
                 recipient_username,
+                message_uuid: Uuid::new_v4(),
             },
         );
     }
@@ -357,6 +358,8 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Connection {
                             message: m.to_string(),
                             room_id: room_id as u32,
                             message_uuid: Uuid::new_v4(),
+                            recipient_id: None,
+                            recipient_username: None,
                         },
                     )
                 }

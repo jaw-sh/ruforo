@@ -60,6 +60,19 @@ impl implement::ChatLayer for XfLayer {
         room::get_room_history(&self.db, room_id, limit).await
     }
 
+    async fn find_author(&self, user_id: u32, username: &str) -> Option<implement::Author> {
+        message::find_author(&self.db, user_id, username).await
+    }
+
+    async fn get_direct_message_history(
+        &self,
+        user_id: u32,
+        limit: usize,
+        since: i64,
+    ) -> Vec<implement::DirectMessage> {
+        message::get_direct_message_history(&self.db, user_id, limit, since).await
+    }
+
     async fn get_smilie_list(&self) -> Vec<implement::Smilie> {
         smilie::get_smilie_list(&self.db).await
     }
@@ -109,6 +122,7 @@ impl From<orm::chat_message::Model> for implement::Message {
                 Some(date) => date.try_into().unwrap(),
                 None => 0,
             },
+            recipient_id: model.recipient_id,
         }
     }
 }

@@ -26,6 +26,8 @@ export interface SanitaryPost {
   message_edit_date: number;
   message_raw: string;
   room_id: number;
+  /** Present only on direct messages; identifies the recipient. */
+  recipient?: Author;
 }
 
 export interface UserActivity {
@@ -48,7 +50,11 @@ export interface RoomPermissions {
   can_motd: boolean;
 }
 
-export interface WhisperPost {
+/**
+ * Pre-direct-message whisper frame. Transitional: only sent by an xf-chat
+ * build without direct message support. Remove once the server is deployed.
+ */
+export interface LegacyWhisperPost {
   author: Author;
   recipient: Author;
   message: string;
@@ -58,12 +64,14 @@ export interface WhisperPost {
 
 export interface ServerPayload {
   messages?: SanitaryPost[];
+  history?: boolean;
   delete?: string[];
   users?: Record<string, UserActivity | false>;
   user?: Record<string, false>;
   system?: string;
   permissions?: RoomPermissions;
-  whisper?: WhisperPost;
+  /** Transitional; see LegacyWhisperPost. */
+  whisper?: LegacyWhisperPost;
   motd?: SanitaryPost | null;
 }
 

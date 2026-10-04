@@ -81,8 +81,10 @@ document.addEventListener('DOMContentLoaded', () => {
 function handleServerPayload(data: ServerPayload): void {
   if (data.messages) {
     for (const msg of data.messages) {
-      messages.messagePush(msg, msg.author);
+      messages.messagePush(msg, msg.author, data.history === true);
     }
+    // Direct messages rendered above are now considered seen.
+    messages.dmMarkSeen();
   }
 
   if (data.delete) {
@@ -107,8 +109,25 @@ function handleServerPayload(data: ServerPayload): void {
     }
   }
 
+  // Transitional: an xf-chat build without direct message support still sends
+  // whispers as their own frame with no uuid. Render it through the normal
+  // path with a synthetic id. Remove once the server is deployed.
   if (data.whisper) {
-    messages.whisperPush(data.whisper);
+    const w = data.whisper;
+    messages.messagePush(
+      {
+        author: w.author,
+        recipient: w.recipient,
+        message: w.message,
+        message_raw: w.message_raw,
+        message_date: w.message_date,
+        message_edit_date: 0,
+        message_uuid: `legacy-whisper-${w.message_date}-${Math.random().toString(36).slice(2)}`,
+        room_id: 0,
+      },
+      w.author,
+    );
+    messages.dmMarkSeen();
   }
 
   if (data.motd !== undefined) {

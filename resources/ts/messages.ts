@@ -1,4 +1,4 @@
-import type { Author, SanitaryPost, PendingMessage, WhisperPost } from './types';
+import type { Author, SanitaryPost, PendingMessage } from './types';
 import MicroModal from 'micromodal';
 import * as ws from './ws';
 import { getRoomPermissions } from './chat';
@@ -98,9 +98,14 @@ export function messageAddEventListeners(element: HTMLElement): void {
   }
 
   const authorEl = element.querySelector('.author') as HTMLElement | null;
-  if (authorEl !== null && !element.classList.contains('chat-message--whisper')) {
-    authorEl.addEventListener('click', usernameClick as EventListener);
-    listeners.push({ target: authorEl, type: 'click', handler: usernameClick as EventListener });
+  if (authorEl !== null) {
+    // On a direct message the author element names the other party, so clicking
+    // it should start a reply rather than an @mention.
+    const handler = (
+      element.classList.contains('chat-message--whisper') ? whisperAuthorClick : usernameClick
+    ) as EventListener;
+    authorEl.addEventListener('click', handler);
+    listeners.push({ target: authorEl, type: 'click', handler });
   }
 
   Array.from(element.querySelectorAll('.username')).forEach(function (usernameEl) {
@@ -461,6 +466,18 @@ function usernameClick(this: HTMLElement, event: Event): void {
   event.preventDefault();
 }
 
+function whisperAuthorClick(this: HTMLElement, event: Event): void {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const partner = (this.closest('.chat-message') as HTMLElement | null)?.dataset.whisperPartner;
+  const inputEl = document.getElementById('new-message-input');
+  if (partner && inputEl) {
+    inputEl.textContent = `/w @${partner}, `;
+    inputFocusEnd(inputEl);
+  }
+}
+
 function usernameEnter(this: HTMLElement, _event: Event): void {
   const id = parseInt(this.dataset.id!, 10);
 
@@ -505,6 +522,13 @@ export function messageSetHasParent(el: HTMLElement): boolean {
       return false;
     }
 
+    // Never group direct messages with different conversation partners; the
+    // grouped rendering hides the meta line and with it the "To <name>" label.
+    if (elIsWhisper && prev.dataset.whisperPartnerId !== el.dataset.whisperPartnerId) {
+      el.classList.remove('chat-message--hasParent');
+      return false;
+    }
+
     if (prev.dataset.author === el.dataset.author) {
       // Allow to break into new groups if too much time has passed.
       const timeLast = parseInt(prev.dataset.timestamp!, 10);
@@ -521,10 +545,56 @@ export function messageSetHasParent(el: HTMLElement): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Direct message "new since last visit" marker
+// ---------------------------------------------------------------------------
+
+const DM_SEEN_KEY = 'sneedchat.lastDmSeen';
+
+/** Newest inbound DM timestamp the user has already been shown, or null on a
+ *  first run (in which case nothing is marked new). */
+let lastDmSeen: number | null | undefined;
+/** Newest inbound DM timestamp rendered since the last dmMarkSeen() call. */
+let pendingDmSeen = 0;
+
+function dmSeen(): number | null {
+  if (lastDmSeen === undefined) {
+    try {
+      const stored = localStorage.getItem(DM_SEEN_KEY);
+      lastDmSeen = stored === null ? null : parseInt(stored, 10) || 0;
+    } catch {
+      // Private browsing or blocked site data; behave as a first run.
+      lastDmSeen = null;
+    }
+  }
+  return lastDmSeen;
+}
+
+/** Called once a batch has rendered, so its highlights survive the render. */
+export function dmMarkSeen(): void {
+  if (pendingDmSeen === 0) return;
+
+  const seen = dmSeen();
+  if (seen === null || pendingDmSeen > seen) {
+    lastDmSeen = pendingDmSeen;
+    try {
+      localStorage.setItem(DM_SEEN_KEY, String(pendingDmSeen));
+    } catch {
+      // Nothing to do; the marker is a convenience, not state we depend on.
+    }
+  }
+
+  pendingDmSeen = 0;
+}
+
+// ---------------------------------------------------------------------------
 // Main message push
 // ---------------------------------------------------------------------------
 
-export function messagePush(message: SanitaryPost | { message: string }, author?: Author | null): HTMLElement {
+export function messagePush(
+  message: SanitaryPost | { message: string },
+  author?: Author | null,
+  isHistory = false,
+): HTMLElement {
   // Normalize: if given a plain string wrap it
   if (typeof message === 'string') {
     message = { message: message as string };
@@ -549,13 +619,10 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
     extantEl = document.getElementById(`chat-message-${uuid}`);
 
     // Edit of a message no longer in the visible history.
-    // The MOTD bot re-edits its pinned message periodically; we update the
-    // MOTD container in-place and suppress re-injection into the chat feed.
-    // For all other edited-but-not-in-DOM messages (e.g. initial history
-    // load when joining a room — same SanitaryPosts payload as live edits),
-    // fall through so the message renders normally; otherwise edited
-    // messages would silently vanish from new users' history on refresh.
-    if (!extantEl && msg.message_edit_date > 0) {
+    // Without this, edits to old/pruned messages (e.g. a pinned MOTD updated
+    // every minute) would be re-injected as new messages in the chat feed.
+    // If the edit matches the current MOTD, update it in-place.
+    if (!isHistory && !extantEl && msg.message_edit_date > 0) {
       const motdEl = document.getElementById('chat-motd');
       if (motdEl && motdEl.dataset.motdUuid === uuid) {
         const motdMsgEl = motdEl.querySelector('.message');
@@ -566,8 +633,8 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
             (a as HTMLAnchorElement).rel = 'noopener noreferrer';
           });
         }
-        return template.children[0] as HTMLElement;
       }
+      return template.children[0] as HTMLElement;
     }
 
     // If this is our own message echoed back AND we didn't find an existing
@@ -593,10 +660,45 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
       rootEl.classList.add('chat-message--isIgnored');
     }
 
+    // A recipient means this is a direct message. The author line names the
+    // other party in the conversation, not the sender.
+    const isDirect = msg.recipient !== undefined;
+    const isSender = msg.author.id === APP.user.id;
+    const otherParty = isDirect ? (isSender ? msg.recipient! : msg.author) : author;
+
+    if (isDirect) {
+      rootEl.classList.add('chat-message--whisper');
+      rootEl.dataset.whisperPartner = otherParty.username;
+      rootEl.dataset.whisperPartnerId = String(otherParty.id);
+
+      // Highlight direct messages that arrived while we were away.
+      const seen = dmSeen();
+      if (!isSender) {
+        if (isHistory && seen !== null && msg.message_date > seen) {
+          rootEl.classList.add('chat-message--whisperNew');
+        }
+        pendingDmSeen = Math.max(pendingDmSeen, msg.message_date);
+      }
+    }
+
     // Add meta details
     const authorEl = template.querySelector('.author') as HTMLElement;
-    authorEl.textContent = author.username;
-    authorEl.dataset.id = String(author.id);
+    authorEl.textContent = otherParty.username;
+    authorEl.dataset.id = String(otherParty.id);
+
+    if (isDirect) {
+      const metaEl = template.querySelector('.meta') as HTMLElement;
+      const directionEl = document.createElement('span');
+      directionEl.className = 'whisper-direction';
+
+      if (isSender) {
+        directionEl.textContent = 'To';
+        metaEl.insertBefore(directionEl, authorEl);
+      } else {
+        directionEl.textContent = 'whispers';
+        authorEl.after(directionEl);
+      }
+    }
 
     Array.from(template.querySelectorAll('.timestamp')).forEach(function (el) {
       const time = new Date(msg.message_date * 1000);
@@ -632,8 +734,19 @@ export function messagePush(message: SanitaryPost | { message: string }, author?
       template.querySelector('.avatar')?.remove();
     }
 
-    // Add right-content details based on room permissions
-    const perms = getRoomPermissions();
+    // Add right-content details based on room permissions. Direct messages are
+    // not pinnable, editable, or reportable, so they get no actions at all.
+    const perms = isDirect
+      ? {
+          ...getRoomPermissions(),
+          can_motd: false,
+          can_edit_own: false,
+          can_edit_other: false,
+          can_delete_own: false,
+          can_delete_other: false,
+          can_report: false,
+        }
+      : getRoomPermissions();
     const isOwn = msg.author.id === APP.user.id;
 
     if (!perms.can_motd) {
@@ -877,105 +990,6 @@ export function buildMotdMessage(msg: SanitaryPost): HTMLElement {
   });
 
   const el = template.children[0] as HTMLElement;
-  return el;
-}
-
-// ---------------------------------------------------------------------------
-// Whisper push
-// ---------------------------------------------------------------------------
-
-export function whisperPush(whisper: WhisperPost): HTMLElement {
-  const messagesEl = document.getElementById('chat-messages')!;
-  const template = (document.getElementById('tmp-chat-message') as HTMLTemplateElement).content.cloneNode(true) as DocumentFragment;
-
-  const isSender = whisper.author.id === APP.user.id;
-  const otherParty = isSender ? whisper.recipient : whisper.author;
-
-  const rootEl = template.children[0] as HTMLElement;
-  rootEl.classList.add('chat-message--whisper');
-  rootEl.dataset.whisperPartner = otherParty.username;
-  rootEl.dataset.whisperPartnerId = String(otherParty.id);
-  rootEl.dataset.author = String(whisper.author.id);
-  rootEl.dataset.timestamp = String(whisper.message_date);
-
-  // Set message content
-  template.querySelector('.message')!.innerHTML = whisper.message;
-
-  // Set author line: direction label is a separate span, author contains only the name
-  const metaEl = template.querySelector('.meta') as HTMLElement;
-  const authorEl = template.querySelector('.author') as HTMLElement;
-  const directionEl = document.createElement('span');
-  directionEl.className = 'whisper-direction';
-
-  if (isSender) {
-    directionEl.textContent = 'To';
-    metaEl.insertBefore(directionEl, authorEl);
-  } else {
-    directionEl.textContent = 'whispers';
-    // Insert after author (before timestamp)
-    authorEl.after(directionEl);
-  }
-
-  authorEl.textContent = otherParty.username;
-  authorEl.dataset.id = String(otherParty.id);
-
-  // Override default click: fill /w command instead of @mention
-  authorEl.addEventListener('click', (e: Event) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const inputEl = document.getElementById('new-message-input');
-    if (inputEl) {
-      inputEl.textContent = `/w @${otherParty.username}, `;
-      inputFocusEnd(inputEl);
-    }
-  });
-
-  // Set timestamps
-  Array.from(template.querySelectorAll('.timestamp')).forEach(function (el) {
-    const time = new Date(whisper.message_date * 1000);
-    const hours = time.getHours();
-    const minutes = String(time.getMinutes()).padStart(2, '0');
-
-    el.setAttribute('datetime', String(whisper.message_date));
-
-    if (el.classList.contains('relative')) {
-      el.innerHTML = time.toLocaleTimeString();
-    } else {
-      el.innerHTML = (hours % 12) + ':' + minutes + ' ' + (hours >= 12 ? 'PM' : 'AM');
-    }
-  });
-
-  // Avatar = sender's avatar
-  if (whisper.author.avatar_url.length > 0) {
-    const avatarEl = template.querySelector('.avatar') as HTMLImageElement;
-    avatarEl.setAttribute('src', whisper.author.avatar_url);
-    avatarEl.setAttribute('loading', 'lazy');
-    avatarEl.setAttribute('decoding', 'async');
-  } else {
-    template.querySelector('.avatar')?.remove();
-  }
-
-  // Remove action buttons for whispers
-  template.querySelector('.pin')?.remove();
-  template.querySelector('.edit')?.remove();
-  template.querySelector('.delete')?.remove();
-  template.querySelector('.report')?.remove();
-
-  // Force set URLs to target new tab
-  Array.from(template.querySelectorAll('.bbcode-url')).forEach(function (el) {
-    (el as HTMLAnchorElement).target = '_blank';
-    (el as HTMLAnchorElement).rel = 'noopener noreferrer';
-  });
-
-  const el = template.children[0] as HTMLElement;
-  messageAddEventListeners(el);
-  messagesEl.appendChild(el);
-
-  messageSetHasParent(el);
-
-  // Scroll down
-  scrollToNew();
-
   return el;
 }
 

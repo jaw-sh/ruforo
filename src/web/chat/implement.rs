@@ -89,6 +89,16 @@ pub struct Message {
     pub message_date: i64,
     pub message_edit_date: i64,
     pub message: String,
+    /// Set when this row is a direct message. Room posts leave this None.
+    pub recipient_id: Option<u32>,
+}
+
+/// A direct message with both parties resolved for display.
+#[derive(Debug)]
+pub struct DirectMessage {
+    pub author: Author,
+    pub recipient: Author,
+    pub message: Message,
 }
 
 impl From<MessagePgSql> for Message {
@@ -100,6 +110,7 @@ impl From<MessagePgSql> for Message {
             message_date: other.message_date.timestamp(),
             message_edit_date: other.message_edit_date.timestamp(),
             message: other.message,
+            recipient_id: None,
         }
     }
 }
@@ -219,6 +230,17 @@ pub trait ChatLayer {
     async fn edit_message(&self, uuid: uuid::Uuid, author: Author, message: String) -> Option<Message>;
     async fn get_message(&self, uuid: uuid::Uuid) -> Option<Message>;
     async fn get_room_history(&self, room_id: u32, limit: usize) -> Vec<(Author, Message)>;
+    /// Resolve a user for direct messaging. Looks up by id when `user_id` is
+    /// nonzero, otherwise by username. Returns None for unknown/invalid users.
+    async fn find_author(&self, user_id: u32, username: &str) -> Option<Author>;
+    /// Direct messages sent to or by `user_id`, newest `limit` rows no older
+    /// than `since` (unix seconds), returned oldest-first.
+    async fn get_direct_message_history(
+        &self,
+        user_id: u32,
+        limit: usize,
+        since: i64,
+    ) -> Vec<DirectMessage>;
     async fn get_room_list(&self) -> Vec<Room>;
     async fn get_session_from_user_id(&self, id: u32) -> Session;
     async fn get_smilie_list(&self) -> Vec<Smilie>;
@@ -276,6 +298,21 @@ pub mod default {
         async fn get_message(&self, _uuid: uuid::Uuid) -> Option<super::Message> {
             // TODO: implement UUID-based lookup for default layer
             None
+        }
+
+        async fn find_author(&self, _: u32, _: &str) -> Option<super::Author> {
+            // TODO: implement username lookup for default layer
+            None
+        }
+
+        async fn get_direct_message_history(
+            &self,
+            _: u32,
+            _: usize,
+            _: i64,
+        ) -> Vec<super::DirectMessage> {
+            // TODO: implement direct message storage for default layer
+            Vec::new()
         }
 
         async fn get_room_list(&self) -> Vec<Room> {
@@ -417,6 +454,7 @@ pub mod default {
                 message_date: ugc_revision.created_at.timestamp(),
                 message_edit_date: 0,
                 message_uuid: message.message_uuid,
+                recipient_id: message.recipient_id,
             })
         }
     }

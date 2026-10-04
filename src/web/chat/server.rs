@@ -9,6 +9,11 @@ use std::sync::Arc;
 use actix_web::rt::time;
 use std::time::{Duration, SystemTime};
 
+/// How many direct messages are redelivered to a user when they join a room.
+const DM_HISTORY_LIMIT: usize = 50;
+/// How far back direct message redelivery reaches, in seconds.
+const DM_HISTORY_WINDOW: i64 = 24 * 60 * 60;
+
 /// `ChatServer` manages chat rooms and responsible for coordinating chat
 /// session. implementation is super primitive
 pub struct ChatServer {
@@ -120,6 +125,21 @@ impl ChatServer {
             message_edit_date: message.message_edit_date,
             message: self.bbcode.render(&message.message),
             message_raw: ChatBBCode::sanitize(&message.message),
+            recipient: None,
+        }
+    }
+
+    /// Same as `prepare_message`, but tags the post with its direct message
+    /// recipient so the client renders it as a whisper.
+    fn prepare_direct_message(
+        &self,
+        author: implement::Author,
+        recipient: implement::Author,
+        message: implement::Message,
+    ) -> message::SanitaryPost {
+        message::SanitaryPost {
+            recipient: Some(recipient),
+            ..self.prepare_message(author, message)
         }
     }
 
@@ -143,6 +163,17 @@ impl ChatServer {
             })
             .map(|(&id, _)| id)
             .collect()
+    }
+
+    /// Send message to every live connection belonging to any of these users.
+    fn send_message_to_users(&self, user_ids: &[u32], message: String) {
+        for conn in self
+            .connections
+            .values()
+            .filter(|conn| user_ids.contains(&conn.session.id))
+        {
+            conn.recipient.do_send(message::Reply(message.to_owned()));
+        }
     }
 
     /// Send message to all users in a room
@@ -254,10 +285,14 @@ impl Handler<message::Delete> for ChatServer {
                         actor.send_message_to_room(message.room_id, json);
                     }
 
-                    actor.send_message_to_room(
-                        message.room_id,
-                        format!("{{\"delete\":[\"{}\"]}}", message.message_uuid),
-                    );
+                    let payload = format!("{{\"delete\":[\"{}\"]}}", message.message_uuid);
+
+                    // Direct messages live outside any room; tell both parties.
+                    match message.recipient_id {
+                        Some(recipient_id) => actor
+                            .send_message_to_users(&[message.user_id, recipient_id], payload),
+                        None => actor.send_message_to_room(message.room_id, payload),
+                    }
                 } else {
                     actor.send_message_to_conn(msg.id, "Could not delete message.".to_string());
                 }
@@ -297,6 +332,12 @@ impl Handler<message::Edit> for ChatServer {
                 // If we got the message, check if we can edit it, using the
                 // permissions of the message's own room (room 0 = none).
                 if let Some(message) = &res {
+                    // Direct messages have no room to broadcast an edit to, and
+                    // the client offers no edit affordance for them.
+                    if message.recipient_id.is_some() {
+                        return None;
+                    }
+
                     let perms = if message.room_id > 0 {
                         layer.get_room_permissions(session.id, message.room_id).await
                     } else {
@@ -348,6 +389,7 @@ impl Handler<message::Edit> for ChatServer {
                         sanitary.room_id,
                         serde_json::to_string(&message::SanitaryPosts {
                             messages: vec![sanitary],
+                            history: false,
                         })
                         .expect("ClientMessages serialize failure"),
                     );
@@ -375,31 +417,62 @@ impl Handler<message::Join> for ChatServer {
         self.disconnect_message(msg.id);
 
         let layer = self.layer.clone();
+        let user_id = session.id;
         Box::pin(
             async move {
                 let mut perms = layer.get_room_permissions(session.id, room_id).await;
                 // Guests (id 0) can never send
                 perms.can_send = perms.can_send && session.id > 0;
 
-                if perms.can_view {
+                if !perms.can_view {
+                    return (perms, Vec::default(), Vec::default());
+                }
+
+                let history = match time::timeout(
+                    Duration::from_secs(5),
+                    layer.get_room_history(room_id, 40),
+                )
+                .await
+                {
+                    Ok(history) => history,
+                    Err(_) => {
+                        log::warn!("Room history fetch timed out for room {}", room_id);
+                        Vec::default()
+                    }
+                };
+
+                // Redeliver recent direct messages. The client wipes its feed on
+                // every join, so anything not resent here disappears for the user.
+                let direct = if session.id > 0 {
+                    let since = SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs() as i64
+                        - DM_HISTORY_WINDOW;
+
                     match time::timeout(
                         Duration::from_secs(5),
-                        layer.get_room_history(room_id, 40),
+                        layer.get_direct_message_history(session.id, DM_HISTORY_LIMIT, since),
                     )
                     .await
                     {
-                        Ok(history) => (perms, history),
+                        Ok(direct) => direct,
                         Err(_) => {
-                            log::warn!("Room history fetch timed out for room {}", room_id);
-                            (perms, Vec::default())
+                            log::warn!(
+                                "Direct message history fetch timed out for user {}",
+                                session.id
+                            );
+                            Vec::default()
                         }
                     }
                 } else {
-                    (perms, Vec::default())
-                }
+                    Vec::default()
+                };
+
+                (perms, history, direct)
             }
             .into_actor(self)
-            .map(move |(perms, unsanitized), actor, _ctx| {
+            .map(move |(perms, unsanitized, direct), actor, _ctx| {
                 if perms.can_view {
                     // Send permissions BEFORE history so the client
                     // has can_report/can_edit/etc. when rendering messages.
@@ -427,15 +500,41 @@ impl Handler<message::Join> for ChatServer {
                             .expect("MotdPayload serialize failure"),
                     );
 
-                    let mut messages: Vec<SanitaryPost> = Vec::with_capacity(unsanitized.len());
+                    let mut messages: Vec<SanitaryPost> =
+                        Vec::with_capacity(unsanitized.len() + direct.len());
 
                     for (author, message) in unsanitized {
                         messages.push(actor.prepare_message(author, message));
                     }
 
+                    let ignored_users = actor
+                        .connections
+                        .get(&id)
+                        .map(|conn| conn.session.ignored_users.to_owned())
+                        .unwrap_or_default();
+
+                    for dm in direct {
+                        // Drop inbound direct messages from ignored users. This is
+                        // also what filters messages stored while we were offline.
+                        if dm.author.id != user_id && ignored_users.contains(&dm.author.id) {
+                            continue;
+                        }
+                        messages.push(actor.prepare_direct_message(
+                            dm.author,
+                            dm.recipient,
+                            dm.message,
+                        ));
+                    }
+
+                    // The client appends blindly, so order the merged stream here.
+                    messages.sort_by_key(|post| post.message_date);
+
                     actor.send_message_to_conn(
                         id,
-                        serde_json::to_string(&SanitaryPosts { messages })
+                        serde_json::to_string(&SanitaryPosts {
+                            messages,
+                            history: true,
+                        })
                             .expect("SanitaryPosts serialize failure"),
                     );
 
@@ -506,11 +605,13 @@ impl Handler<message::Post> for ChatServer {
             message_edit_date: 0,
             message: rendered,
             message_raw: ChatBBCode::sanitize(&msg.message),
+            recipient: None,
         };
         self.send_message_to_room(
             room_id,
             serde_json::to_string(&message::SanitaryPosts {
                 messages: vec![sanitary],
+                history: false,
             })
             .expect("message::Post optimistic serialize failure"),
         );
@@ -561,11 +662,20 @@ impl Handler<message::Post> for ChatServer {
         );
     }
 }
-/// Handler for Whisper message (ephemeral, no DB persistence).
+/// Handler for Whisper message.
+///
+/// Direct messages are persisted to the same store as room posts (room 0, with
+/// a recipient) so they survive a reconnect and reach a recipient who was
+/// offline when they were sent.
 impl Handler<message::Whisper> for ChatServer {
-    type Result = ();
+    type Result = ResponseActFuture<Self, ()>;
 
-    fn handle(&mut self, msg: message::Whisper, _: &mut Context<Self>) {
+    fn handle(&mut self, msg: message::Whisper, _: &mut Context<Self>) -> Self::Result {
+        let noop = |actor: &mut Self| {
+            Box::pin(async {}.into_actor(actor).map(|_, _: &mut Self, _| ()))
+                as ResponseActFuture<Self, ()>
+        };
+
         let can_send = self
             .connections
             .get(&msg.id)
@@ -574,105 +684,158 @@ impl Handler<message::Whisper> for ChatServer {
 
         if !can_send {
             self.send_message_to_conn(msg.id, "You cannot send messages.".to_string());
-            return;
-        }
-
-        let recipient_conns =
-            self.find_connections_by_user(msg.recipient_id, &msg.recipient_username);
-
-        if recipient_conns.is_empty() {
-            self.send_message_to_conn(msg.id, "User is not online.".to_string());
-            return;
-        }
-
-        // Get recipient Author from first matching connection
-        let recipient_author = match recipient_conns
-            .first()
-            .and_then(|id| self.connections.get(id))
-        {
-            Some(conn) => implement::Author::from(&conn.session),
-            None => {
-                self.send_message_to_conn(msg.id, "User is not online.".to_string());
-                return;
-            }
-        };
-
-        // Rate limit: 5s cooldown when switching whisper targets (non-moderators only)
-        if let Some(conn) = self.connections.get(&msg.id) {
-            let perms = &conn.room_perms;
-            let is_mod = perms.can_motd || perms.can_edit_other || perms.can_delete_other;
-            if !is_mod
-                && conn.last_whisper_target > 0
-                && conn.last_whisper_target != recipient_author.id
-            {
-                let now = SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs();
-                if now - conn.last_whisper_time < 5 {
-                    self.send_message_to_conn(
-                        msg.id,
-                        "Please wait a few seconds before whispering a different user."
-                            .to_string(),
-                    );
-                    return;
-                }
-            }
+            return noop(self);
         }
 
         let rendered = self.bbcode.render(&msg.message);
         if !ChatBBCode::has_visible_content(&rendered) {
-            return;
+            return noop(self);
         }
 
-        let now = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
+        let layer = self.layer.clone();
+        let recipient_id = msg.recipient_id;
+        let recipient_username = msg.recipient_username.to_owned();
 
-        let sender_author = implement::Author::from(&msg.session);
-
-        let payload = message::WhisperPayload {
-            whisper: message::WhisperPost {
-                author: sender_author.clone(),
-                recipient: recipient_author.clone(),
-                message: rendered,
-                message_raw: ChatBBCode::sanitize(&msg.message),
-                message_date: now,
-            },
-        };
-
-        let json =
-            serde_json::to_string(&payload).expect("WhisperPayload serialize failure");
-
-        let sender_id = msg.session.id;
-
-        // Update whisper target tracking
-        if let Some(conn) = self.connections.get_mut(&msg.id) {
-            conn.last_whisper_target = recipient_author.id;
-            conn.last_whisper_time = now as u64;
-        }
-
-        // Send to recipient connections, skipping those that ignore the sender
-        for &conn_id in &recipient_conns {
-            let dominated = self
-                .connections
-                .get(&conn_id)
-                .map(|conn| conn.session.ignored_users.contains(&sender_id))
-                .unwrap_or(false);
-            if !dominated {
-                self.send_message_to_conn(conn_id, json.clone());
+        Box::pin(
+            async move {
+                layer
+                    .find_author(recipient_id, &recipient_username)
+                    .await
             }
-        }
+            .into_actor(self)
+            .map(move |recipient, actor, ctx| {
+                let recipient = match recipient {
+                    Some(recipient) if recipient.id > 0 => recipient,
+                    _ => {
+                        actor.send_message_to_conn(msg.id, "User not found.".to_string());
+                        return;
+                    }
+                };
 
-        // Send to sender too (if sender is different from recipient)
-        if recipient_author.id != sender_id {
-            self.send_message_to_conn(msg.id, json);
-        }
+                let now = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs();
+
+                // Rate limit: 5s cooldown when switching whisper targets (non-moderators only)
+                if let Some(conn) = actor.connections.get(&msg.id) {
+                    let perms = &conn.room_perms;
+                    let is_mod = perms.can_motd || perms.can_edit_other || perms.can_delete_other;
+                    if !is_mod
+                        && conn.last_whisper_target > 0
+                        && conn.last_whisper_target != recipient.id
+                        && now - conn.last_whisper_time < 5
+                    {
+                        actor.send_message_to_conn(
+                            msg.id,
+                            "Please wait a few seconds before whispering a different user."
+                                .to_string(),
+                        );
+                        return;
+                    }
+                }
+
+                log::info!(
+                    "[whisper] <{}> -> <{}>",
+                    msg.session.username,
+                    recipient.username
+                );
+
+                let sender_id = msg.session.id;
+                let sanitary = message::SanitaryPost {
+                    author: implement::Author::from(&msg.session),
+                    room_id: 0,
+                    message_uuid: msg.message_uuid,
+                    message_date: now as i64,
+                    message_edit_date: 0,
+                    message: rendered,
+                    message_raw: ChatBBCode::sanitize(&msg.message),
+                    recipient: Some(recipient.to_owned()),
+                };
+
+                let json = serde_json::to_string(&message::SanitaryPosts {
+                    messages: vec![sanitary],
+                    history: false,
+                })
+                .expect("message::Whisper serialize failure");
+
+                // Update whisper target tracking
+                if let Some(conn) = actor.connections.get_mut(&msg.id) {
+                    conn.last_whisper_target = recipient.id;
+                    conn.last_whisper_time = now;
+                }
+
+                // Send to the recipient's live connections, skipping any that
+                // ignore the sender. An offline recipient picks it up on join.
+                for conn_id in actor.find_connections_by_user(recipient.id, &recipient.username) {
+                    let dominated = actor
+                        .connections
+                        .get(&conn_id)
+                        .map(|conn| conn.session.ignored_users.contains(&sender_id))
+                        .unwrap_or(false);
+                    if !dominated {
+                        actor.send_message_to_conn(conn_id, json.to_owned());
+                    }
+                }
+
+                // Send to sender too (if sender is different from recipient)
+                if recipient.id != sender_id {
+                    actor.send_message_to_conn(msg.id, json);
+                }
+
+                // Persist in the background, mirroring the room post write path.
+                let layer = actor.layer.clone();
+                let post = message::Post {
+                    id: msg.id,
+                    session: msg.session,
+                    message: msg.message,
+                    room_id: 0,
+                    message_uuid: msg.message_uuid,
+                    recipient_id: Some(recipient.id),
+                    recipient_username: Some(recipient.username),
+                };
+                let conn_id = msg.id;
+
+                ctx.spawn(
+                    async move {
+                        // Attempt 1
+                        if layer.insert_chat_message(&post).await.is_some() {
+                            return Ok(());
+                        }
+
+                        // Retry 1 after 1 second
+                        log::warn!("DB write failed for direct message, retrying in 1s...");
+                        time::sleep(Duration::from_secs(1)).await;
+                        if layer.insert_chat_message(&post).await.is_some() {
+                            return Ok(());
+                        }
+
+                        // Retry 2 after 2 seconds
+                        log::warn!("DB write failed for direct message, retrying in 2s...");
+                        time::sleep(Duration::from_secs(2)).await;
+                        if layer.insert_chat_message(&post).await.is_some() {
+                            return Ok(());
+                        }
+
+                        Err(())
+                    }
+                    .into_actor(actor)
+                    .map(move |result, actor, _ctx| {
+                        if let Err(()) = result {
+                            log::error!("All DB write retries failed for a direct message");
+                            actor.send_message_to_conn(
+                                conn_id,
+                                "Your message was displayed but could not be saved. Please try again."
+                                    .to_string(),
+                            );
+                        }
+                    }),
+                );
+            }),
+        )
     }
 }
 
-/// Handler for Motd message (in-memory, per-room).
 impl Handler<message::Motd> for ChatServer {
     type Result = ResponseActFuture<Self, ()>;
 

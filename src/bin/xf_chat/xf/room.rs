@@ -133,6 +133,9 @@ pub async fn get_room_history(
 ) -> Vec<(implement::Author, implement::Message)> {
     chat_message::Entity::find()
         .filter(chat_message::Column::RoomId.eq(id as u32))
+        // Direct messages live in this table with room_id 0 and a recipient.
+        // They must never appear in public room history.
+        .filter(chat_message::Column::RecipientId.is_null())
         // Soft-deleted messages (XF Deleter / chat /delete) stay out of history.
         .filter(chat_message::Column::DeletedDate.is_null())
         .order_by_desc(chat_message::Column::MessageDate)
@@ -167,6 +170,7 @@ pub async fn get_room_history(
                     },
                     room_id: message.room_id,
                     user_id: message.user_id.unwrap_or(0),
+                    recipient_id: None,
                 },
             )
         })
